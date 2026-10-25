@@ -42,3 +42,9 @@ def test_bad_spec():
 def test_target_error_pct():
     r = azsim.sim_batch("retribution_herald", GEAR, [{"name": "same"}], target_error_pct=0.1, max_iterations=20_000)
     assert r["iterations"] == 2_000
+
+
+def test_gear_stats():
+    rep = azsim.gear_stats("retribution_herald", GEAR)
+    assert {i["slot"] for i in rep["items"]} >= {"head", "main_hand"}
+    assert rep["gear"]["crit_rating"] > 0

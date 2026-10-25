@@ -364,6 +364,7 @@ azsim.sim_batch("retribution_herald", base_gear=lines,
 # {"base": {...}, "variants": [{"name", "dps", "dps_error_95", "delta", "delta_error_95"}], ...}
 
 azsim.spec_names(); azsim.supports_gear("fire_mage")
+azsim.gear_stats("retribution_herald", lines)   # per-item ilvl + stats, totals
 ```
 
 Results are plain dicts, the GIL is released while simulating, and errors raise

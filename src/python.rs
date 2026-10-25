@@ -90,11 +90,20 @@ fn spec_names() -> Vec<&'static str> { api::spec_names() }
 #[pyfunction]
 fn supports_gear(spec: &str) -> bool { api::supports_gear(spec) }
 
+/// gear_stats(spec, gear_lines) -> per-item ilvl/stats and the character's totals (as `azsim --gear-stats`).
+#[pyfunction]
+fn gear_stats(py: Python<'_>, spec: String, gear_lines: Vec<String>) -> PyResult<Py<PyAny>> {
+    let rep = py.detach(|| api::gear_report(&spec, &gear_lines)).map_err(PyValueError::new_err)?;
+    let json = serde_json::to_string(&rep).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    Ok(py.import("json")?.call_method1("loads", (json,))?.unbind())
+}
+
 #[pymodule]
 fn azsim(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sim, m)?)?;
     m.add_function(wrap_pyfunction!(sim_batch, m)?)?;
     m.add_function(wrap_pyfunction!(spec_names, m)?)?;
     m.add_function(wrap_pyfunction!(supports_gear, m)?)?;
+    m.add_function(wrap_pyfunction!(gear_stats, m)?)?;
     Ok(())
 }

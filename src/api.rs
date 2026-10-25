@@ -252,6 +252,12 @@ fn delta_stat(a: &[f64], b: &[f64]) -> (f64, f64) {
     mean_err(&d)
 }
 
+/// Per-item and total stats computed from `gear_lines` (the same report as `--gear-stats`).
+pub fn gear_report(spec: &str, gear_lines: &[String]) -> Result<serde_json::Value, String> {
+    let doc: toml::Value = toml::from_str(&load_spec_text(spec)?).map_err(|e| format!("{spec}: {e}"))?;
+    Ok(gear::apply_text(doc, &gear_lines.join("\n"))?.1)
+}
+
 /// JSON in, JSON out (the CLI's `batch` mode and the Python binding both use this).
 pub fn run_json(req: &str) -> Result<String, String> {
     let req: Request = serde_json::from_str(req).map_err(|e| format!("request: {e}"))?;
