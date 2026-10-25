@@ -1,0 +1,523 @@
+# Fire Mage — Sunfury, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Mage_Fire.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py, incl.
+#          the Spell table's tooltip text for what a talent does
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+# Damage coefficients are spell-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, target debuffs) live in a
+# separate calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# The crit chain is the core of the spec: two direct crits in a row turn
+# Heating Up into Hot Streak (instant Pyroblast), Fire Blast always crits and
+# is used to complete the pair, and every direct hit or meteorite lands Fire
+# Blast's cooldown sooner. Ignite banks a share of direct damage and rolls it
+# forward over 9s.
+
+name = "Fire Mage (Sunfury, core kit)"
+
+precombat = ["pyroblast_hardcast"]   # [obs] precast Pyroblast lands at 0.3s
+
+[player]
+spell_power = 3341       # [obs] buffed stats
+# Final stats = buffed snapshot + the time-averaged gear stat procs (rituals,
+# rites, Soul Fang, Venomcursed, Rune of the Versatile Warrior) [obs: 24 logged
+# fights, 21 crit / 130 haste / 212 mastery / 157 vers rating on average,
+# converted with the probes' rating -> stat deltas].
+crit = 0.1115            # 0.1070 + 0.0045
+haste = 0.3269           # 0.2991 + 0.0278
+versatility = 0.1693     # 0.1402 + 0.0291
+mastery = 0.1964         # 0.1750 + 0.0214: Mastery: Ignite banks this share of direct damage [db2 12846]
+crit_multiplier = 2.19   # [obs] same-base meteorite crit/non-crit pairs: 2.192 at 0 Fevered Incantation stacks
+
+[fight]
+duration = 300
+variance = 0.2
+
+# Random gear procs, as Poisson rates [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.04
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.58
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "heating_up"         # one direct crit [db2 48107: 10s]
+duration = 10
+
+[[buffs]]
+name = "hot_streak"         # two in a row: next Pyroblast is instant [db2 48108: 15s]
+duration = 15
+
+[[buffs]]
+name = "combustion"         # [db2 190319: 10s, +100% crit] +10% duration [db2 Burn It All 1254512]
+duration = 11
+crit_pct = 100
+damage_pct = 16             # [obs] buff value 0.16 (Burn It All: 10% + 20% of crit chance)
+cooldown_rate_pct = { fire_blast = 50 }   # Fiery Rush [db2 383637]
+on_expire = [{ type = "buff", buff = "hyperthermia" }]   # Memory of Al'ar: phoenix leaving grants Hyperthermia [db2 449619]
+
+[[buffs]]
+name = "hyperthermia"       # Pyroblast instant and a guaranteed crit [db2 383874; 4s from Memory of Al'ar 449619 s2]
+duration = 4
+ability_crit_pct = { pyroblast = 100 }
+
+[[buffs]]
+name = "hyperthermia_damage"   # +15% Pyroblast per stack [db2 1242220: 5s, 10 stacks]
+duration = 5
+max_stacks = 10
+ability_pct = { pyroblast = 15 }
+
+[[buffs]]
+name = "pyroclasm"          # next hardcast Pyroblast +230% [db2 269651: 20s, 2 stacks] +20% Sunfury Execution [db2 449349]
+duration = 20
+max_stacks = 2
+ability_pct = { pyroblast_hardcast = 250 }
+
+[[buffs]]
+name = "fired_up"           # +2% Fire damage per stack, overlapping [db2 1257350: 8s] value 0.02 [obs]
+duration = 8
+max_stacks = 100
+overlap = true
+damage_pct = 2
+
+[[buffs]]
+name = "feel_the_burn"      # Fire Blast: +2 mastery for 4s, overlapping [db2 383395]
+duration = 4
+max_stacks = 100
+overlap = true
+mastery_pct = 2
+
+[[buffs]]
+name = "fevered_incantation"   # each consecutive crit adds crit damage [db2 383811: 6s, 4 stacks]
+duration = 6
+max_stacks = 4
+crit_damage_pct = 4.5       # [obs] crit ratio 2.192 -> 2.371 at 4 stacks
+
+[[buffs]]
+name = "overflowing_energy"   # each Fireball non-crit: +10% Fireball crit until it crits [db2 390218 s1, 394195: 10 stacks]
+duration = 1e9
+max_stacks = 10
+ability_crit_pct = { fireball = 10 }
+
+[[buffs]]
+name = "mana_cascade"       # consuming Hot Streak: +0.5% haste for 6s, overlapping [db2 449314]
+duration = 6
+max_stacks = 100
+overlap = true
+haste_pct = 0.5
+
+[[buffs]]
+name = "brainstorm"         # gaining Hot Streak: +1% intellect for 8s, overlapping [db2 461531: 5 stacks]
+duration = 8
+max_stacks = 5
+overlap = true
+power_pct = 1
+
+[[buffs]]
+name = "spellfire_sphere"   # +1% spell damage per sphere, +1% Rondurmancy [db2 448604, 449596] (value 0.02 [obs])
+duration = 1e9
+max_stacks = 3
+damage_pct = 2
+
+[[buffs]]
+name = "glorious_incandescence"   # a new sphere makes the next Fire Blast call 4 Meteorites [db2 449394]
+duration = 1e9
+
+[[buffs]]
+name = "heat_shimmer"       # next Scorch instant, crits as if in execute [db2 458964: 10s]
+duration = 10
+
+[[buffs]]
+name = "firestarter"        # Fireball and Pyroblast always crit above 90% health [db2 205026]
+duration = 0
+above_health = 90
+ability_crit_pct = { fireball = 100, pyroblast = 100 }
+
+[[buffs]]
+name = "execute"            # below 30%: Scorch always crits [db2 2948 #1], Scald [db2 450746]
+duration = 0
+below_health = 30
+ability_crit_pct = { fireball = 100, scorch = 100 }
+ability_pct = { fireball = 25, scorch = 250 }
+
+[[buffs]]
+name = "molten_fury"        # +15% damage below 35% health [db2 457803]
+duration = 0
+below_health = 35
+damage_pct = 15
+
+# ---------------------------------------------------------------- crit chain helpers
+
+[[abilities]]
+name = "crit_chain"         # a Hot Streak spell crit: Heating Up -> Hot Streak [db2 48107, 195283]
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "if", if = "!buff.hot_streak.up&buff.heating_up.up", then = [{ type = "consume", buff = "heating_up" }, { type = "buff", buff = "hot_streak" }, { type = "buff", buff = "brainstorm" }], else = [{ type = "if", if = "!buff.hot_streak.up", then = [{ type = "buff", buff = "heating_up" }] }] },
+  { type = "buff", buff = "fevered_incantation" },
+]
+
+[[abilities]]
+name = "crit_chain_break"   # a non-crit drops Heating Up and the Fevered Incantation streak [obs]
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "consume", buff = "heating_up" },
+  { type = "consume", buff = "fevered_incantation", all = true },
+]
+
+[[abilities]]
+name = "spent_hot_streak"   # everything that procs off spending Hot Streak
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "pyroclasm", chance = 0.15 },          # [db2 269650]
+  { type = "trigger", ability = "conjure_sphere", chance = 0.24 },  # Spellfire Spheres 12% + Rondurmancy 12% [db2 448601, 449596]
+  { type = "buff", buff = "mana_cascade" },
+  # Fired Up 20% [db2 1257343]; Combustion raises it [db2 1257348], 35% inside [obs]
+  { type = "if", if = "buff.combustion.up", then = [{ type = "trigger", ability = "fired_up_gain", chance = 0.35 }], else = [{ type = "trigger", ability = "fired_up_gain", chance = 0.20 }] },
+]
+
+[[abilities]]
+name = "fired_up_gain"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "fired_up" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 2.5 },   # [db2 1257349 #0]
+  { type = "extend_buff", buff = "combustion", seconds = 1.0 },          # [db2 1257348 #1]
+]
+
+[[abilities]]
+name = "conjure_sphere"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "spellfire_sphere" },
+  { type = "buff", buff = "glorious_incandescence" },
+]
+
+# ---------------------------------------------------------------- player-cast abilities
+
+[[abilities]]
+name = "combustion"
+spell_id = 190319
+gcd = 0                     # off the GCD
+cooldown = 60               # [db2 120s] - 60s Kindling [db2 1254194]
+on_cast = [
+  { type = "buff", buff = "combustion" },
+  { type = "consume", buff = "spellfire_sphere", all = true },   # Codex of the Sunstriders: the phoenix eats them [db2 449382]
+  { type = "trigger", ability = "arcane_phoenix" },
+]
+
+[[abilities]]
+name = "fireball"
+spell_id = 133
+cast_time = 1.75            # [db2]
+damage = { sp_coeff = 3.88125, school = "fire", feed = [{ dot = "ignite", per_mastery = 1.0 }, { dot = "intensifying_flame", per_mastery = 0.3 }] }
+on_crit = [
+  { type = "trigger", ability = "crit_chain" },
+  { type = "consume", buff = "overflowing_energy", all = true },
+]
+on_noncrit = [
+  { type = "trigger", ability = "crit_chain_break" },
+  { type = "buff", buff = "overflowing_energy" },
+]
+on_cast = [
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },   # From the Ashes [db2 342344]
+  { type = "trigger", ability = "meteorite_impact", chance = 0.20, delay = 1.0 },   # Pyrocosm [db2 1260673]
+]
+
+[[abilities]]
+name = "pyroblast_hot_streak"
+source = "pyroblast"
+spell_id = 11366
+free_with = "hot_streak"    # spent as it's cast, so its own crit can start the next Heating Up
+requires_buff = "hot_streak"
+damage = { sp_coeff = 6.388, school = "fire", feed = [{ dot = "ignite", per_mastery = 2.25 }, { dot = "intensifying_flame", per_mastery = 0.675 }] }   # Hot Streak +100% Ignite [db2 195283], Inflame +25% [db2 417467]
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_noncrit = [{ type = "trigger", ability = "crit_chain_break" }]
+on_start = [{ type = "if", if = "buff.hyperthermia.up", then = [{ type = "buff", buff = "hyperthermia_damage" }] }]   # stack lands before the hit [obs]
+on_cast = [
+  { type = "trigger", ability = "spent_hot_streak" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },
+]
+
+[[abilities]]
+name = "pyroblast_hyperthermia"
+source = "pyroblast"
+spell_id = 11366
+requires_buff = "hyperthermia"
+damage = { sp_coeff = 6.388, school = "fire", feed = [{ dot = "ignite", per_mastery = 1.0 }, { dot = "intensifying_flame", per_mastery = 0.3 }] }
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_noncrit = [{ type = "trigger", ability = "crit_chain_break" }]
+on_start = [{ type = "buff", buff = "hyperthermia_damage" }]
+on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 }]
+
+[[abilities]]
+name = "pyroblast_hardcast"
+source = "pyroblast"
+spell_id = 11366
+cast_time = 3.2             # [db2 4s] -20% Flame Accelerant [db2 453282]
+damage = { sp_coeff = 6.388, school = "fire", feed = [{ dot = "ignite", per_mastery = 1.0 }, { dot = "intensifying_flame", per_mastery = 0.3 }] }
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_noncrit = [{ type = "trigger", ability = "crit_chain_break" }]
+on_cast = [
+  { type = "consume", buff = "pyroclasm" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },
+]
+
+[[abilities]]
+name = "fire_blast"
+spell_id = 108853
+gcd = 0                     # off the GCD
+cooldown = 11               # [db2 14s] -2s Flame On [db2 205029] -1s Spellfire Salvo [db2 1260616]
+cooldown_hasted = true
+charges = 3                 # [db2 1 +1 Flame On +1 Fervent Flickering]
+damage = { sp_coeff = 0.98625, school = "fire", crit_bonus = 10, feed = [{ dot = "ignite", per_mastery = 1.0 }, { dot = "intensifying_flame", per_mastery = 0.3 }] }   # always crits [db2 tooltip]
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_cast = [
+  { type = "buff", buff = "feel_the_burn" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },   # From the Ashes
+  { type = "if", if = "buff.glorious_incandescence.up", then = [{ type = "consume", buff = "glorious_incandescence" }, { type = "trigger", ability = "meteorite_impact", delay = 1.0 }, { type = "trigger", ability = "meteorite_impact", delay = 1.075 }, { type = "trigger", ability = "meteorite_impact", delay = 1.15 }, { type = "trigger", ability = "meteorite_impact", delay = 1.225 }] },   # 4 Meteorites [db2 449394 s1], 1s fall [obs]
+]
+
+[[abilities]]
+name = "scorch"
+spell_id = 2948
+cast_time = 1.5             # [db2]
+damage = { sp_coeff = 1.0, school = "fire" }
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_noncrit = [{ type = "trigger", ability = "crit_chain_break" }]
+on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 }]
+
+[[abilities]]
+name = "scorch_heat_shimmer"
+source = "scorch"
+spell_id = 2948
+requires_buff = "heat_shimmer"
+damage = { sp_coeff = 1.0, school = "fire", crit_bonus = 10 }   # instant, as if in execute [db2 458964]
+on_crit = [{ type = "trigger", ability = "crit_chain" }]
+on_cast = [
+  { type = "consume", buff = "heat_shimmer" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },
+]
+
+[[abilities]]
+name = "meteor"
+spell_id = 153561
+cooldown = 30               # [db2 45s] -15s Blast Zone [db2 416719]
+on_cast = [
+  { type = "trigger", ability = "meteor_impact", delay = 2.25 },   # [db2 177345: 3s] hasted, 2.25s observed [obs]
+  { type = "buff", buff = "pyroclasm" },                            # Sunfury Execution [db2 449349]
+]
+
+[[abilities]]
+name = "meteor_impact"
+spell_id = 351140
+triggered_only = true
+damage = { sp_coeff = 9.0, school = "fire", feed = [{ dot = "ignite", per_mastery = 1.0 }, { dot = "intensifying_flame", per_mastery = 0.3 }] }
+on_crit = [{ type = "buff", buff = "fevered_incantation" }]
+on_noncrit = [{ type = "consume", buff = "fevered_incantation", all = true }]
+on_cast = [
+  { type = "trigger", ability = "meteor_burn_apply" },
+  { type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 },
+]
+
+[[abilities]]
+name = "meteor_burn_apply"
+triggered_only = true
+[abilities.dot]
+name = "meteor_burn"        # [db2 155158: 1.04 per 0.5s tick; 175396: 4s]
+sp_coeff = 1.04
+tick_time = 0.5
+duration = 4.0
+hasted = false
+school = "fire"
+refresh = "reset"
+
+[[abilities]]
+name = "meteorite_impact"
+spell_id = 449569
+triggered_only = true
+damage = { sp_coeff = 1.02, school = "fire" }   # [db2] (+15% Spellfire Salvo left to calibration)
+on_crit = [{ type = "buff", buff = "fevered_incantation" }]
+on_noncrit = [{ type = "consume", buff = "fevered_incantation", all = true }]
+on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 1.0 }]   # Pyrocosm 0.5 [db2 1260673 s4] + From the Ashes 0.5 [db2 342344]
+
+# ---------------------------------------------------------------- Ignite (rolling banked DoTs)
+
+[[abilities]]
+name = "ignite_holder"
+triggered_only = true
+[abilities.dot]
+name = "ignite"             # [db2 12654: 9s, 1s ticks]
+banked = true
+tick_time = 1.0
+duration = 9.0
+hasted = false
+school = "fire"
+# Heat Shimmer: Ignite ticks outside Combustion can make the next Scorch instant [db2 457735], ~4.5% per tick [obs]
+on_tick = [{ type = "if", if = "!buff.combustion.up", then = [{ type = "buff", buff = "heat_shimmer", chance = 0.045 }] }]
+
+[[abilities]]
+name = "intensifying_flame_holder"
+triggered_only = true
+[abilities.dot]
+name = "intensifying_flame"  # Ignite flares for 30% more on a single target [db2 416714]; fed alongside Ignite
+banked = true
+tick_time = 1.0
+duration = 9.0
+hasted = false
+school = "fire"
+
+# ---------------------------------------------------------------- Arcane Phoenix (pet, during Combustion)
+# Its meteorites still trigger Pyrocosm's Fire Blast reduction [obs]: without them
+# Fire Blast falls ~10% short inside Combustion; also counting its other spells for
+# From the Ashes overshoots.
+
+[[abilities]]
+name = "arcane_phoenix"
+triggered_only = true
+on_cast = [
+  # exceptional spells, one per sphere consumed [db2 449382]; timings [obs]
+  { type = "trigger", ability = "arcane_phoenix_arcane_surge", delay = 1.0 },
+  { type = "trigger", ability = "arcane_phoenix_greater_pyroblast", delay = 3.25 },
+  { type = "trigger", ability = "arcane_phoenix_meteorite_impact", delay = 6.0 },
+  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.075 },
+  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.15 },
+  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.225 },
+  { type = "trigger", ability = "arcane_phoenix_caster" },
+]
+
+[[abilities]]
+name = "arcane_phoenix_caster"
+triggered_only = true
+[abilities.dot]
+name = "arcane_phoenix_casts"   # one cast per second while Combustion lasts [obs]
+tick_time = 1.0
+duration = 30.0
+hasted = false
+tick_on_apply = true
+refresh = "reset"
+on_tick = [
+  { type = "trigger", ability = "arcane_phoenix_arcane_barrage", chance = 0.37 },   # [obs] 5.3 of each per summon
+  { type = "trigger", ability = "arcane_phoenix_pyroblast", chance = 0.37 },
+]
+
+[[abilities]]
+name = "arcane_phoenix_arcane_barrage"
+spell_id = 450499
+triggered_only = true
+requires_buff = "combustion"
+damage = { sp_coeff = 1.95, school = "arcane", crit_bonus = -10 }   # the phoenix never crits [obs]
+
+[[abilities]]
+name = "arcane_phoenix_pyroblast"
+spell_id = 450461
+triggered_only = true
+requires_buff = "combustion"
+damage = { sp_coeff = 2.4, school = "fire", crit_bonus = -10 }
+
+[[abilities]]
+name = "arcane_phoenix_arcane_surge"
+spell_id = 453326
+triggered_only = true
+damage = { sp_coeff = 5.2, school = "arcane", crit_bonus = -10 }
+
+[[abilities]]
+name = "arcane_phoenix_greater_pyroblast"
+spell_id = 450421
+triggered_only = true
+damage = { sp_coeff = 7.8, school = "fire", crit_bonus = -10 }
+
+[[abilities]]
+name = "arcane_phoenix_meteorite_impact"
+spell_id = 456139
+triggered_only = true
+damage = { sp_coeff = 2.805, school = "fire", crit_bonus = -10 }
+on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 }]
+
+[[abilities]]
+name = "arcane_phoenix_meteorite_bug_impact"
+spell_id = 449569
+triggered_only = true
+damage = { sp_coeff = 1.02, school = "fire", crit_bonus = 10 }   # except these, always [obs]
+on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 }]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 0.12
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "extend"           # [obs] stacking debuff: overlapping applications keep ticking
+
+[[abilities]]
+name = "acidbrood_scourge"
+spell_id = 1310088
+triggered_only = true
+damage = { sp_coeff = 2.7, school = "nature" }   # gear; scale from calibration
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of the observed priority (SimC default Sunfury APL), single target.
+
+# Fire Blast is off the GCD (castable mid-cast in game; here between casts): complete a
+# Heating Up into Hot Streak, or avoid capping charges.
+[[rotation]]
+action = "fire_blast"
+if = "buff.heating_up.up&!buff.hot_streak.up"
+
+[[rotation]]
+action = "fire_blast"
+if = "cooldown.fire_blast.charges_fractional>=2.9&!buff.hot_streak.up"
+
+# Combustion after the pull delay (18s, Firestarter), right after Meteor when it's up.
+[[rotation]]
+action = "combustion"
+if = "time>=18&cooldown.meteor.remains>gcd"
+
+[[rotation]]
+action = "meteor"
+if = "time>=16"
+
+[[rotation]]
+action = "pyroblast_hot_streak"
+
+[[rotation]]
+action = "pyroblast_hyperthermia"
+
+[[rotation]]
+action = "pyroblast_hardcast"
+if = "buff.pyroclasm.up&(!buff.combustion.up|buff.combustion.remains>2.5)"
+
+[[rotation]]
+action = "scorch_heat_shimmer"
+
+[[rotation]]
+action = "scorch"
+if = "buff.combustion.up|target.health.pct<30"
+
+[[rotation]]
+action = "fireball"

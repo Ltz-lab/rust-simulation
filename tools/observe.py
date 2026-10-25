@@ -27,7 +27,7 @@ def main():
     length = rep["sim"]["statistics"]["simulation_length"]["mean"]
     sources = {}
 
-    def walk(stats):
+    def walk(stats, prefix=""):
         for s in stats:
             if s.get("type") == "damage":
                 dr, tr = s.get("direct_results", {}), s.get("tick_results", {})
@@ -37,7 +37,7 @@ def main():
                 t_crit = tr.get("crit", {}).get("count", {}).get("mean", 0.0)
                 amount = mean(s, "actual_amount")
                 if amount > 0:
-                    sources[s["name"]] = {
+                    sources[prefix + s["name"]] = {
                         "spell_id": s.get("id"),
                         "school": s.get("school"),
                         "dps": amount / length,
@@ -50,9 +50,12 @@ def main():
                         "tick_noncrit_avg": mean(tr, "hit", "actual_amount"),
                         "tick_crit_rate": t_crit / (t_hit + t_crit) if t_hit + t_crit else 0.0,
                     }
-            walk(s.get("children", []))
+            walk(s.get("children", []), prefix)
 
     walk(p["stats"])
+    # pets (e.g. a summoned phoenix) as "<pet>_<spell>"
+    for pet, stats in p.get("stats_pets", {}).items():
+        walk(stats, pet + "_")
     buffs = {
         b["name"]: {
             "spell_id": b.get("spell"),

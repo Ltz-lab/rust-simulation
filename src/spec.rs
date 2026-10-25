@@ -39,7 +39,11 @@ pub struct ProcDef {
 /// for now we take the stats a character actually has.
 #[derive(Debug, Deserialize, Clone)]
 pub struct PlayerStats {
+    #[serde(default)]
     pub attack_power: f64,
+    /// Casters: damage coefficients `sp_coeff` scale with this.
+    #[serde(default)]
+    pub spell_power: f64,
     /// Attack power that strength doesn't move (weapon damage feeding the
     /// formula). Ability damage scales with attack_power + this.
     #[serde(default)]
@@ -109,6 +113,12 @@ pub struct AbilityDef {
     pub cooldown_hasted: bool,
     #[serde(default = "one_u32")]
     pub charges: u32,
+    /// Cast time in seconds (0 = instant). The ability resolves when the cast
+    /// finishes; the player can't start anything else meanwhile.
+    #[serde(default)]
+    pub cast_time: f64,
+    #[serde(default = "yes")]
+    pub cast_hasted: bool,
     #[serde(default)]
     pub cost: HashMap<String, f64>,
     #[serde(default)]
@@ -123,11 +133,22 @@ pub struct AbilityDef {
     /// Ability is only usable while this buff is up.
     #[serde(default)]
     pub requires_buff: Option<String>,
+    /// Effects applied as the ability goes off, before its damage (a spell's
+    /// travel time: buffs gained or spent on cast affect the hit).
+    #[serde(default)]
+    pub on_start: Vec<Effect>,
     #[serde(default)]
     pub on_cast: Vec<Effect>,
     /// Effects when a direct-damage hit crits.
     #[serde(default)]
     pub on_crit: Vec<Effect>,
+    /// Effects when a direct-damage hit doesn't crit.
+    #[serde(default)]
+    pub on_noncrit: Vec<Effect>,
+    /// Report damage under this source name instead of the ability's own
+    /// (several variants of one spell, e.g. hardcast vs instant).
+    #[serde(default)]
+    pub source: Option<String>,
     /// Only ever fired by triggers/procs, never chosen by the rotation.
     #[serde(default)]
     pub triggered_only: bool,
@@ -137,6 +158,8 @@ pub struct AbilityDef {
 pub struct DamageDef {
     #[serde(default)]
     pub ap_coeff: f64,
+    #[serde(default)]
+    pub sp_coeff: f64,
     /// Fraction of weapon damage added (normalized to the weapon's own speed).
     #[serde(default)]
     pub weapon_mult: f64,
@@ -160,12 +183,33 @@ pub struct DamageDef {
     /// Number of separate hits per cast.
     #[serde(default = "one_u32")]
     pub hits: u32,
+    /// Each hit adds a share of its damage to banked DoTs (see DotDef::banked).
+    #[serde(default)]
+    pub feed: Vec<FeedDef>,
+}
+
+/// Bank `pct + per_mastery x mastery` of a hit's damage into a banked DoT.
+#[derive(Debug, Deserialize, Clone)]
+pub struct FeedDef {
+    pub dot: String,
+    #[serde(default)]
+    pub pct: f64,
+    #[serde(default)]
+    pub per_mastery: f64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct DotDef {
     pub name: String,
+    #[serde(default)]
     pub ap_coeff: f64,
+    #[serde(default)]
+    pub sp_coeff: f64,
+    /// Rolling DoT: no coefficient; deals damage banked by `feed` from other
+    /// hits, spread evenly over the ticks left. Each feed resets the duration
+    /// and keeps the tick cadence. Ticks don't crit (the banked damage already did).
+    #[serde(default)]
+    pub banked: bool,
     pub tick_time: f64,
     pub duration: f64,
     #[serde(default = "yes")]
@@ -242,6 +286,20 @@ pub enum Effect {
         dot: String,
         seconds: f64,
     },
+    /// Add time to a buff that is currently up.
+    ExtendBuff {
+        buff: String,
+        seconds: f64,
+    },
+    /// Apply `then` if the rotation-style condition holds, else `else`.
+    If {
+        #[serde(rename = "if")]
+        cond: String,
+        #[serde(default)]
+        then: Vec<Effect>,
+        #[serde(default, rename = "else")]
+        otherwise: Vec<Effect>,
+    },
     /// Execute another ability for free, off the GCD (optionally delayed).
     /// `mastery_chance`: proc chance = player mastery x this factor (overrides `chance`).
     Trigger {
@@ -270,6 +328,18 @@ pub struct BuffDef {
     pub ability_pct: HashMap<String, f64>,
     #[serde(default)]
     pub crit_pct: f64,
+    /// Per-ability crit chance (percent; 100 = guaranteed crit).
+    #[serde(default)]
+    pub ability_crit_pct: HashMap<String, f64>,
+    /// Added to the crit damage multiplier (percent of normal damage; 10 = +0.1).
+    #[serde(default)]
+    pub crit_damage_pct: f64,
+    /// Flat mastery points (percent: 2 = +0.02 mastery).
+    #[serde(default)]
+    pub mastery_pct: f64,
+    /// Attack/spell power increase (percent), e.g. a primary-stat buff.
+    #[serde(default)]
+    pub power_pct: f64,
     #[serde(default)]
     pub haste_pct: f64,
     /// Reduces the global cooldown only (percent speed-up).
@@ -281,6 +351,19 @@ pub struct BuffDef {
     /// While up, this percent of all damage dealt is stored (for a later burst).
     #[serde(default)]
     pub store_damage_pct: f64,
+    /// Every application is its own stack with its own timer ("multiple
+    /// applications may overlap"), instead of one shared timer.
+    #[serde(default)]
+    pub overlap: bool,
+    /// Up whenever the target's health (percent, falling linearly over the
+    /// fight) is below / above this, without being applied.
+    #[serde(default)]
+    pub below_health: Option<f64>,
+    #[serde(default)]
+    pub above_health: Option<f64>,
+    /// Effects when the buff runs out on its own (not when consumed).
+    #[serde(default)]
+    pub on_expire: Vec<Effect>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -323,10 +406,11 @@ impl Spec {
     pub fn apply_calibration(&mut self, cal: &Calibration) -> Result<(), String> {
         let mut seen = std::collections::HashSet::new();
         for a in &mut self.abilities {
-            if let (Some(d), Some(c)) = (&mut a.damage, cal.sources.get(&a.name)) {
+            let src = a.source.as_ref().unwrap_or(&a.name);
+            if let (Some(d), Some(c)) = (&mut a.damage, cal.sources.get(src)) {
                 d.mult *= c.mult;
                 d.crit_bonus += c.crit_bonus;
-                seen.insert(a.name.clone());
+                seen.insert(src.clone());
             }
             if let Some(d) = &mut a.dot
                 && let Some(c) = cal.sources.get(&d.name) {

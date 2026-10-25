@@ -5,8 +5,8 @@
       "+500 crit=obs_crit.json" "+500 haste=obs_haste.json" ...
 
 Each probe observation comes from the reference run with extra stats. We take
-the probe's change in final stats (crit %, haste %, mastery, vers, attack
-power), apply that delta to the spec's stats, re-run the engine with the SAME
+the probe's change in final stats (crit %, haste %, mastery, vers, attack or
+spell power, whichever the spec uses), apply that delta to the spec's stats, re-run the engine with the SAME
 calibration, and compare DPS gains. None of these probes are used for fitting.
 """
 import json
@@ -20,6 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "..", "target", "release", "azsim")
 KEYS = {
     "attack_power": "attack_power",
+    "spell_power": "spell_power",
     "crit": "attack_crit",
     "haste": "haste_pct",
     "mastery": "mastery_value",
@@ -27,9 +28,9 @@ KEYS = {
 }
 
 
-def stats(obs):
+def stats(obs, keys):
     s = obs["buffed_stats"]["stats"]
-    return {k: s[v] for k, v in KEYS.items()}
+    return {k: s[v] for k, v in keys.items()}
 
 
 def engine_dps(spec, calib, overrides, n=20000):
@@ -49,16 +50,19 @@ def main():
     md = "--md" in probes
     probes = [p for p in probes if p != "--md"]
     player = tomllib.load(open(spec, "rb"))["player"]
-    base_spec = {k: player[k] for k in KEYS}
+    keys = {k: v for k, v in KEYS.items() if k in player}
+    if "spell_power" in keys:
+        keys["crit"] = "spell_crit"
+    base_spec = {k: player[k] for k in keys}
     base_obs = json.load(open(base_path))
-    b = stats(base_obs)
+    b = stats(base_obs, keys)
     d0 = engine_dps(spec, calib, base_spec)
     rows = []
     for p in probes:
         label, path = p.split("=", 1)
         o = json.load(open(path))
-        ps = stats(o)
-        st = {k: base_spec[k] + (ps[k] - b[k]) for k in KEYS}
+        ps = stats(o, keys)
+        st = {k: base_spec[k] + (ps[k] - b[k]) for k in keys}
         d1 = engine_dps(spec, calib, st)
         ref = (o["dps"] / base_obs["dps"] - 1) * 100
         ours = (d1 / d0 - 1) * 100

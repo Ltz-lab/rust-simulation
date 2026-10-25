@@ -13,12 +13,20 @@ buffs, procs, DoTs, rotation), and the numbers in it come from two places:
 The long-term aim is to remove the dependency on hand-maintained class modules:
 mechanics come from data, and logs at scale verify and calibrate them.
 
-This first prototype implements **Retribution Paladin (Herald of the Sun,
-Midnight Season 2)**. Since we don't have a Warcraft Logs pipeline yet,
-SimulationCraft's output stands in for real logs. It is used strictly as a
-black box (run it, read its report and combat log), never its source code.
+Two specs so far, both Midnight Season 2: **Retribution Paladin (Herald of the
+Sun)** and **Fire Mage (Sunfury)**. Since we don't have a Warcraft Logs
+pipeline yet, SimulationCraft's output stands in for real logs. It is used
+strictly as a black box (run it, read its report and combat log), never its
+source code.
 
-## Results
+| spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
+|---|---:|---:|---:|---|---:|
+| Retribution Paladin | 131,766 | 132,908 | +0.87% | haste +0.72 pts | ~16× |
+| Fire Mage | 147,374 | 148,445 | +0.73% | haste +2.29 pts | ~15× |
+
+## Retribution Paladin
+
+### Results
 
 Reference: SimC's Midnight S2 sample Ret profile, core kit only (no trinkets,
 tier set or consumables), 300s Patchwerk, 5,000 iterations.
@@ -94,7 +102,7 @@ top of the stat priority. See *Known gaps*.
 Same machine (2 cores), 10,000 iterations: azsim **1.6s**, SimC **25.3s**.
 Treat this as indicative only, since azsim models less than SimC does.
 
-## What the raw data alone gets you
+### What the raw data alone gets you
 
 With coefficients straight from the game tables and base mechanics only, the
 spec reached **~35% of the reference DPS**. Adding the mechanics observed in
@@ -112,6 +120,115 @@ Wake extending on crit ticks, and DoTs critting harder than direct hits. The
 stat probes caught three of these, which is exactly what held-out validation
 is for.
 
+## Fire Mage (Sunfury)
+
+`specs/fire_mage.toml`, built the same way: coefficients, cast times, charges,
+durations and talent values from DB2 (plus the `Spell` table's tooltip text for
+what each talent does), the rest observed in SimC's log. Fire is a very
+different shape from Ret: hardcasts, an off-GCD spell, crit chains, a rolling
+DoT that banks damage, and a pet, so it was a real test of the "no class code"
+rule. Every mechanic below is generic engine data, not mage code.
+
+### Results
+
+Reference: SimC's Midnight S2 sample Fire profile (Sunfury), core kit only (no
+trinkets, tier set, consumables or Bloodlust), 300s Patchwerk, 5,000 iterations.
+Pet damage (Arcane Phoenix) is included, as `arcane_phoenix_*` sources.
+
+| | DPS |
+|---|---:|
+| reference | 147,374 |
+| azsim | 148,445 (±138) |
+| difference | **+0.73%** |
+
+### Structure: hit counts per fight
+
+| source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
+|---|---:|---:|---:|---:|---:|
+| pyroblast | 60,712 | 62,591 | +3.1% | 145.5 | 149.8 |
+| ignite | 33,949 | 33,930 | -0.1% | 299.5 | 299.4 |
+| intensifying_flame | 9,600 | 9,595 | -0.1% | 299.5 | 299.4 |
+| fire_blast | 7,802 | 7,716 | -1.1% | 98.0 | 96.9 |
+| scorch | 7,603 | 7,306 | -3.9% | 30.9 | 29.7 |
+| fireball | 5,953 | 5,485 | -7.9% | 48.9 | 45.1 |
+| meteor_impact | 5,854 | 5,882 | +0.5% | 9.6 | 9.7 |
+| meteorite_impact | 4,874 | 4,860 | -0.3% | 115.5 | 115.1 |
+| meteor_burn | 3,327 | 3,324 | -0.1% | 76.8 | 76.7 |
+| arcane_phoenix_pyroblast | 1,450 | 1,446 | -0.3% | 26.9 | 26.8 |
+| rune_of_unleashed_fire | 1,378 | 1,376 | -0.2% | 50.2 | 50.2 |
+| arcane_phoenix_arcane_barrage | 1,179 | 1,180 | +0.1% | 26.9 | 26.9 |
+| arcane_phoenix_greater_pyroblast | 867 | 860 | -0.8% | 5.1 | 5.0 |
+| arcane_phoenix_meteorite_bug_impact | 807 | 799 | -1.0% | 15.1 | 15.0 |
+| acidbrood_scourge | 776 | 776 | -0.1% | 22.8 | 22.9 |
+| arcane_phoenix_arcane_surge | 578 | 578 | -0.0% | 5.1 | 5.1 |
+| rune_of_unleashed_fire_lingering | 363 | 426 | +17.4% | 243.5 | 286.6 |
+| arcane_phoenix_meteorite_impact | 311 | 308 | -0.9% | 5.0 | 5.0 |
+| frostbolt (Mirror Image) | 10 | 0 | -100.0% | 27.7 | 0.0 |
+
+The crit economy matches: 122 Heating Ups and 118 Hot Streaks per fight against
+125 and 115 in the reference, Fire Blast 97 vs 98, Combustion 14.9s vs 14.7s
+long. Split by phase (Combustion, execute, filler), Pyroblast, Fire Blast,
+Fireball and Scorch counts are within a few casts of the reference in each.
+
+### Held-out validation: stat sensitivity
+
+| stat probe | reference DPS gain | azsim DPS gain | difference |
+|---|---:|---:|---:|
+| +500 crit | +4.61% | +4.19% | -0.41 pts |
+| +500 haste | +8.24% | +10.53% | +2.29 pts |
+| +500 mastery | +6.53% | +6.44% | -0.09 pts |
+| +500 vers | +7.96% | +7.92% | -0.04 pts |
+| +200 intellect | +6.49% | +6.61% | +0.13 pts |
+
+Mastery, versatility and intellect are within 0.15 points, crit within 0.4.
+Mastery landing this close matters most: it runs entirely through Ignite, so
+it checks the banked-DoT model directly. **Haste over-responds by 2.3 points**.
+Both stat priorities still put haste first, then vers; mastery and intellect
+swap at fourth and fifth. See *Known gaps*.
+
+### Speed
+
+Same machine (10 cores), 10,000 iterations: azsim **0.24s**, SimC **3.6s**.
+
+### What the raw data alone gets you
+
+With DB2 coefficients and the modelled mechanics but no calibration, the spec
+reaches **62% of the reference** (90.8k). Ignite is the standout: a bank of
+exactly mastery% of direct damage (×2.25 from Hot Streak Pyroblasts, per the
+Hot Streak and Inflame tooltips) lands within 20% of the reference with no
+fitting at all. The larger residuals sit on direct hits (Meteor ×2.6, Scorch
+×2.5, Fire Blast ×2.2), where the Fire spec aura and talent multipliers live.
+
+Mechanics read from the log rather than the tables: Hot Streak being spent as
+Pyroblast is cast, so its own crit can start the next Heating Up; non-crits
+breaking both Heating Up and the Fevered Incantation streak; the Combustion
+pull delay (Firestarter) and Hyperthermia following the phoenix; the phoenix
+casting once a second for Combustion's whole duration; and Fire Blast's
+recharge budget. The tooltips list From the Ashes (every direct hit −0.5s),
+Pyrocosm (every meteorite −0.5s), Fired Up (−2.5s) and Fiery Rush (+50% in
+Combustion), but Fire Blast still came up 10% short inside Combustion until the
+phoenix's meteorites were counted too.
+
+### Engine features added for Fire
+
+All generic, data-driven, and Ret's results are bit-for-bit unchanged:
+
+- **spell power** and `sp_coeff` alongside attack power;
+- **cast times** (hasted): the spell resolves at the end of the cast, the GCD
+  runs from its start;
+- **banked (rolling) DoTs**: `feed` a share of each hit (`pct` plus
+  `per_mastery`) into a DoT that spreads its bank over the time left and resets
+  its duration on each feed, keeping its tick cadence (Ignite, Intensifying Flame);
+- **conditional effects** (`if` with the rotation condition language) and
+  `on_noncrit` / `on_start` effect lists (crit chains, effects at cast time
+  before the hit lands);
+- **buffs**: overlapping stacks with their own timers, health-gated buffs
+  (`below_health` / `above_health`, `target.health.pct` in conditions), per-ability
+  crit, crit damage, mastery and power modifiers, `extend_buff`, `on_expire`;
+- cooldown-rate buffs now also speed up a recharge already in progress;
+- **`source`**: several ability variants (hardcast / Hot Streak / Hyperthermia
+  Pyroblast) report under one result row and share one calibration entry.
+
 ## Layout
 
 ```
@@ -123,16 +240,18 @@ src/
   expr.rs      rotation condition language (holy_power>=3&!buff.x.up ...)
 specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
+  fire_mage.toml            Fire spec, same tagging
 calibration/
   retribution_herald.toml   generated per-hit multipliers + crit offsets
+  fire_mage.toml
 reference/                  observations used for calibration and validation
 tools/
   spelldb.py         look up spells in raw DB2 tables
-  observe.py         turn a SimC (stand-in for logs) report into observations
+  observe.py         turn a SimC (stand-in for logs) report into observations (pets included)
   calibrate.py       fit per-hit multipliers; never touches hit counts
   compare.py         side-by-side per-source comparison
   validate_stats.py  held-out stat-sensitivity test
-  make_reference.sh  regenerate reference/ from a SimC build
+  make_reference.sh  regenerate reference/ for a spec from a SimC profile + build
 ```
 
 ## Usage
@@ -162,11 +281,27 @@ python3 tools/validate_stats.py specs/retribution_herald.toml calibration/retrib
     "+500 mastery=reference/ret_probe_mastery_rating.json" "+500 vers=reference/ret_probe_versatility_rating.json" \
     "+200 strength=reference/ret_probe_strength.json"
 
+# Fire: same loop
+./target/release/azsim specs/fire_mage.toml -n 10000 --calib calibration/fire_mage.toml --json out.json
+python3 tools/compare.py reference/fire_core_observations.json out.json
+python3 tools/calibrate.py specs/fire_mage.toml reference/fire_core_observations.json calibration/fire_mage.toml --rounds 6
+python3 tools/validate_stats.py specs/fire_mage.toml calibration/fire_mage.toml \
+    reference/fire_core_observations.json \
+    "+500 crit=reference/fire_probe_crit_rating.json" "+500 haste=reference/fire_probe_haste_rating.json" \
+    "+500 mastery=reference/fire_probe_mastery_rating.json" "+500 vers=reference/fire_probe_versatility_rating.json" \
+    "+200 intellect=reference/fire_probe_intellect.json"
+
+# regenerate a reference: prefix, SimC profile, primary stat, SimC binary
+tools/make_reference.sh fire $SIMC/profiles/MID2/MID2_Mage_Fire.simc intellect $SIMC/build/simc
+
 # look up spells in the raw game data (CSV exports from wago.tools/db2/<Table>/csv)
 # tables used: SpellName SpellEffect SpellMisc SpellCooldowns SpellCategories
 #              SpellCategory SpellPower SpellAuraOptions SpellDuration
+#              (optional) SpellCastTimes SpellProcsPerMinute
 python3 tools/spelldb.py path/to/db2 "Blade of Justice" 383328
 ```
+
+`validate_stats.py` needs Python 3.11+ (`tomllib`).
 
 ## Spec format, briefly
 
@@ -191,13 +326,21 @@ if = "cooldown.hammer_of_wrath.charges=2"
 ```
 
 Effects: `buff`, `consume`, `reset_cooldown`, `reduce_cooldown`, `gain`,
-`trigger` (with `chance`, `delay`, `mastery_chance`), `extend_dot`.
-Buffs can modify damage, crit, haste, GCD and per-ability recharge rate, or
-store a percentage of damage dealt for a later burst. DoTs support hasted
-ticks, partial final ticks, `pandemic`/`extend`/`reset` refresh,
-extend-on-crit and on-tick effects.
+`trigger` (with `chance`, `delay`, `mastery_chance`), `extend_dot`,
+`extend_buff`, and `if` (`{ type = "if", if = "<condition>", then = [...],
+else = [...] }`). Abilities run `on_start` (before the hit), `on_crit` /
+`on_noncrit` (per hit) and `on_cast` (after) effects, can have a `cast_time`,
+and can report under a shared `source`.
+Buffs can modify damage, crit (globally or per ability), crit damage, haste,
+mastery, power, GCD and per-ability recharge rate, or store a percentage of
+damage dealt for a later burst; they can stack with independent timers
+(`overlap`), follow the target's health, and fire `on_expire` effects. DoTs
+support hasted ticks, partial final ticks, `pandemic`/`extend`/`reset` refresh,
+extend-on-crit, on-tick effects, and `banked` rolling damage fed by hits.
 
 ## Known gaps
+
+### Retribution
 
 - **Haste over-response (+0.7 pts).** Concentrated in the Hammer of Wrath
   chain inside Avenging Wrath (it competes with Final Verdict for GCDs and
@@ -208,9 +351,38 @@ extend-on-crit and on-tick effects.
   cadence. Blessing of An'she isn't modelled individually.
 - **Small sources:** Consecration overlap (-11%) and Sun Sear (+10%) are each
   under 1% of damage.
-- **Not yet built:** gear → stats (we take final stats as input), trinkets and
-  tier sets, multi-target, movement, healers and tanks, a real Warcraft Logs
-  ingestion pipeline, and an effect-interpretation layer for DB2 aura types.
+
+### Fire
+
+- **Haste over-response (+2.3 pts).** Fire Blast's charge economy reacts too
+  strongly: +500 haste raises Fire Blast casts 15% in azsim against 12% in the
+  reference, and Hot Streak Pyroblasts (and the Ignite they feed at ×2.25)
+  follow. Base counts match, so it's the loop gain that's off: each Fire Blast
+  makes a Hot Streak, which feeds spheres → meteorites, Fired Up and more direct
+  hits back into Fire Blast's recharge. Candidates still to test against the
+  probe: how recharge reductions interact with a hasted recharge, Fire Blast's
+  0.5s lockout between casts, and casting Fire Blast mid-cast (tried; it
+  starves Combustion with this rotation paraphrase, so it's left out).
+- **Crit −0.4 pts.** Burn It All (Combustion damage +20% of crit chance) is a
+  fixed 16% here, read from the buff's value in the log.
+- **Fitted rather than derived [obs]:** the gear stat procs, folded into final
+  stats as their time-averaged ratings; the Fired Up chance inside Combustion
+  (35%), Heat Shimmer per-tick chance, the phoenix's cast mix, the phoenix's
+  meteorites counting for Pyrocosm, crit multiplier and Fevered Incantation
+  per stack, Meteor's 2.25s landing time.
+- **Calibration nudges the crit chain.** Per-source crit offsets are averages
+  across phases, so after calibration filler Pyroblast crits slightly more
+  often: Pyroblast +3% hits and Fireball −8%. Uncalibrated, they're 146.5
+  and 47.8 against the reference's 145.5 and 48.9.
+- **Simplified:** no travel time; Fire Blast fires between casts rather than
+  mid-cast; Rune of Unleashed Fire's lingering DoT overlaps too long (+17%
+  ticks, 0.3% of damage); Mirror Image isn't modelled.
+
+### Not yet built
+
+Gear → stats (we take final stats as input), trinkets and tier sets,
+multi-target, movement, healers and tanks, a real Warcraft Logs ingestion
+pipeline, and an effect-interpretation layer for DB2 aura types.
 
 ## Next steps
 
