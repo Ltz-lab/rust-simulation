@@ -26,6 +26,22 @@ mastery = 0.5007         # Ret mastery: bonus to Holy/Holyfire damage AND Highlo
 crit_multiplier = 2.12     # [obs] crit/non-crit ratio on Judgment (never overlaps AW): 2.117
 weapon = { min = 0, max = 0, speed = 2.14 }   # [obs] 1.62s swings outside AW at 1.318 total haste; swings are Crusading Strikes
 
+# How `--gear profile.simc` turns gear into the [player] stats above. Gear
+# ratings and strength come from the game's item tables (data/gamedata.json.gz);
+# these are the character's own constants on top. All [obs] from the
+# reference's reported stats (naked, geared, and +rating probes).
+[gear]
+primary = "strength"
+base_primary = 622         # [obs] level-90 dwarf paladin base strength (naked character)
+primary_mult = 1.092       # [obs] x1.04 passive (naked) x1.05 plate armor specialization
+attack_power_mult = 1.05   # [obs] Battle Shout
+crit_bonus = 0.09          # [obs] 5% base + 4% passive
+haste_mult = 1.02          # [obs] passive, multiplicative with rating haste
+mastery_points = 14        # [obs] 8 base + 4 passive + 2 Skyfury, in mastery points
+mastery_coeff = 1.35       # [obs] Ret mastery: % damage per mastery point (+500 mastery probe)
+versatility_bonus = 0.03   # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.7909 # [obs] the engine's weapon AP component per main-hand weapon DPS (1058 at 155.8 DPS)
+
 [fight]
 duration = 300
 variance = 0.2

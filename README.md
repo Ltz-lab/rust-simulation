@@ -120,9 +120,15 @@ src/
   sim.rs       the engine: event queue, cooldowns/charges, buffs, DoTs,
                triggers, procs, resources. No class-specific code.
   spec.rs      the spec file format (serde) and calibration overlay
+  gear.rs      gear -> stats: parses /simc gear lines, item level from bonus
+               IDs, stat budgets from the game's item scaling tables
   expr.rs      rotation condition language (holy_power>=3&!buff.x.up ...)
 specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
+data/
+  gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
+profiles/
+  MID2_Paladin_Retribution.simc   gear of SimC's MID2 sample Ret profile
 calibration/
   retribution_herald.toml   generated per-hit multipliers + crit offsets
 reference/                  observations used for calibration and validation
@@ -133,6 +139,8 @@ tools/
   compare.py         side-by-side per-source comparison
   validate_stats.py  held-out stat-sensitivity test
   make_reference.sh  regenerate reference/ from a SimC build
+  gamedata.py        build data/gamedata.json.gz from wago.tools DB2/game tables
+  check_gear.py      gear -> stats check against SimC's per-item and buffed stats
 ```
 
 ## Usage
@@ -161,6 +169,18 @@ python3 tools/validate_stats.py specs/retribution_herald.toml calibration/retrib
     "+500 crit=reference/ret_probe_crit_rating.json" "+500 haste=reference/ret_probe_haste_rating.json" \
     "+500 mastery=reference/ret_probe_mastery_rating.json" "+500 vers=reference/ret_probe_versatility_rating.json" \
     "+200 strength=reference/ret_probe_strength.json"
+
+# sim a character from their gear (the /simc addon export's slot lines)
+./target/release/azsim specs/retribution_herald.toml --calib calibration/retribution_herald.toml \
+    --gear profiles/MID2_Paladin_Retribution.simc
+# ...or just print the per-item and final stats it computes
+./target/release/azsim specs/retribution_herald.toml --gear profiles/MID2_Paladin_Retribution.simc --gear-stats
+
+# check gear -> stats (and DPS) against SimC for the same gear
+python3 tools/check_gear.py "/path/to/simc" profiles/MID2_Paladin_Retribution.simc --no-trinkets --dps
+
+# rebuild the item data for a new game build (downloads ~70 MB of DB2 CSVs into target/)
+python3 tools/gamedata.py --build 12.1.5.70575
 
 # look up spells in the raw game data (CSV exports from wago.tools/db2/<Table>/csv)
 # tables used: SpellName SpellEffect SpellMisc SpellCooldowns SpellCategories
