@@ -1,0 +1,343 @@
+//! Batch simulation: one base character plus N gear variants in one call.
+//!
+//! Spec and calibration are parsed once. Each variant is the base gear with some
+//! slot lines replaced; all variants (and the base) run the same iteration seeds,
+//! so the per-iteration luck is shared (see the RNG streams in `sim`) and the
+//! paired difference to the base is much tighter than either DPS alone.
+
+use crate::{gear, sim, spec};
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::time::Instant;
+
+const SPECS: &[(&str, &str, &str)] = &[
+    (
+        "retribution_herald",
+        include_str!("../specs/retribution_herald.toml"),
+        include_str!("../calibration/retribution_herald.toml"),
+    ),
+    (
+        "fire_mage",
+        include_str!("../specs/fire_mage.toml"),
+        include_str!("../calibration/fire_mage.toml"),
+    ),
+];
+
+/// Names of the specs built into the library.
+pub fn spec_names() -> Vec<&'static str> {
+    SPECS.iter().map(|s| s.0).collect()
+}
+
+/// True if `spec` (built-in name or path) can turn gear lines into stats.
+pub fn supports_gear(spec: &str) -> bool {
+    load_spec_text(spec).map(|t| t.contains("\n[gear]")).unwrap_or(false)
+}
+
+fn builtin(name: &str) -> Option<&'static (&'static str, &'static str, &'static str)> {
+    let n = name.trim_end_matches(".toml").rsplit('/').next().unwrap_or(name);
+    SPECS.iter().find(|s| s.0 == n && !name.contains('/'))
+}
+
+fn load_spec_text(spec: &str) -> Result<String, String> {
+    match builtin(spec) {
+        Some(b) => Ok(b.1.to_string()),
+        None => std::fs::read_to_string(spec).map_err(|e| format!("spec '{spec}': {e} (built-ins: {})", spec_names().join(", "))),
+    }
+}
+
+fn default_iterations() -> u64 { 10_000 }
+fn default_seed() -> u64 { 1 }
+fn default_max_iterations() -> u64 { 200_000 }
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Variant {
+    pub name: String,
+    /// SimC gear lines; each replaces the base line for the same slot (or adds it).
+    #[serde(default)]
+    pub gear: Vec<String>,
+    /// Numeric spec overrides on top of the request's, e.g. {"player.haste": 0.2}.
+    #[serde(default)]
+    pub set: BTreeMap<String, f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Request {
+    /// Built-in spec name ("retribution_herald") or a path to a spec TOML.
+    pub spec: String,
+    /// Built-in calibration name, a path, "none", or absent for the spec's own built-in calibration.
+    #[serde(default)]
+    pub calib: Option<String>,
+    /// The base character's /simc gear lines. Empty: use the spec's stats as written.
+    #[serde(default)]
+    pub base_gear: Vec<String>,
+    #[serde(default)]
+    pub variants: Vec<Variant>,
+    #[serde(default)]
+    pub set: BTreeMap<String, f64>,
+    #[serde(default = "default_iterations")]
+    pub iterations: u64,
+    /// If set, run until every variant's paired delta (or, with no variants, the DPS)
+    /// has a 95% error at or below this many DPS, up to `max_iterations`.
+    #[serde(default)]
+    pub target_error: Option<f64>,
+    /// Same, as a percentage of the base DPS (`target_error` wins if both are set).
+    #[serde(default)]
+    pub target_error_pct: Option<f64>,
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: u64,
+    #[serde(default = "default_seed")]
+    pub seed: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Stat {
+    pub dps: f64,
+    pub dps_error_95: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VariantResult {
+    pub name: String,
+    pub dps: f64,
+    pub dps_error_95: f64,
+    /// DPS minus the base's, and the 95% error of that paired difference.
+    pub delta: f64,
+    pub delta_error_95: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Response {
+    pub spec: String,
+    pub iterations: u64,
+    pub seconds: f64,
+    pub base: Stat,
+    pub variants: Vec<VariantResult>,
+}
+
+fn slot_of(line: &str) -> &str {
+    line.split_once('=').map(|(k, _)| k.trim()).unwrap_or("")
+}
+
+/// `base` with every slot named in `over` replaced (or appended).
+fn merge_gear(base: &[String], over: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = base
+        .iter()
+        .filter(|b| !over.iter().any(|o| slot_of(o) == slot_of(b)))
+        .cloned()
+        .collect();
+    out.extend(over.iter().cloned());
+    out
+}
+
+fn apply_sets(mut doc: toml::Value, sets: &[&BTreeMap<String, f64>]) -> Result<toml::Value, String> {
+    for set in sets {
+        for (path, v) in set.iter() {
+            let parts: Vec<&str> = path.split('.').collect();
+            let mut cur = &mut doc;
+            for p in &parts[..parts.len() - 1] {
+                cur = cur.get_mut(*p).ok_or_else(|| format!("set: no field '{p}' in {path}"))?;
+            }
+            cur.as_table_mut()
+                .ok_or_else(|| format!("set: '{path}' is not under a table"))?
+                .insert(parts[parts.len() - 1].to_string(), toml::Value::Float(*v));
+        }
+    }
+    Ok(doc)
+}
+
+fn build(
+    doc: &toml::Value,
+    cal: Option<&spec::Calibration>,
+    gear_lines: &[String],
+    sets: &[&BTreeMap<String, f64>],
+) -> Result<sim::Compiled, String> {
+    let doc = if gear_lines.is_empty() {
+        doc.clone()
+    } else {
+        gear::apply_text(doc.clone(), &gear_lines.join("\n"))?.0
+    };
+    let doc = apply_sets(doc, sets)?;
+    let mut sp: spec::Spec = doc.try_into().map_err(|e| format!("spec: {e}"))?;
+    if let Some(c) = cal {
+        sp.apply_calibration(c)?;
+    }
+    sim::Compiled::new(sp)
+}
+
+fn iter_dps(c: &sim::Compiled, seed: u64, i: u64) -> f64 {
+    let r = sim::run_iteration(c, seed.wrapping_mul(1_000_003).wrapping_add(i), false);
+    r.damage.iter().sum::<f64>() / r.length
+}
+
+/// (mean, 95% error of the mean)
+fn mean_err(xs: &[f64]) -> (f64, f64) {
+    let n = xs.len() as f64;
+    let mean = xs.iter().sum::<f64>() / n;
+    let var = xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+    (mean, 1.96 * (var / n).sqrt())
+}
+
+pub fn run(req: &Request) -> Result<Response, String> {
+    let t0 = Instant::now();
+    let doc: toml::Value = {
+        let text = load_spec_text(&req.spec)?;
+        toml::from_str(&text).map_err(|e| format!("{}: {e}", req.spec))?
+    };
+    let cal: Option<spec::Calibration> = match req.calib.as_deref() {
+        Some("none") => None,
+        Some(c) => {
+            let text = match builtin(c) {
+                Some(b) => b.2.to_string(),
+                None => std::fs::read_to_string(c).map_err(|e| format!("calibration '{c}': {e}"))?,
+            };
+            Some(toml::from_str(&text).map_err(|e| format!("calibration '{c}': {e}"))?)
+        }
+        None => builtin(&req.spec)
+            .map(|b| toml::from_str(b.2).map_err(|e| format!("calibration: {e}")))
+            .transpose()?,
+    };
+
+    let mut names = vec!["base".to_string()];
+    let mut models = vec![build(&doc, cal.as_ref(), &req.base_gear, &[&req.set])?];
+    for v in &req.variants {
+        let gear = merge_gear(&req.base_gear, &v.gear);
+        models.push(build(&doc, cal.as_ref(), &gear, &[&req.set, &v.set]).map_err(|e| format!("variant '{}': {e}", v.name))?);
+        names.push(v.name.clone());
+    }
+
+    let mut dps: Vec<Vec<f64>> = vec![Vec::new(); models.len()];
+    let (total, step) = match req.target_error.or(req.target_error_pct) {
+        Some(_) => (req.max_iterations.max(1), 2_000u64),
+        None => (req.iterations.max(2), req.iterations.max(2)),
+    };
+    let mut done = 0u64;
+    loop {
+        let n = step.min(total - done);
+        for (m, out) in models.iter().zip(dps.iter_mut()) {
+            let seed = req.seed;
+            let chunk: Vec<f64> = (done..done + n).into_par_iter().map(|i| iter_dps(m, seed, i)).collect();
+            out.extend(chunk);
+        }
+        done += n;
+        if done >= total { break; }
+        let target = req.target_error.or_else(|| req.target_error_pct.map(|p| p / 100.0 * mean_err(&dps[0]).0));
+        if let Some(t) = target {
+            let worst = (1..models.len())
+                .map(|k| delta_stat(&dps[k], &dps[0]).1)
+                .fold(if models.len() == 1 { mean_err(&dps[0]).1 } else { 0.0 }, f64::max);
+            if worst <= t { break; }
+        }
+    }
+
+    let (bm, be) = mean_err(&dps[0]);
+    let variants = (1..models.len())
+        .map(|k| {
+            let (m, e) = mean_err(&dps[k]);
+            let (d, de) = delta_stat(&dps[k], &dps[0]);
+            VariantResult { name: names[k].clone(), dps: m, dps_error_95: e, delta: d, delta_error_95: de }
+        })
+        .collect();
+    Ok(Response {
+        spec: models[0].spec.name.clone(),
+        iterations: done,
+        seconds: t0.elapsed().as_secs_f64(),
+        base: Stat { dps: bm, dps_error_95: be },
+        variants,
+    })
+}
+
+fn delta_stat(a: &[f64], b: &[f64]) -> (f64, f64) {
+    let d: Vec<f64> = a.iter().zip(b).map(|(x, y)| x - y).collect();
+    mean_err(&d)
+}
+
+/// Per-item and total stats computed from `gear_lines` (the same report as `--gear-stats`).
+pub fn gear_report(spec: &str, gear_lines: &[String]) -> Result<serde_json::Value, String> {
+    let doc: toml::Value = toml::from_str(&load_spec_text(spec)?).map_err(|e| format!("{spec}: {e}"))?;
+    Ok(gear::apply_text(doc, &gear_lines.join("\n"))?.1)
+}
+
+/// JSON in, JSON out (the CLI's `batch` mode and the Python binding both use this).
+pub fn run_json(req: &str) -> Result<String, String> {
+    let req: Request = serde_json::from_str(req).map_err(|e| format!("request: {e}"))?;
+    let resp = run(&req)?;
+    serde_json::to_string_pretty(&resp).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PROFILE: &str = include_str!("../profiles/MID2_Paladin_Retribution.simc");
+
+    fn gear_lines() -> Vec<String> {
+        PROFILE.lines().filter(|l| l.contains(",id=")).map(String::from).collect()
+    }
+
+    #[test]
+    fn merge_replaces_by_slot() {
+        let m = merge_gear(&["head=a".into(), "neck=b".into()], &["neck=c".into(), "back=d".into()]);
+        assert_eq!(m, vec!["head=a", "neck=c", "back=d"]);
+    }
+
+    #[test]
+    fn batch_is_paired_and_deterministic() {
+        let base = gear_lines();
+        // variant 1: a lower-ilvl main hand; variant 2: identical to base
+        let mh = base.iter().find(|l| l.starts_with("main_hand=")).unwrap().clone();
+        let worse = mh.replace("ilevel=344", "ilevel=320");
+        assert_ne!(mh, worse);
+        let req = Request {
+            spec: "retribution_herald".into(),
+            calib: None,
+            base_gear: base,
+            variants: vec![
+                Variant { name: "no_enchant".into(), gear: vec![worse], ..Default::default() },
+                Variant { name: "same".into(), ..Default::default() },
+            ],
+            set: Default::default(),
+            iterations: 400,
+            target_error: None,
+            target_error_pct: None,
+            max_iterations: 1000,
+            seed: 7,
+        };
+        let a = run(&req).unwrap();
+        let b = run(&req).unwrap();
+        assert_eq!(a.base.dps, b.base.dps);
+        assert_eq!(a.iterations, 400);
+        // an identical variant shares every random number with the base
+        assert_eq!(a.variants[1].delta, 0.0);
+        assert_eq!(a.variants[1].delta_error_95, 0.0);
+        // the paired error is far tighter than the independent errors
+        assert!(a.variants[0].delta < 0.0, "{:?}", a.variants[0]);
+        assert!(a.variants[0].delta_error_95 < a.base.dps_error_95);
+        // a batch of one equals a standalone run of the same gear
+        let mut solo = req.clone();
+        solo.variants.clear();
+        assert_eq!(run(&solo).unwrap().base.dps, a.base.dps);
+    }
+
+    #[test]
+    fn target_error_stops_early() {
+        let req = Request {
+            spec: "retribution_herald".into(), calib: None, base_gear: gear_lines(),
+            variants: vec![Variant { name: "same".into(), ..Default::default() }],
+            set: Default::default(), iterations: 0, target_error: Some(50.0), target_error_pct: None,
+            max_iterations: 20_000, seed: 1,
+        };
+        let r = run(&req).unwrap();
+        assert_eq!(r.iterations, 2_000); // identical variant: delta error 0 after the first chunk
+    }
+
+    #[test]
+    fn unknown_spec_and_gearless_spec() {
+        assert!(run_json(r#"{"spec":"nope"}"#).is_err());
+        assert!(supports_gear("retribution_herald"));
+        assert!(!supports_gear("fire_mage"));
+        // Fire without gear lines still sims
+        let out = run_json(r#"{"spec":"fire_mage","iterations":100}"#).unwrap();
+        assert!(out.contains("\"dps\""));
+    }
+}

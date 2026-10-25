@@ -1,8 +1,5 @@
-mod expr;
-mod gear;
-mod sim;
-mod spec;
 
+use azsim::{gear, sim, spec};
 use rayon::prelude::*;
 use serde_json::json;
 use std::time::Instant;
@@ -63,7 +60,36 @@ fn apply_overrides(mut doc: toml::Value, sets: &[(String, f64)]) -> toml::Value 
     doc
 }
 
+/// `azsim batch <request.json|-> [--out result.json]`: JSON in, JSON out.
+fn batch_main(mut it: impl Iterator<Item = String>) {
+    let (mut input, mut out) = (None, None);
+    while let Some(x) = it.next() {
+        if x == "--out" { out = it.next(); } else { input = Some(x); }
+    }
+    let Some(input) = input else {
+        eprintln!("usage: azsim batch <request.json | -> [--out result.json]");
+        std::process::exit(2);
+    };
+    let text = if input == "-" {
+        let mut s = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut s).expect("read stdin");
+        s
+    } else {
+        std::fs::read_to_string(&input).unwrap_or_else(|e| { eprintln!("{input}: {e}"); std::process::exit(1) })
+    };
+    match azsim::api::run_json(&text) {
+        Ok(res) => match out {
+            Some(p) => std::fs::write(p, res).expect("write result"),
+            None => println!("{res}"),
+        },
+        Err(e) => { eprintln!("batch error: {e}"); std::process::exit(1); }
+    }
+}
+
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("batch") {
+        return batch_main(std::env::args().skip(2));
+    }
     let args = parse_args();
     let text = std::fs::read_to_string(&args.spec).expect("read spec");
     let mut doc: toml::Value = toml::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", args.spec));

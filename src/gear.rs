@@ -394,13 +394,18 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, [(&'static str, f64)
 
 /// Parse a SimC gear profile, overwrite `player.*` stats in `doc`, and return
 /// both the updated TOML document and the JSON breakdown report.
-pub fn apply(mut doc: toml::Value, path: &str) -> Result<(toml::Value, Value), String> {
+pub fn apply(doc: toml::Value, path: &str) -> Result<(toml::Value, Value), String> {
+    let profile = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+    apply_text(doc, &profile)
+}
+
+/// Like [`apply`], but takes the profile text (SimC gear lines) directly.
+pub fn apply_text(mut doc: toml::Value, profile: &str) -> Result<(toml::Value, Value), String> {
     let gear_tbl = doc.get("gear").cloned().ok_or_else(|| {
         "spec has no [gear] table".to_string()
     })?;
     let cfg: GearSpec = gear_tbl.try_into().map_err(|e| format!("[gear]: {e}"))?;
-    let profile = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-    let (report, player_pairs) = compute(&profile, &cfg)?;
+    let (report, player_pairs) = compute(profile, &cfg)?;
 
     let player = doc
         .get_mut("player")
