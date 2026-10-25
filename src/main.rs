@@ -1,4 +1,5 @@
 mod expr;
+mod gear;
 mod sim;
 mod spec;
 
@@ -14,10 +15,15 @@ struct Args {
     log: bool,
     set: Vec<(String, f64)>,
     calib: Option<String>,
+    gear: Option<String>,
+    gear_stats: bool,
 }
 
 fn parse_args() -> Args {
-    let mut a = Args { spec: String::new(), iterations: 5000, seed: 1, json: None, log: false, set: vec![], calib: None };
+    let mut a = Args {
+        spec: String::new(), iterations: 5000, seed: 1, json: None, log: false,
+        set: vec![], calib: None, gear: None, gear_stats: false,
+    };
     let mut it = std::env::args().skip(1);
     while let Some(x) = it.next() {
         match x.as_str() {
@@ -26,6 +32,8 @@ fn parse_args() -> Args {
             "--json" => a.json = it.next(),
             "--log" => a.log = true,
             "--calib" => a.calib = it.next(),
+            "--gear" => a.gear = it.next(),
+            "--gear-stats" => a.gear_stats = true,
             "--set" => {
                 // --set player.haste=0.2  (override a numeric field for stat weights etc.)
                 let kv = it.next().unwrap();
@@ -36,7 +44,7 @@ fn parse_args() -> Args {
         }
     }
     if a.spec.is_empty() {
-        eprintln!("usage: azsim <spec.toml> [-n iterations] [--seed n] [--json out.json] [--log] [--set path=value] [--calib calibration.toml]");
+        eprintln!("usage: azsim <spec.toml> [-n iterations] [--seed n] [--json out.json] [--log] [--set path=value] [--calib calibration.toml] [--gear profile.simc] [--gear-stats]");
         std::process::exit(2);
     }
     a
@@ -58,7 +66,18 @@ fn apply_overrides(mut doc: toml::Value, sets: &[(String, f64)]) -> toml::Value 
 fn main() {
     let args = parse_args();
     let text = std::fs::read_to_string(&args.spec).expect("read spec");
-    let doc: toml::Value = toml::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", args.spec));
+    let mut doc: toml::Value = toml::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", args.spec));
+    if let Some(path) = &args.gear {
+        let (new_doc, report) = gear::apply(doc, path).unwrap_or_else(|e| {
+            eprintln!("gear error: {e}");
+            std::process::exit(1);
+        });
+        if args.gear_stats {
+            println!("{}", serde_json::to_string_pretty(&report).unwrap());
+            return;
+        }
+        doc = new_doc;
+    }
     let doc = apply_overrides(doc, &args.set);
     let mut spec: spec::Spec = doc.try_into().unwrap_or_else(|e| panic!("{}: {e}", args.spec));
     if let Some(path) = &args.calib {
