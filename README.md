@@ -21,8 +21,8 @@ source code.
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
 |---|---:|---:|---:|---|---:|
-| Retribution Paladin | 131,766 | 132,908 | +0.87% | haste +0.72 pts | ~16× |
-| Fire Mage | 147,374 | 148,445 | +0.73% | haste +2.29 pts | ~15× |
+| Retribution Paladin | 131,766 | 132,942 | +0.89% | haste +0.74 pts | ~16× |
+| Fire Mage | 147,374 | 148,453 | +0.73% | haste +2.23 pts | ~15× |
 
 ## Retribution Paladin
 
@@ -34,8 +34,8 @@ tier set or consumables), 300s Patchwerk, 5,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 131,766 |
-| azsim | 132,908 (±58) |
-| difference | **+0.87%** |
+| azsim | 132,942 (±58) |
+| difference | **+0.89%** |
 
 ### Structure: hit counts per fight
 
@@ -44,39 +44,39 @@ the engine's own mechanics and rotation. They match closely:
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| final_verdict | 40,061 | 41,044 | +2.5% | 160.1 | 163.9 |
-| dawnlight | 17,830 | 17,921 | +0.5% | 211.8 | 212.8 |
-| crusading_strike | 13,078 | 13,390 | +2.4% | 230.7 | 236.1 |
-| hammer_of_wrath | 6,540 | 6,526 | -0.2% | 33.4 | 33.3 |
-| execution_sentence | 5,915 | 5,977 | +1.0% | 5.2 | 5.3 |
-| blade_of_justice_walk_into_light | 5,066 | 5,061 | -0.1% | 38.7 | 38.7 |
-| suns_avatar | 4,447 | 4,472 | +0.6% | 211.8 | 212.8 |
-| light_within_boj | 4,377 | 4,167 | -4.8% | 16.0 | 15.2 |
-| highlords_judgment | 4,125 | 4,141 | +0.4% | 27.9 | 28.0 |
-| light_within_boj_wil | 3,934 | 3,936 | +0.1% | 11.4 | 11.4 |
-| blade_of_justice | 3,690 | 3,506 | -5.0% | 30.8 | 29.3 |
-| expurgation | 3,151 | 3,139 | -0.4% | 138.9 | 138.2 |
-| judgment | 2,611 | 2,601 | -0.4% | 27.2 | 27.1 |
-| hammer_of_wrath_divine_resonance | 2,049 | 2,061 | +0.6% | 15.8 | 15.8 |
-| truths_wake | 1,963 | 1,935 | -1.4% | 76.1 | 75.0 |
-| hammer_of_wrath_divine_toll | 1,731 | 1,737 | +0.4% | 5.3 | 5.4 |
-| venomfang | 1,298 | 1,319 | +1.7% | 167.1 | 169.7 |
-| wake_of_ashes | 1,229 | 1,235 | +0.5% | 10.3 | 10.3 |
-| sun_sear | 1,069 | 1,171 | +9.6% | 179.0 | 196.3 |
-| execution_sentence_init | 1,097 | 1,140 | +4.0% | 5.2 | 5.5 |
-| divine_storm | 1,100 | 1,100 | -0.0% | 5.4 | 5.4 |
-| consecration_tick_blade_of_justice | 1,070 | 952 | -11.0% | 409.8 | 364.5 |
-| rune_of_unleashed_fire | 1,028 | 1,028 | -0.1% | 50.3 | 50.3 |
-| seething_flames_0 | 864 | 867 | +0.4% | 10.3 | 10.3 |
-| seething_flames_1 | 863 | 866 | +0.3% | 10.3 | 10.3 |
-| venomfang_burst | 561 | 563 | +0.3% | 38.7 | 38.8 |
-| hammer_of_wrath_second_sunrise | 442 | 439 | -0.6% | 6.7 | 6.7 |
-| rune_of_unleashed_fire_lingering | 324 | 323 | -0.3% | 242.0 | 241.2 |
-| divine_storm_tempest | 147 | 147 | -0.3% | 5.4 | 5.4 |
-| divine_storm_second_sunrise | 81 | 84 | +3.3% | 1.1 | 1.1 |
-| divine_storm_second_sunrise_tempest | 32 | 33 | +3.6% | 1.1 | 1.1 |
+| final_verdict | 40,061 | 41,061 | +2.5% | 160.1 | 164.2 |
+| dawnlight | 17,830 | 17,931 | +0.6% | 211.8 | 213.1 |
+| crusading_strike | 13,078 | 13,396 | +2.4% | 230.7 | 236.5 |
+| hammer_of_wrath | 6,540 | 6,528 | -0.2% | 33.4 | 33.3 |
+| execution_sentence | 5,915 | 5,979 | +1.1% | 5.2 | 5.3 |
+| blade_of_justice_walk_into_light | 5,066 | 5,055 | -0.2% | 38.7 | 38.7 |
+| suns_avatar | 4,447 | 4,473 | +0.6% | 211.8 | 213.1 |
+| light_within_boj | 4,377 | 4,168 | -4.8% | 16.0 | 15.3 |
+| highlords_judgment | 4,125 | 4,139 | +0.4% | 27.9 | 28.0 |
+| light_within_boj_wil | 3,934 | 3,946 | +0.3% | 11.4 | 11.4 |
+| blade_of_justice | 3,690 | 3,507 | -4.9% | 30.8 | 29.3 |
+| expurgation | 3,151 | 3,140 | -0.4% | 138.9 | 138.4 |
+| judgment | 2,611 | 2,600 | -0.4% | 27.2 | 27.2 |
+| hammer_of_wrath_divine_resonance | 2,049 | 2,065 | +0.8% | 15.8 | 15.9 |
+| truths_wake | 1,963 | 1,935 | -1.4% | 76.1 | 75.1 |
+| hammer_of_wrath_divine_toll | 1,731 | 1,738 | +0.4% | 5.3 | 5.4 |
+| venomfang | 1,298 | 1,315 | +1.3% | 167.1 | 169.4 |
+| wake_of_ashes | 1,229 | 1,233 | +0.3% | 10.3 | 10.3 |
+| sun_sear | 1,069 | 1,172 | +9.7% | 179.0 | 196.5 |
+| execution_sentence_init | 1,097 | 1,138 | +3.8% | 5.2 | 5.5 |
+| divine_storm | 1,100 | 1,099 | -0.0% | 5.4 | 5.4 |
+| consecration_tick_blade_of_justice | 1,070 | 955 | -10.7% | 409.8 | 365.8 |
+| rune_of_unleashed_fire | 1,028 | 1,028 | -0.0% | 50.3 | 50.4 |
+| seething_flames_1 | 863 | 868 | +0.5% | 10.3 | 10.3 |
+| seething_flames_0 | 864 | 868 | +0.5% | 10.3 | 10.3 |
+| venomfang_burst | 561 | 561 | -0.1% | 38.7 | 38.7 |
+| hammer_of_wrath_second_sunrise | 442 | 434 | -1.9% | 6.7 | 6.6 |
+| rune_of_unleashed_fire_lingering | 324 | 323 | -0.2% | 242.0 | 241.6 |
+| divine_storm_tempest | 147 | 147 | -0.2% | 5.4 | 5.4 |
+| divine_storm_second_sunrise | 81 | 84 | +3.0% | 1.1 | 1.1 |
+| divine_storm_second_sunrise_tempest | 32 | 33 | +2.5% | 1.1 | 1.1 |
 
-Holy Power economy also matches: 502.1 generated per fight vs 500.1 in the
+Holy Power economy also matches: 502.9 generated per fight vs 500.1 in the
 reference (81 vs 95 lost to overcapping).
 
 ### Held-out validation: stat sensitivity
@@ -87,9 +87,9 @@ keep the calibration fixed, and compare DPS gains.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +8.50% | +8.23% | -0.27 pts |
-| +500 haste | +9.00% | +9.71% | +0.72 pts |
-| +500 mastery | +9.33% | +9.25% | -0.08 pts |
+| +500 crit | +8.50% | +8.24% | -0.25 pts |
+| +500 haste | +9.00% | +9.74% | +0.74 pts |
+| +500 mastery | +9.33% | +9.26% | -0.07 pts |
 | +500 vers | +8.79% | +8.82% | +0.03 pts |
 | +200 strength | +6.05% | +6.10% | +0.05 pts |
 
@@ -97,10 +97,62 @@ Mastery, versatility and strength are within 0.1 points, crit within 0.3.
 **Haste over-responds by 0.7 points**, enough to swap haste and mastery at the
 top of the stat priority. See *Known gaps*.
 
+### Paired comparisons
+
+Gear and stat decisions care about *differences* between two setups, not
+absolute DPS. azsim draws every random number from its own deterministic
+stream, keyed by (iteration seed, purpose): fight length, the crit roll of each
+damage source, the damage range of each source, every chance roll site (each
+proc or trigger effect in the spec) and every RPPM proc. So the 40th Final
+Verdict crit roll is the same number in both runs of a pair, even when one run
+got an extra proc earlier and the two fights have drifted apart. Run two setups
+with the same `--seed` and they share all the luck they can.
+
+`tools/paired_noise.py` measures it: 50 seeds × 500 iterations per setup, the
+same stat changes as the held-out probes, and the SD of the DPS delta when both
+setups use the same seed (paired) vs different seeds (independent). The
+variance-reduction factor is how many times fewer iterations a paired
+comparison needs for the same precision (each factor is good to about ±20%).
+
+| probe | mean delta | before: indep / paired SD | before: reduction | after: indep / paired SD | after: reduction |
+|---|---:|---:|---:|---:|---:|
+| +500 crit | +10,973 | 223 / 129 | 3.0x | 180 / 47 | **14.8x** |
+| +500 haste | +12,915 | 220 / 136 | 2.6x | 182 / 74 | **6.1x** |
+| +500 mastery | +12,306 | 226 / 132 | 2.9x | 179 / 29 | **37.6x** |
+| +500 vers | +11,723 | 239 / 12 | 411x | 175 / 12 | **226x** |
+
+"Before" is the previous engine, where every roll came in order from one shared
+RNG per iteration. Once two runs diverged, every later roll landed on a
+different event.
+
+In iterations: a paired +500 crit comparison at 500 iterations is as precise as
+an unpaired one at about 7,400.
+
+Versatility changes no decisions, so pairing removes nearly all of its noise
+either way. What's left is its gain being proportional to DPS (8.8% of a run's
+SD of 132 is 12). Crit and mastery only move roll thresholds, so per-purpose
+streams keep almost every outcome aligned. Haste is the hard case: it shifts
+every GCD and tick, so the rotation eventually takes a different branch and the
+two runs diverge in what they cast. Even +0.2% haste leaves a paired SD of
+about 36. The streams still keep each source's n-th roll shared, but cast-count
+divergence is the floor. With all randomness turned off except fight length, a
+haste change still has a paired SD of about 20, because its gain genuinely
+depends on how many cooldowns fit into the fight.
+
+Streams are keyed by *name* (`crit/final_verdict`, `roll/final_verdict/on_cast/1`,
+`rppm/rune_of_unleashed_fire`, ...), not by position in the spec. So a gear set
+that adds a trinket ability or proc leaves every other stream untouched:
+inserting a firing, roll-consuming but damageless ability at the top of the
+spec gives bit-identical DPS for the same seed. Each stream is a splitmix64
+sequence, with no measurable cost in speed.
+
 ### Speed
 
 Same machine (2 cores), 10,000 iterations: azsim **1.6s**, SimC **25.3s**.
 Treat this as indicative only, since azsim models less than SimC does.
+Per-purpose random streams cost nothing measurable: on a 4-core container,
+10,000 iterations take a median 0.73s with them and 0.73s with the old single
+RNG (2.85s vs 2.82s single-threaded, medians of 8 runs).
 
 ### What the raw data alone gets you
 
@@ -138,30 +190,30 @@ Pet damage (Arcane Phoenix) is included, as `arcane_phoenix_*` sources.
 | | DPS |
 |---|---:|
 | reference | 147,374 |
-| azsim | 148,445 (±138) |
+| azsim | 148,453 (±138) |
 | difference | **+0.73%** |
 
 ### Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| pyroblast | 60,712 | 62,591 | +3.1% | 145.5 | 149.8 |
-| ignite | 33,949 | 33,930 | -0.1% | 299.5 | 299.4 |
-| intensifying_flame | 9,600 | 9,595 | -0.1% | 299.5 | 299.4 |
-| fire_blast | 7,802 | 7,716 | -1.1% | 98.0 | 96.9 |
-| scorch | 7,603 | 7,306 | -3.9% | 30.9 | 29.7 |
-| fireball | 5,953 | 5,485 | -7.9% | 48.9 | 45.1 |
-| meteor_impact | 5,854 | 5,882 | +0.5% | 9.6 | 9.7 |
-| meteorite_impact | 4,874 | 4,860 | -0.3% | 115.5 | 115.1 |
-| meteor_burn | 3,327 | 3,324 | -0.1% | 76.8 | 76.7 |
-| arcane_phoenix_pyroblast | 1,450 | 1,446 | -0.3% | 26.9 | 26.8 |
-| rune_of_unleashed_fire | 1,378 | 1,376 | -0.2% | 50.2 | 50.2 |
-| arcane_phoenix_arcane_barrage | 1,179 | 1,180 | +0.1% | 26.9 | 26.9 |
+| pyroblast | 60,712 | 62,610 | +3.1% | 145.5 | 149.9 |
+| ignite | 33,949 | 33,951 | +0.0% | 299.5 | 299.7 |
+| intensifying_flame | 9,600 | 9,601 | +0.0% | 299.5 | 299.7 |
+| fire_blast | 7,802 | 7,716 | -1.1% | 98.0 | 97.0 |
+| scorch | 7,603 | 7,296 | -4.0% | 30.9 | 29.7 |
+| fireball | 5,953 | 5,488 | -7.8% | 48.9 | 45.2 |
+| meteor_impact | 5,854 | 5,859 | +0.1% | 9.6 | 9.7 |
+| meteorite_impact | 4,874 | 4,867 | -0.1% | 115.5 | 115.4 |
+| meteor_burn | 3,327 | 3,320 | -0.2% | 76.8 | 76.8 |
+| arcane_phoenix_pyroblast | 1,450 | 1,447 | -0.2% | 26.9 | 26.9 |
+| rune_of_unleashed_fire | 1,378 | 1,376 | -0.1% | 50.2 | 50.3 |
+| arcane_phoenix_arcane_barrage | 1,179 | 1,175 | -0.4% | 26.9 | 26.8 |
 | arcane_phoenix_greater_pyroblast | 867 | 860 | -0.8% | 5.1 | 5.0 |
 | arcane_phoenix_meteorite_bug_impact | 807 | 799 | -1.0% | 15.1 | 15.0 |
-| acidbrood_scourge | 776 | 776 | -0.1% | 22.8 | 22.9 |
-| arcane_phoenix_arcane_surge | 578 | 578 | -0.0% | 5.1 | 5.1 |
-| rune_of_unleashed_fire_lingering | 363 | 426 | +17.4% | 243.5 | 286.6 |
+| acidbrood_scourge | 776 | 771 | -0.7% | 22.8 | 22.9 |
+| arcane_phoenix_arcane_surge | 578 | 577 | -0.1% | 5.1 | 5.1 |
+| rune_of_unleashed_fire_lingering | 363 | 426 | +17.5% | 243.5 | 287.1 |
 | arcane_phoenix_meteorite_impact | 311 | 308 | -0.9% | 5.0 | 5.0 |
 | frostbolt (Mirror Image) | 10 | 0 | -100.0% | 27.7 | 0.0 |
 
@@ -174,15 +226,15 @@ Fireball and Scorch counts are within a few casts of the reference in each.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +4.61% | +4.19% | -0.41 pts |
-| +500 haste | +8.24% | +10.53% | +2.29 pts |
+| +500 crit | +4.61% | +4.17% | -0.43 pts |
+| +500 haste | +8.24% | +10.47% | +2.23 pts |
 | +500 mastery | +6.53% | +6.44% | -0.09 pts |
 | +500 vers | +7.96% | +7.92% | -0.04 pts |
 | +200 intellect | +6.49% | +6.61% | +0.13 pts |
 
-Mastery, versatility and intellect are within 0.15 points, crit within 0.4.
+Mastery, versatility and intellect are within 0.15 points, crit within 0.45.
 Mastery landing this close matters most: it runs entirely through Ignite, so
-it checks the banked-DoT model directly. **Haste over-responds by 2.3 points**.
+it checks the banked-DoT model directly. **Haste over-responds by 2.2 points**.
 Both stat priorities still put haste first, then vers; mastery and intellect
 swap at fourth and fifth. See *Known gaps*.
 
@@ -251,6 +303,7 @@ tools/
   calibrate.py       fit per-hit multipliers; never touches hit counts
   compare.py         side-by-side per-source comparison
   validate_stats.py  held-out stat-sensitivity test
+  paired_noise.py    paired vs independent noise of stat comparisons
   make_reference.sh  regenerate reference/ for a spec from a SimC profile + build
 ```
 
@@ -280,6 +333,12 @@ python3 tools/validate_stats.py specs/retribution_herald.toml calibration/retrib
     "+500 crit=reference/ret_probe_crit_rating.json" "+500 haste=reference/ret_probe_haste_rating.json" \
     "+500 mastery=reference/ret_probe_mastery_rating.json" "+500 vers=reference/ret_probe_versatility_rating.json" \
     "+200 strength=reference/ret_probe_strength.json"
+
+# how much noise does a same-seed comparison remove?
+python3 tools/paired_noise.py specs/retribution_herald.toml calibration/retribution_herald.toml \
+    reference/ret_core_observations.json \
+    "+500 crit=reference/ret_probe_crit_rating.json" "+500 haste=reference/ret_probe_haste_rating.json" \
+    "+500 mastery=reference/ret_probe_mastery_rating.json" "+500 vers=reference/ret_probe_versatility_rating.json"
 
 # Fire: same loop
 ./target/release/azsim specs/fire_mage.toml -n 10000 --calib calibration/fire_mage.toml --json out.json
@@ -354,7 +413,7 @@ extend-on-crit, on-tick effects, and `banked` rolling damage fed by hits.
 
 ### Fire
 
-- **Haste over-response (+2.3 pts).** Fire Blast's charge economy reacts too
+- **Haste over-response (+2.2 pts).** Fire Blast's charge economy reacts too
   strongly: +500 haste raises Fire Blast casts 15% in azsim against 12% in the
   reference, and Hot Streak Pyroblasts (and the Ignite they feed at ×2.25)
   follow. Base counts match, so it's the loop gain that's off: each Fire Blast
@@ -372,7 +431,7 @@ extend-on-crit, on-tick effects, and `banked` rolling damage fed by hits.
   per stack, Meteor's 2.25s landing time.
 - **Calibration nudges the crit chain.** Per-source crit offsets are averages
   across phases, so after calibration filler Pyroblast crits slightly more
-  often: Pyroblast +3% hits and Fireball −8%. Uncalibrated, they're 146.5
+  often: Pyroblast +3% hits and Fireball −8%. Uncalibrated, they're 146.4
   and 47.8 against the reference's 145.5 and 48.9.
 - **Simplified:** no travel time; Fire Blast fires between casts rather than
   mid-cast; Rune of Unleashed Fire's lingering DoT overlaps too long (+17%

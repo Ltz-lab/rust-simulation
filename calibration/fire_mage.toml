@@ -2,74 +2,74 @@
 # offsets fitted to observed logs. Hit counts are NOT fitted.
 
 [sources."acidbrood_scourge"]
-mult = 0.664496
-crit_bonus = -0.526765
+mult = 0.662746
+crit_bonus = -0.537404
 
 [sources."arcane_phoenix_arcane_barrage"]
-mult = 1.295540
+mult = 1.295278
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_arcane_surge"]
-mult = 1.331531
+mult = 1.331555
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_greater_pyroblast"]
-mult = 1.309526
+mult = 1.309722
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_meteorite_bug_impact"]
-mult = 1.277084
+mult = 1.277488
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_meteorite_impact"]
-mult = 1.272062
+mult = 1.272406
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_pyroblast"]
-mult = 1.295336
+mult = 1.295114
 crit_bonus = +0.000000
 
 [sources."fire_blast"]
-mult = 2.189157
+mult = 2.189010
 crit_bonus = +0.000000
 
 [sources."fireball"]
-mult = 1.508845
-crit_bonus = +0.111858
+mult = 1.508552
+crit_bonus = +0.111616
 
 [sources."ignite"]
-mult = 1.203278
+mult = 1.203237
 crit_bonus = +0.000000
 
 [sources."intensifying_flame"]
-mult = 1.134205
+mult = 1.134166
 crit_bonus = +0.000000
 
 [sources."meteor_burn"]
-mult = 1.511049
-crit_bonus = -0.063420
+mult = 1.509811
+crit_bonus = -0.066587
 
 [sources."meteor_impact"]
-mult = 2.626838
-crit_bonus = -0.048974
+mult = 2.624213
+crit_bonus = -0.058178
 
 [sources."meteorite_impact"]
-mult = 1.531760
-crit_bonus = +0.049191
+mult = 1.531170
+crit_bonus = +0.048836
 
 [sources."pyroblast"]
-mult = 1.443437
-crit_bonus = +0.060573
+mult = 1.444321
+crit_bonus = +0.061616
 
 [sources."rune_of_unleashed_fire"]
-mult = 0.971796
-crit_bonus = -0.090853
+mult = 0.971290
+crit_bonus = -0.089992
 
 [sources."rune_of_unleashed_fire_lingering"]
-mult = 0.788004
-crit_bonus = -0.090504
+mult = 0.787824
+crit_bonus = -0.090709
 
 [sources."scorch"]
-mult = 2.456316
-crit_bonus = +0.069775
+mult = 2.455032
+crit_bonus = +0.069774
 
