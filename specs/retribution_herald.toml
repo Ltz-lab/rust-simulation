@@ -1,0 +1,494 @@
+# Retribution Paladin — Herald of the Sun, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables; matches profiles/ret_core.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+# Spell-power coefficients are converted to attack power with the observed
+# Ret ratio SP/AP = 3362/2696 = 1.247.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+
+name = "Retribution Paladin (Herald, core kit)"
+
+# Always-on haste procs, as an average: Rush of Light (+5%, 81% uptime) and the
+# Rune of Burning Haste gear proc (~+4%). [obs] GCD outside AW is 1.14s, not
+# the 1.24s base haste alone would give.
+precombat = ["haste_procs"]
+
+[player]
+attack_power = 2696      # [obs] buffed stats
+weapon_attack_power = 1058   # [obs] +8.5% AP from strength gives only +6.1% per hit -> constant weapon component
+crit = 0.3185
+haste = 0.2092
+versatility = 0.0498
+mastery = 0.5007         # Ret mastery: bonus to Holy/Holyfire damage AND Highlord's Judgment proc chance [obs: stat probe]
+crit_multiplier = 2.12     # [obs] crit/non-crit ratio on Judgment (never overlaps AW): 2.117
+weapon = { min = 0, max = 0, speed = 2.14 }   # [obs] 1.62s swings outside AW at 1.318 total haste; swings are Crusading Strikes
+
+[fight]
+duration = 300
+variance = 0.2
+physical_mult = 0.70
+
+[resources.holy_power]
+max = 5
+start = 0
+
+[auto_attack]
+replace_with = "crusading_strike"
+on_hit = [
+  # Skyfury raid buff: 20% chance to repeat the swing [obs: 41 repeats / 197 swings]
+  { type = "trigger", ability = "crusading_strike", chance = 0.20 },
+]
+
+# Random gear procs (neck/ring embellishments), as Poisson rates [obs]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 5.65            # hasted RPPM: ~7.5/min observed at 1.318 haste incl. AW
+hasted = true
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.06
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "avenging_wrath"     # 24s window [obs]; db2 says 20s base -> talent extended
+duration = 24
+crit_pct = 20               # [db2 454351 aura 290 base 20]
+haste_pct = 15              # [obs] swing timer 1.62s -> 1.41s inside AW
+gcd_pct = 5                 # [obs] GCDs 0.94s inside AW (haste alone gives 0.99s)
+cooldown_rate_pct = { hammer_of_wrath = 35 }   # [obs] fitted to Hammer cast rate in AW; 7.5s hasted alone can't sustain it
+
+[[buffs]]
+name = "haste_procs"
+duration = 1e9
+haste_pct = 9.0
+
+[[buffs]]
+name = "empyrean_legacy"    # next spender also fires a free Divine Storm [obs]
+duration = 20
+
+[[buffs]]
+name = "divine_purpose"     # next Final Verdict is free [db2 408458: 12s]
+duration = 12
+
+[[buffs]]
+name = "art_of_war"         # [db2 406086: 20s]
+duration = 20
+
+[[buffs]]
+name = "dawnlight"          # stacks from Wake of Ashes, spent by spenders [db2 431522: 30s, 6 stacks]
+duration = 30
+max_stacks = 6
+
+[[buffs]]
+name = "execution_sentence"  # stores 20% of damage dealt for 10s [db2 1260251 aura 4 base 20]
+duration = 10
+store_damage_pct = 20
+
+[[buffs]]
+name = "divine_resonance"   # from Divine Toll: each Hammer of Wrath fires an extra one [db2 1266308: 30s, 3 stacks]
+duration = 30
+max_stacks = 3
+
+# ---------------------------------------------------------------- player-cast abilities
+
+[[abilities]]
+name = "haste_procs"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "haste_procs" }]
+
+[[abilities]]
+name = "avenging_wrath"
+spell_id = 31884
+gcd = 0                     # [obs] cast alongside a GCD ability
+cooldown = 60               # [obs] 60.3s interval; db2 base 120s -> talented
+on_cast = [
+  { type = "buff", buff = "avenging_wrath" },
+  { type = "buff", buff = "empyrean_legacy" },
+  { type = "gain", resource = "holy_power", amount = 2 },     # Walk into Light [obs]
+]
+
+[[abilities]]
+name = "execution_sentence_cast"
+spell_id = 343527
+gcd = 0.75                  # [db2]
+cooldown = 60               # [db2]
+on_cast = [
+  { type = "buff", buff = "execution_sentence" },
+  { type = "trigger", ability = "execution_sentence_init" },
+  { type = "trigger", ability = "execution_sentence", delay = 10.0 },   # [db2 1260251: 10s]
+]
+
+[[abilities]]
+name = "wake_of_ashes"
+spell_id = 255937
+cooldown = 30               # [db2]
+gain = { holy_power = 3 }   # [obs]
+damage = { ap_coeff = 1.743, school = "holyfire", mastery = true }   # [db2 205273]
+on_cast = [
+  { type = "buff", buff = "dawnlight", stacks = 3 },        # [obs]
+  { type = "buff", buff = "divine_purpose" },               # [obs] every Wake
+  { type = "trigger", ability = "truths_wake_apply" },
+  { type = "trigger", ability = "seething_flames_0", delay = 0.5 },   # [obs]
+  { type = "trigger", ability = "seething_flames_1", delay = 1.0 },
+]
+
+[[abilities]]
+name = "divine_toll"
+spell_id = 375576
+cooldown = 60               # [db2]
+on_cast = [
+  { type = "trigger", ability = "hammer_of_wrath_divine_toll" },
+  { type = "buff", buff = "divine_resonance", stacks = 3 },
+]
+
+[[abilities]]
+name = "final_verdict"
+spell_id = 383328
+cost = { holy_power = 3 }   # [db2]
+free_with = "divine_purpose"
+damage = { ap_coeff = 4.65069, school = "holy", mastery = true }    # [db2 383328]
+on_cast = [
+  { type = "extend_dot", dot = "dawnlight", seconds = 0.3 },   # [obs] every spender
+  { type = "trigger", ability = "dawnlight_apply" },
+  { type = "trigger", ability = "divine_storm" },           # only if Empyrean Legacy is up
+  { type = "buff", buff = "divine_purpose", chance = 0.09 },  # [obs] ~15 extra procs / 160 casts
+]
+
+[[abilities]]
+name = "hammer_of_wrath"
+spell_id = 24275
+requires_buff = "avenging_wrath"     # [obs] only cast inside AW
+cooldown = 7.5                       # [db2] recharge 7.5s (sped up by Avenging Wrath, see buff)
+cooldown_hasted = true
+charges = 2                          # [obs] ~34 casts per 5 AW windows = 2 charges at 7.5s hasted
+gain = { holy_power = 1 }            # [obs]
+damage = { ap_coeff = 2.15807, school = "holy", mastery = true }    # [db2 24275]
+on_cast = [
+  { type = "trigger", ability = "blade_of_justice_walk_into_light" },   # [obs] same timestamp
+  { type = "trigger", ability = "hammer_of_wrath_divine_resonance" },
+  { type = "trigger", ability = "hammer_of_wrath_second_sunrise", chance = 0.20, delay = 0.325 },  # [obs]
+]
+on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
+
+[[abilities]]
+name = "blade_of_justice"
+spell_id = 184575
+cooldown = 12               # [db2]
+cooldown_hasted = true
+gain = { holy_power = 2 }   # [db2 effect 30]
+damage = { ap_coeff = 1.92877, school = "holy", mastery = true }    # [db2 184575]
+on_cast = [
+  { type = "consume", buff = "art_of_war" },
+  { type = "trigger", ability = "expurgation_apply" },
+  { type = "trigger", ability = "light_within_boj", chance = 0.52 },          # [obs] 16.0 / 30.8
+  { type = "trigger", ability = "consecration_apply", chance = 0.75 },        # [obs] 23.2 / 30.8
+]
+
+[[abilities]]
+name = "judgment"
+spell_id = 20271
+cooldown = 9.5              # [obs] 2 charges (casts 1.2s apart), ~7s cadence outside AW; db2 base 11s/1 charge -> talented
+cooldown_hasted = true
+charges = 2
+gain = { holy_power = 1 }   # [obs]
+damage = { ap_coeff = 1.256, school = "holy", mastery = true }     # [db2 sp 1.00739 x 1.247]
+on_cast = [
+  { type = "trigger", ability = "highlords_judgment", mastery_chance = 0.85 },   # [obs] ~43% at 50% mastery
+]
+
+# ---------------------------------------------------------------- triggered sources
+
+[[abilities]]
+name = "crusading_strike"
+spell_id = 408385
+triggered_only = true
+gain = { holy_power = 1 }
+damage = { ap_coeff = 2.34731, school = "physical", crit_damage_bonus = 0.27 }   # [db2 408385]; [obs] crits x2.39
+on_cast = [{ type = "trigger", ability = "art_of_war_proc", chance = 0.133 }]   # [obs] 30.6 / 230.7
+
+[[abilities]]
+name = "art_of_war_proc"    # resets Blade of Justice [obs: BoJ follows every proc]
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "art_of_war" },
+  { type = "reset_cooldown", ability = "blade_of_justice" },
+]
+
+[[abilities]]
+name = "blade_of_justice_walk_into_light"
+spell_id = 184575
+triggered_only = true
+gain = { holy_power = 2 }
+damage = { ap_coeff = 1.92877, school = "holy", mastery = true }
+on_cast = [
+  { type = "consume", buff = "art_of_war" },
+  { type = "trigger", ability = "expurgation_apply" },
+  { type = "trigger", ability = "light_within_boj_wil", chance = 0.295 },     # [obs] 11.4 / 38.7
+  { type = "trigger", ability = "highlords_judgment", mastery_chance = 0.85 },
+]
+
+[[abilities]]
+name = "hammer_of_wrath_divine_resonance"
+spell_id = 24275
+triggered_only = true
+requires_buff = "divine_resonance"
+gain = { holy_power = 1 }
+damage = { ap_coeff = 2.15807, school = "holy", mastery = true }
+on_cast = [{ type = "consume", buff = "divine_resonance" }]
+on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
+
+[[abilities]]
+name = "hammer_of_wrath_divine_toll"
+spell_id = 1279408
+triggered_only = true
+gain = { holy_power = 1 }
+damage = { ap_coeff = 2.15807, school = "holy", mastery = true }   # [db2 1279408]
+on_cast = [{ type = "trigger", ability = "blade_of_justice_walk_into_light" }]
+on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
+
+[[abilities]]
+name = "hammer_of_wrath_second_sunrise"
+spell_id = 24275
+triggered_only = true
+gain = { holy_power = 1 }
+damage = { ap_coeff = 2.15807, school = "holy", mastery = true }
+
+[[abilities]]
+name = "divine_storm"       # free, via Empyrean Legacy
+spell_id = 53385
+triggered_only = true
+requires_buff = "empyrean_legacy"
+damage = { ap_coeff = 2.63424, school = "holy", mastery = true }   # [db2 53385]
+on_cast = [
+  { type = "consume", buff = "empyrean_legacy" },
+  { type = "trigger", ability = "divine_storm_tempest" },
+  { type = "trigger", ability = "divine_storm_second_sunrise", chance = 0.20, delay = 0.325 },
+]
+
+[[abilities]]
+name = "divine_storm_tempest"
+spell_id = 224239
+triggered_only = true
+damage = { ap_coeff = 2.63424, school = "holy", mastery = true }   # [db2 224239]
+
+[[abilities]]
+name = "divine_storm_second_sunrise"
+spell_id = 53385
+triggered_only = true
+damage = { ap_coeff = 2.63424, school = "holy", mastery = true }
+on_cast = [{ type = "trigger", ability = "divine_storm_second_sunrise_tempest" }]
+
+[[abilities]]
+name = "divine_storm_second_sunrise_tempest"
+spell_id = 224239
+triggered_only = true
+damage = { ap_coeff = 2.63424, school = "holy", mastery = true }
+
+[[abilities]]
+name = "highlords_judgment"
+spell_id = 383921
+triggered_only = true
+damage = { ap_coeff = 3.9, school = "holy", mastery = true }       # [db2 383921]
+on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
+
+[[abilities]]
+name = "light_within_boj"
+spell_id = 1261160
+triggered_only = true
+damage = { ap_coeff = 3.31918, school = "holy", mastery = true }   # [db2 1261160]
+
+[[abilities]]
+name = "light_within_boj_wil"
+spell_id = 1261160
+triggered_only = true
+damage = { ap_coeff = 3.31918, school = "holy", mastery = true }
+
+[[abilities]]
+name = "execution_sentence_init"
+spell_id = 1260251
+triggered_only = true
+damage = { ap_coeff = 5.05312, school = "holy", mastery = true }   # [db2 1260251]
+
+[[abilities]]
+name = "execution_sentence"  # detonation of the stored damage; never crits [obs]
+spell_id = 387113
+triggered_only = true
+damage = { stored_from = "execution_sentence", school = "holy", crit_bonus = -1.0 }
+
+[[abilities]]
+name = "seething_flames_0"
+spell_id = 405345
+triggered_only = true
+damage = { ap_coeff = 2.27174, school = "holyfire", mastery = true }   # [db2 405345]
+
+[[abilities]]
+name = "seething_flames_1"
+spell_id = 405350
+triggered_only = true
+damage = { ap_coeff = 2.27174, school = "holyfire", mastery = true }   # [db2 405350]
+
+[[abilities]]
+name = "suns_avatar"
+spell_id = 431911
+triggered_only = true
+damage = { ap_coeff = 0.269, school = "holyfire", mastery = true }   # [db2 sp 0.216 x 1.247]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { ap_coeff = 2.27, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "venomfang_apply" },
+  { type = "trigger", ability = "venomfang_burst", delay = 5.0 },
+]
+
+[[abilities]]
+name = "venomfang_burst"
+spell_id = 1306639
+triggered_only = true
+damage = { ap_coeff = 1.09, school = "nature" }
+
+# ---------------------------------------------------------------- DoT appliers
+
+[[abilities]]
+name = "dawnlight_apply"
+triggered_only = true
+requires_buff = "dawnlight"
+on_cast = [{ type = "consume", buff = "dawnlight" }]
+[abilities.dot]
+name = "dawnlight"           # [db2 431380: 8s, 2s period]
+ap_coeff = 0.795             # sp 0.6375 x 1.247
+tick_time = 2.0
+duration = 8.0
+school = "holyfire"
+mastery = true
+crit_damage_bonus = 0.11     # [obs] tick crit ratio 2.23
+tick_on_apply = true         # [obs] "ticks (0 of 6)" on fresh application
+refresh = "extend"           # [obs] reapplying adds a full 8s to what's left
+on_tick = [{ type = "trigger", ability = "suns_avatar" }]   # [obs] one Sun's Avatar per Dawnlight tick
+
+[[abilities]]
+name = "expurgation_apply"
+triggered_only = true
+[abilities.dot]
+name = "expurgation"         # [db2 383346: 9s, 3s period]
+crit_damage_bonus = 0.11     # [obs] tick crit ratio 2.23
+ap_coeff = 0.2295
+tick_time = 3.0
+duration = 9.0
+school = "holyfire"
+mastery = true
+
+[[abilities]]
+name = "truths_wake_apply"
+triggered_only = true
+[abilities.dot]
+name = "truths_wake"         # [db2 403695: 9s, 3s period]
+ap_coeff = 0.6528
+tick_time = 3.0
+duration = 9.0
+extend_on_crit = 2.0         # [obs] 26/26 extensions follow a critical tick
+crit_damage_bonus = 0.05     # [obs] tick crit ratio 2.17
+school = "holyfire"
+mastery = true
+
+[[abilities]]
+name = "sun_sear_apply"
+triggered_only = true
+[abilities.dot]
+name = "sun_sear"            # [db2 431414: 4s, 1s period]
+crit_damage_bonus = 0.03     # [obs] tick crit ratio 2.15
+ap_coeff = 0.15              # sp 0.12 x 1.247
+tick_time = 1.0
+duration = 4.0
+school = "holyfire"
+mastery = true
+tick_on_apply = true
+
+[[abilities]]
+name = "consecration_apply"
+triggered_only = true
+[abilities.dot]
+name = "consecration_tick_blade_of_justice"   # [db2 26573: 12s; 81297 ap 0.05]
+crit_damage_bonus = 0.10     # [obs] tick crit ratio 2.22
+ap_coeff = 0.05
+tick_time = 1.0
+duration = 13.5              # [obs] 17.7 ticks per cast; db2 says 12s
+school = "holy"
+mastery = true
+tick_on_apply = true
+refresh = "extend"           # [obs] overlapping Consecrations each keep ticking
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+ap_coeff = 0.15
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+[abilities.dot]
+name = "venomfang"           # [db2 1306635: 6s]
+ap_coeff = 0.58
+tick_time = 1.2
+duration = 5.0
+hasted = false
+school = "nature"
+refresh = "extend"           # [obs] stacking debuff: overlapping applications keep ticking
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of the observed priority (SimC default APL), single target.
+
+[[rotation]]
+action = "avenging_wrath"
+
+[[rotation]]
+action = "execution_sentence_cast"
+if = "buff.avenging_wrath.up"
+
+[[rotation]]
+action = "final_verdict"
+if = "holy_power>=5&cooldown.wake_of_ashes.remains>0|buff.divine_purpose.up&buff.divine_purpose.remains<gcd*2"
+
+[[rotation]]
+action = "wake_of_ashes"
+if = "cooldown.avenging_wrath.remains>6|buff.avenging_wrath.up"
+
+[[rotation]]
+action = "divine_toll"
+if = "buff.avenging_wrath.up|cooldown.avenging_wrath.remains>15"
+
+[[rotation]]
+action = "hammer_of_wrath"
+if = "cooldown.hammer_of_wrath.charges=2"
+
+[[rotation]]
+action = "final_verdict"
+
+[[rotation]]
+action = "hammer_of_wrath"
+
+[[rotation]]
+action = "blade_of_justice"
+
+[[rotation]]
+action = "judgment"
