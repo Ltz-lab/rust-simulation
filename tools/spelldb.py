@@ -3,18 +3,22 @@
 
   python3 tools/spelldb.py <db2_dir> "Blade of Justice" 184575 ...
 
-Prints, per spell: cooldown/charges, cost, duration, and every effect with its
-type, aura, base points and attack-power coefficient. No SimC involved.
+Prints, per spell: cooldown/charges, cast time, cost, duration, travel speed,
+RPPM, and every effect with its type, aura, base points and attack-/spell-power
+coefficient. No SimC involved.
 """
 import csv
+import os
 import sys
 from collections import defaultdict
 
 csv.field_size_limit(10**8)
 
 
-def load(d, name, key="SpellID", multi=False):
+def load(d, name, key="SpellID", multi=False, optional=False):
     out = defaultdict(list) if multi else {}
+    if optional and not os.path.exists(f"{d}/{name}.csv"):
+        return out
     with open(f"{d}/{name}.csv", newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             k = int(row[key])
@@ -46,6 +50,8 @@ def main():
     power = load(d, "SpellPower", multi=True)
     auraopt = load(d, "SpellAuraOptions")
     durations = load(d, "SpellDuration", key="ID")
+    casts = load(d, "SpellCastTimes", key="ID", optional=True)
+    ppms = load(d, "SpellProcsPerMinute", key="ID", optional=True)
 
     ids = []
     for q in queries:
@@ -73,14 +79,22 @@ def main():
             parts.append(f"gcd={num(cd['StartRecoveryTime'])/1000:g}s")
         if charge_cat:
             parts.append(f"charges={charge_cat.get('MaxCharges')} recharge={num(charge_cat.get('ChargeRecoveryTime'))/1000:g}s")
+        cast = casts.get(int(num(m.get("CastingTimeIndex"))), {})
+        if num(cast.get("Base")):
+            parts.append(f"cast={num(cast['Base'])/1000:g}s")
         if dur:
-            parts.append(f"duration={num(dur.get('Duration'))/1000:g}s")
+            # newer builds export the columns unnamed; Duration is the first one
+            ms = dur.get("Duration", list(dur.values())[1])
+            parts.append(f"duration={num(ms)/1000:g}s")
+        if num(m.get("Speed")):
+            parts.append(f"speed={num(m['Speed']):g}yd/s")
         if num(ao.get("CumulativeAura")):
             parts.append(f"max_stacks={ao['CumulativeAura']}")
         if num(ao.get("ProcChance")) and num(ao.get("ProcChance")) < 101:
             parts.append(f"proc_chance={ao['ProcChance']}%")
-        if num(ao.get("ProcsPerMinute") if "ProcsPerMinute" in ao else 0):
-            parts.append(f"ppm={ao['ProcsPerMinute']}")
+        ppm = ppms.get(int(num(ao.get("SpellProcsPerMinuteID"))), {})
+        if num(ppm.get("BaseProcRate")):
+            parts.append(f"rppm={num(ppm['BaseProcRate']):g}")
         for p in power.get(sid, []):
             parts.append(f"cost={num(p.get('ManaCost'))-0:g} type={p.get('PowerType')}")
         if m.get("SchoolMask"):

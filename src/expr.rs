@@ -8,6 +8,7 @@ pub enum Var {
     Gcd,
     Time,
     FightRemains,
+    HealthPct,
     CdReady(usize),
     CdRemains(usize),
     CdCharges(usize),
