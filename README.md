@@ -138,6 +138,39 @@ inserting a firing, roll-consuming but damageless ability at the top of the
 spec gives bit-identical DPS for the same seed. Each stream is a splitmix64
 sequence, with no measurable cost in speed.
 
+### Gear → stats
+
+`--gear profile.simc` computes the character's stats from their gear (the
+`/simc` addon export's slot lines) instead of taking final stats as input.
+Item stats come from the game's item tables: each item's stat allocation, its
+item level from bonus IDs (upgrade tracks, crafting quality), the stat budget
+for that level and slot, combat-rating and stamina multipliers, plus gems and
+enchants. Ratings turn into percent at the character's level with diminishing
+returns. On top sit a few per-character constants in the spec's `[gear]`
+table (base strength, passives, raid buffs), each observed from the
+reference's reported stats.
+
+Against SimC's MID2 sample Ret profile (`tools/check_gear.py`), all 15 items'
+item levels and every rating match exactly, with and without trinkets:
+
+| stat | azsim | reference | diff |
+|---|---:|---:|---:|
+| crit rating | 1,051 | 1,051 | 0 |
+| haste rating | 816 | 816 | 0 |
+| mastery rating | 1,062 | 1,062 | 0 |
+| versatility rating | 107 | 107 | 0 |
+| attack power | 2,696 | 2,696 | 0 |
+| crit | 31.85% | 31.85% | 0 |
+| haste | 20.92% | 20.92% | 0 |
+| mastery | 50.07% | 50.07% | 0 |
+| versatility | 4.98% | 4.98% | 0 |
+
+DPS from `--gear` is 132,876 vs 132,902 from the hand-entered final stats
+(-0.02%, same seed; SimC 131,771). Real Raidbots Top Gear exports
+(Havoc DH, BM Hunter, Demonology Warlock) load too: Havoc matches every
+rating exactly, Demonology is within 2 (one off-hand, see *Known gaps*).
+Loading the item data costs about 30ms once per run.
+
 ### Speed
 
 Same machine (2 cores), 10,000 iterations: azsim **1.6s**, SimC **25.3s**.
@@ -172,9 +205,15 @@ src/
   sim.rs       the engine: event queue, cooldowns/charges, buffs, DoTs,
                triggers, procs, resources. No class-specific code.
   spec.rs      the spec file format (serde) and calibration overlay
+  gear.rs      gear -> stats: parses /simc gear lines, item level from bonus
+               IDs, stat budgets from the game's item scaling tables
   expr.rs      rotation condition language (holy_power>=3&!buff.x.up ...)
 specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
+data/
+  gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
+profiles/
+  MID2_Paladin_Retribution.simc   gear of SimC's MID2 sample Ret profile
 calibration/
   retribution_herald.toml   generated per-hit multipliers + crit offsets
 reference/                  observations used for calibration and validation
@@ -186,6 +225,8 @@ tools/
   validate_stats.py  held-out stat-sensitivity test
   paired_noise.py    paired vs independent noise of stat comparisons
   make_reference.sh  regenerate reference/ from a SimC build
+  gamedata.py        build data/gamedata.json.gz from wago.tools DB2/game tables
+  check_gear.py      gear -> stats check against SimC's per-item and buffed stats
 ```
 
 ## Usage
@@ -220,6 +261,18 @@ python3 tools/paired_noise.py specs/retribution_herald.toml calibration/retribut
     reference/ret_core_observations.json \
     "+500 crit=reference/ret_probe_crit_rating.json" "+500 haste=reference/ret_probe_haste_rating.json" \
     "+500 mastery=reference/ret_probe_mastery_rating.json" "+500 vers=reference/ret_probe_versatility_rating.json"
+
+# sim a character from their gear (the /simc addon export's slot lines)
+./target/release/azsim specs/retribution_herald.toml --calib calibration/retribution_herald.toml \
+    --gear profiles/MID2_Paladin_Retribution.simc
+# ...or just print the per-item and final stats it computes
+./target/release/azsim specs/retribution_herald.toml --gear profiles/MID2_Paladin_Retribution.simc --gear-stats
+
+# check gear -> stats (and DPS) against SimC for the same gear
+python3 tools/check_gear.py "/path/to/simc" profiles/MID2_Paladin_Retribution.simc --no-trinkets --dps
+
+# rebuild the item data for a new game build (downloads ~70 MB of DB2 CSVs into target/)
+python3 tools/gamedata.py --build 12.1.5.70575
 
 # look up spells in the raw game data (CSV exports from wago.tools/db2/<Table>/csv)
 # tables used: SpellName SpellEffect SpellMisc SpellCooldowns SpellCategories
@@ -267,7 +320,15 @@ extend-on-crit and on-tick effects.
   cadence. Blessing of An'she isn't modelled individually.
 - **Small sources:** Consecration overlap (-11%) and Sun Sear (+10%) are each
   under 1% of damage.
-- **Not yet built:** gear → stats (we take final stats as input), trinkets and
+- **Gear → stats:** the `[gear]` constants are per spec and race (Ret dwarf
+  today); racial stat bonuses such as Human's +2% secondaries, enchants that
+  work through a spell aura (ring crit-damage, weapon procs), embellishments,
+  and set bonuses aren't read from data yet. Two rare item-level bonuses are
+  off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
+  340 vs 341). On-equip primary stat from trinkets counts; their effects
+  don't. Item data is the full equippable item set of build 12.1.5.70575
+  (793 KB gzip'd); rebuild it per patch with `tools/gamedata.py`.
+- **Not yet built:** trinkets and
   tier sets, multi-target, movement, healers and tanks, a real Warcraft Logs
   ingestion pipeline, and an effect-interpretation layer for DB2 aura types.
 
@@ -278,6 +339,7 @@ extend-on-crit and on-tick effects.
 2. Warcraft Logs ingestion: the same `observe → calibrate → validate` loop on
    real logs instead of SimC output.
 3. A rotation optimizer (search over priority lists with the engine as the judge).
-4. Gear → stats from item and scaling tables.
+4. Top Gear: sim many gear sets per run (the item data loads once), with
+   paired seeds so the differences between sets carry little noise.
 5. More specs, ideally generated as drafts by an AI from data + tooltips and
    then verified by the validation loop above.
