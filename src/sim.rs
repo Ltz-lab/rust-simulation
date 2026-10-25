@@ -9,47 +9,58 @@ use std::collections::{BinaryHeap, HashMap};
 const INF: f64 = f64::INFINITY;
 const MAX_TRIGGER_DEPTH: u32 = 8;
 
-/// xoshiro256++ — small, fast, good-quality RNG; no dependency churn.
-struct Rng([u64; 4]);
-impl Rng {
-    fn seed(mut x: u64) -> Self {
-        let mut s = [0u64; 4];
-        for v in &mut s {
-            x = x.wrapping_add(0x9E3779B97F4A7C15); // splitmix64
-            let mut z = x;
-            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
-            *v = z ^ (z >> 31);
-        }
-        Rng(s)
+fn mix(mut z: u64) -> u64 {
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^ (z >> 31)
+}
+
+const GOLDEN: u64 = 0x9E3779B97F4A7C15;
+
+/// Random numbers as independent streams, one per purpose: fight length, the
+/// crit roll and damage range of each source, every chance roll site and every
+/// RPPM proc. Each stream is its own splitmix64 sequence keyed by
+/// (iteration seed, stream name), so the n-th crit roll of Final Verdict is the
+/// same number in two runs with the same seed no matter what else happened in
+/// between. That keeps paired comparisons (same seed, different stats or gear)
+/// sharing their luck after the runs diverge. Keys come from names, not
+/// positions, so a gear set that adds a trinket proc leaves every other
+/// stream untouched.
+struct Streams(Vec<u64>);
+impl Streams {
+    fn new(seed: u64, keys: &[u64]) -> Self {
+        let s = mix(seed.wrapping_add(GOLDEN));
+        Streams(keys.iter().map(|&k| mix(s ^ k)).collect())
     }
-    fn next_u64(&mut self) -> u64 {
-        let s = &mut self.0;
-        let r = s[0].wrapping_add(s[3]).rotate_left(23).wrapping_add(s[0]);
-        let t = s[1] << 17;
-        s[2] ^= s[0];
-        s[3] ^= s[1];
-        s[1] ^= s[2];
-        s[0] ^= s[3];
-        s[2] ^= t;
-        s[3] = s[3].rotate_left(45);
-        r
+    /// Uniform in [0, 1), next number of stream `k`.
+    fn f64(&mut self, k: usize) -> f64 {
+        let st = &mut self.0[k];
+        *st = st.wrapping_add(GOLDEN);
+        (mix(*st) >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
     }
-    /// Uniform in [0, 1).
-    fn f64(&mut self) -> f64 { (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64) }
-    fn range(&mut self, lo: f64, hi: f64) -> f64 { lo + (hi - lo) * self.f64() }
+    fn range(&mut self, k: usize, lo: f64, hi: f64) -> f64 { lo + (hi - lo) * self.f64(k) }
+}
+
+/// Stable 64-bit key for a stream name (FNV-1a, then mixed).
+fn stream_key(name: &str) -> u64 {
+    let mut h: u64 = 0xCBF29CE484222325;
+    for b in name.bytes() {
+        h = (h ^ b as u64).wrapping_mul(0x100000001B3);
+    }
+    mix(h)
 }
 
 // ---------- compiled spec ----------
 
 #[derive(Debug, Clone)]
 enum CEffect {
-    Buff { buff: usize, stacks: u32, chance: f64 },
+    // `rid`: this effect's own random stream for its chance roll
+    Buff { buff: usize, stacks: u32, chance: f64, rid: usize },
     Consume { buff: usize, all: bool },
-    Reset { ab: usize, chance: f64 },
-    Reduce { ab: usize, secs: f64, chance: f64 },
-    Gain { res: usize, amt: f64, chance: f64 },
-    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64> },
+    Reset { ab: usize, chance: f64, rid: usize },
+    Reduce { ab: usize, secs: f64, chance: f64, rid: usize },
+    Gain { res: usize, amt: f64, chance: f64, rid: usize },
+    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, rid: usize },
     ExtendDot { dot: usize, secs: f64 },
 }
 
@@ -100,6 +111,8 @@ pub struct Compiled {
     crit_buffs: Vec<(usize, f64)>,
     store_buffs: Vec<(usize, f64)>,
     names: Vec<String>,
+    /// Key of every random stream, in the layout of the `*_stream` methods.
+    stream_keys: Vec<u64>,
 }
 
 struct Names<'a> {
@@ -194,26 +207,36 @@ impl Compiled {
         }
         let names = Names { res: &res, ab: &ab, buff: &buff, dot: &dot };
 
+        // one stream per chance-roll site, named by where it sits in the spec
+        let roll_names = std::cell::RefCell::new(Vec::<String>::new());
+        let site = std::cell::RefCell::new(String::new());
+        let next_rid = || {
+            let mut v = roll_names.borrow_mut();
+            v.push(site.borrow().clone());
+            v.len() - 1
+        };
         let effect = |e: &Effect| -> Result<CEffect, String> {
             Ok(match e {
                 Effect::Buff { buff: b, stacks, chance } => {
-                    CEffect::Buff { buff: get(&buff, "buff", b)?, stacks: *stacks, chance: *chance }
+                    CEffect::Buff { buff: get(&buff, "buff", b)?, stacks: *stacks, chance: *chance, rid: next_rid() }
                 }
                 Effect::Consume { buff: b, all } => {
                     CEffect::Consume { buff: get(&buff, "buff", b)?, all: *all }
                 }
                 Effect::ResetCooldown { ability, chance } => {
-                    CEffect::Reset { ab: get(&ab, "ability", ability)?, chance: *chance }
+                    CEffect::Reset { ab: get(&ab, "ability", ability)?, chance: *chance, rid: next_rid() }
                 }
                 Effect::ReduceCooldown { ability, seconds, chance } => CEffect::Reduce {
                     ab: get(&ab, "ability", ability)?,
                     secs: *seconds,
                     chance: *chance,
+                    rid: next_rid(),
                 },
                 Effect::Gain { resource, amount, chance } => CEffect::Gain {
                     res: get(&res, "resource", resource)?,
                     amt: *amount,
                     chance: *chance,
+                    rid: next_rid(),
                 },
                 Effect::ExtendDot { dot: d, seconds } => {
                     CEffect::ExtendDot { dot: get(&dot, "dot", d)?, secs: *seconds }
@@ -223,10 +246,19 @@ impl Compiled {
                     chance: *chance,
                     delay: *delay,
                     mastery_chance: *mastery_chance,
+                    rid: next_rid(),
                 },
             })
         };
-        let effects = |v: &[Effect]| -> Result<Vec<CEffect>, String> { v.iter().map(&effect).collect() };
+        let effects = |v: &[Effect], at: &str| -> Result<Vec<CEffect>, String> {
+            v.iter()
+                .enumerate()
+                .map(|(k, e)| {
+                    *site.borrow_mut() = format!("{at}/{k}");
+                    effect(e)
+                })
+                .collect()
+        };
         let rmap = |m: &HashMap<String, f64>| -> Result<Vec<(usize, f64)>, String> {
             m.iter().map(|(k, v)| Ok((get(&res, "resource", k)?, *v))).collect()
         };
@@ -239,7 +271,7 @@ impl Compiled {
             let dot_idx = match &a.dot {
                 Some(d) => {
                     dots.push(CDot {
-                        on_tick: effects(&d.on_tick).map_err(ctx)?,
+                        on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
                         buff_mods: buff_mods(&spec.buffs, &d.name, &d.school),
                         physical: d.school == "physical",
                         def: d.clone(),
@@ -258,8 +290,8 @@ impl Compiled {
                     .map(|b| get(&buff, "buff", b))
                     .transpose()
                     .map_err(ctx)?,
-                on_cast: effects(&a.on_cast).map_err(ctx)?,
-                on_crit: effects(&a.on_crit).map_err(ctx)?,
+                on_cast: effects(&a.on_cast, &format!("{}/on_cast", a.name)).map_err(ctx)?,
+                on_crit: effects(&a.on_crit, &format!("{}/on_crit", a.name)).map_err(ctx)?,
                 dot: dot_idx,
                 stored_from: a
                     .damage
@@ -301,7 +333,7 @@ impl Compiled {
 
         let (auto_on_hit, auto_mult, auto_replace) = match &spec.auto_attack {
             Some(a) => (
-                effects(&a.on_hit)?,
+                effects(&a.on_hit, "auto_attack/on_hit")?,
                 a.mult,
                 a.replace_with.as_ref().map(|n| get(&ab, "ability", n)).transpose()?,
             ),
@@ -339,6 +371,23 @@ impl Compiled {
         src_names.extend(dots.iter().map(|d| d.def.name.clone()));
         src_names.push("auto_attack".into());
 
+        let roll_names = roll_names.into_inner();
+        let mut stream_names = vec!["fight_length".to_string()];
+        stream_names.extend(src_names.iter().map(|n| format!("crit/{n}")));
+        stream_names.extend(src_names.iter().map(|n| format!("range/{n}")));
+        stream_names.extend(spec.procs.iter().map(|p| format!("rppm/{}", p.ability)));
+        stream_names.extend(roll_names.iter().map(|n| format!("roll/{n}")));
+        // the same proc listed twice still needs two streams
+        let mut seen = HashMap::new();
+        let stream_keys = stream_names
+            .iter()
+            .map(|n| {
+                let k = seen.entry(n.clone()).or_insert(0u32);
+                *k += 1;
+                stream_key(&if *k == 1 { n.clone() } else { format!("{n}#{k}") })
+            })
+            .collect();
+
         Ok(Compiled {
             res_max: res_names.iter().map(|n| spec.resources[n].max).collect(),
             res_start: res_names.iter().map(|n| spec.resources[n].start).collect(),
@@ -358,13 +407,23 @@ impl Compiled {
             crit_buffs,
             store_buffs,
             names: src_names,
+            stream_keys,
             spec,
         })
     }
 
     /// Damage sources in result order: abilities, then dots, then auto attack.
     pub fn source_names(&self) -> &[String] { &self.names }
+
+    // Stream layout: fight length, crit per source, damage range per source,
+    // RPPM per proc, then one per chance-roll site.
+    fn crit_stream(&self, src: usize) -> usize { 1 + src }
+    fn range_stream(&self, src: usize) -> usize { 1 + self.names.len() + src }
+    fn proc_stream(&self, k: usize) -> usize { 1 + 2 * self.names.len() + k }
+    fn roll_stream(&self, rid: usize) -> usize { 1 + 2 * self.names.len() + self.procs.len() + rid }
 }
+
+const FIGHT_STREAM: usize = 0;
 
 // ---------- per-iteration state ----------
 
@@ -392,7 +451,7 @@ pub struct IterResult {
 
 struct State<'a> {
     c: &'a Compiled,
-    rng: Rng,
+    rng: Streams,
     now: f64,
     end: f64,
     res: Vec<f64>,
@@ -449,9 +508,9 @@ fn us(t: f64) -> u64 { (t.max(0.0) * 1e6).round() as u64 }
 
 impl<'a> State<'a> {
     fn new(c: &'a Compiled, seed: u64, log: bool) -> Self {
-        let mut rng = Rng::seed(seed);
+        let mut rng = Streams::new(seed, &c.stream_keys);
         let f = &c.spec.fight;
-        let end = f.duration * (1.0 + rng.range(-f.variance, f.variance));
+        let end = f.duration * (1.0 + rng.range(FIGHT_STREAM, -f.variance, f.variance));
         let n_src = c.names.len();
         let na = c.abilities.len();
         State {
@@ -603,12 +662,14 @@ impl<'a> State<'a> {
         }
     }
 
-    fn roll(&mut self, chance: f64) -> bool { chance >= 1.0 || self.rng.f64() < chance }
+    fn roll(&mut self, rid: usize, chance: f64) -> bool {
+        chance >= 1.0 || self.rng.f64(self.c.roll_stream(rid)) < chance
+    }
 
     fn apply(&mut self, e: &CEffect) {
         match *e {
-            CEffect::Buff { buff, stacks, chance } => {
-                if !self.roll(chance) {
+            CEffect::Buff { buff, stacks, chance, rid } => {
+                if !self.roll(rid, chance) {
                     return;
                 }
                 let def = &self.c.buffs[buff];
@@ -633,8 +694,8 @@ impl<'a> State<'a> {
                     self.buff_stk[buff] -= 1;
                 }
             }
-            CEffect::Reset { ab, chance } => {
-                if !self.roll(chance) {
+            CEffect::Reset { ab, chance, rid } => {
+                if !self.roll(rid, chance) {
                     return;
                 }
                 self.sync_cd(ab);
@@ -648,8 +709,8 @@ impl<'a> State<'a> {
                     println!("{:8.3} reset {}", self.now, self.c.abilities[ab].def.name);
                 }
             }
-            CEffect::Reduce { ab, secs, chance } => {
-                if !self.roll(chance) {
+            CEffect::Reduce { ab, secs, chance, rid } => {
+                if !self.roll(rid, chance) {
                     return;
                 }
                 if self.recharge_at[ab] != INF {
@@ -657,8 +718,8 @@ impl<'a> State<'a> {
                     self.sync_cd(ab);
                 }
             }
-            CEffect::Gain { res, amt, chance } => {
-                if !self.roll(chance) {
+            CEffect::Gain { res, amt, chance, rid } => {
+                if !self.roll(rid, chance) {
                     return;
                 }
                 self.gain(res, amt);
@@ -668,12 +729,12 @@ impl<'a> State<'a> {
                     self.dot_exp[dot] += secs;
                 }
             }
-            CEffect::Trigger { ab, chance, delay, mastery_chance } => {
+            CEffect::Trigger { ab, chance, delay, mastery_chance, rid } => {
                 let chance = match mastery_chance {
                     Some(f) => self.c.spec.player.mastery * f,
                     None => chance,
                 };
-                if !self.roll(chance) {
+                if !self.roll(rid, chance) {
                     return;
                 }
                 if delay > 0.0 {
@@ -709,7 +770,7 @@ impl<'a> State<'a> {
                 m *= 1.0 + pct * self.stacks(b);
             }
         }
-        let crit = self.rng.f64() < self.crit_chance(crit_bonus);
+        let crit = self.rng.f64(self.c.crit_stream(src)) < self.crit_chance(crit_bonus);
         let dmg = base * m * if crit { p.crit_multiplier + crit_dmg } else { 1.0 };
         self.out.damage[src] += dmg;
         self.out.hits[src] += 1;
@@ -734,9 +795,9 @@ impl<'a> State<'a> {
         p.attack_power + p.weapon_attack_power
     }
 
-    fn weapon_roll(&mut self) -> f64 {
+    fn weapon_roll(&mut self, src: usize) -> f64 {
         match &self.c.spec.player.weapon {
-            Some(w) => if w.max > w.min { self.rng.range(w.min, w.max) } else { w.min },
+            Some(w) => if w.max > w.min { self.rng.range(self.c.range_stream(src), w.min, w.max) } else { w.min },
             None => 0.0,
         }
     }
@@ -824,7 +885,7 @@ impl<'a> State<'a> {
         if let Some(d) = &a.def.damage {
             let ap = self.ap();
             for _ in 0..d.hits {
-                let w = if d.weapon_mult > 0.0 { self.weapon_roll() * d.weapon_mult } else { 0.0 };
+                let w = if d.weapon_mult > 0.0 { self.weapon_roll(i) * d.weapon_mult } else { 0.0 };
                 let base = match a.stored_from {
                     Some(b) => std::mem::take(&mut self.stored[b]),
                     None => d.ap_coeff * ap + w,
@@ -867,7 +928,7 @@ impl<'a> State<'a> {
     fn schedule_proc(&mut self, k: usize) {
         let (_, ppm, hasted) = self.c.procs[k];
         let rate = ppm / 60.0 * if hasted { self.haste_mult() } else { 1.0 };
-        let dt = -(1.0 - self.rng.f64()).ln() / rate;
+        let dt = -(1.0 - self.rng.f64(self.c.proc_stream(k))).ln() / rate;
         self.push(self.now + dt, Ev::Proc(k as u32));
     }
 
@@ -895,7 +956,7 @@ impl<'a> State<'a> {
                     match c.auto_replace {
                         Some(i) => self.execute(i, true),
                         None => {
-                            let base = self.weapon_roll();
+                            let base = self.weapon_roll(auto_src);
                             self.hit(auto_src, base, c.auto_mult, &c.auto_mods, true, 0.0, 0.0, false);
                             self.out.casts[auto_src] += 1;
                         }
