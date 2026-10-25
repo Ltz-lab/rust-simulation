@@ -3,7 +3,20 @@ name = "azsim"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "azsim"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "azsim"
+path = "src/main.rs"
+
+[features]
+# Python extension module (built by maturin: `maturin develop --release`)
+python = ["dep:pyo3"]
+
 [dependencies]
+pyo3 = { version = "0.28", optional = true, features = ["abi3-py311"] }
 flate2 = "1"
 rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
