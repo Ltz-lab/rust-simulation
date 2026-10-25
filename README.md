@@ -325,7 +325,7 @@ DPS ±62, delta +996 ±4.4.
 
 A variant is a list of /simc gear lines; each replaces the base's line for the
 same slot, so a variant only needs the slots that change. `set` overrides numeric
-spec fields, as `--set` does. With `target_error` it runs in chunks until every
+spec fields, as `--set` does. With `target_error` (DPS) or `target_error_pct` (% of base DPS) it runs in chunks until every
 variant's delta is that tight (or `max_iterations`).
 
 ```bash

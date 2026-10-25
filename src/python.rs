@@ -16,10 +16,10 @@ fn exec(py: Python<'_>, req: Request) -> PyResult<Py<PyAny>> {
     to_py(py, &resp)
 }
 
-/// sim(spec, calib=None, gear_lines=None, iterations=10000, target_error=None, seed=1, set=None, max_iterations=200000)
+/// sim(spec, calib=None, gear_lines=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000)
 /// -> {"spec", "iterations", "seconds", "dps", "dps_error_95"}
 #[pyfunction]
-#[pyo3(signature = (spec, calib=None, gear_lines=None, iterations=10000, target_error=None, seed=1, set=None, max_iterations=200000))]
+#[pyo3(signature = (spec, calib=None, gear_lines=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000))]
 #[allow(clippy::too_many_arguments)]
 fn sim(
     py: Python<'_>,
@@ -28,13 +28,14 @@ fn sim(
     gear_lines: Option<Vec<String>>,
     iterations: u64,
     target_error: Option<f64>,
+    target_error_pct: Option<f64>,
     seed: u64,
     set: Option<BTreeMap<String, f64>>,
     max_iterations: u64,
 ) -> PyResult<Py<PyAny>> {
     let req = Request {
         spec, calib, base_gear: gear_lines.unwrap_or_default(), variants: vec![],
-        set: set.unwrap_or_default(), iterations, target_error, max_iterations, seed,
+        set: set.unwrap_or_default(), iterations, target_error, target_error_pct, max_iterations, seed,
     };
     let out = exec(py, req)?;
     let d = out.bind(py).cast::<pyo3::types::PyDict>()?.clone();
@@ -46,12 +47,12 @@ fn sim(
     Ok(d.into_any().unbind())
 }
 
-/// sim_batch(spec, base_gear, variants, calib=None, iterations=10000, target_error=None, seed=1, set=None, max_iterations=200000)
+/// sim_batch(spec, base_gear, variants, calib=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000)
 /// `variants`: list of {"name": str, "gear": [slot lines replacing the base's], "set": {path: value}}.
 /// -> {"spec", "iterations", "seconds", "base": {dps, dps_error_95},
 ///     "variants": [{name, dps, dps_error_95, delta, delta_error_95}]}
 #[pyfunction]
-#[pyo3(signature = (spec, base_gear, variants, calib=None, iterations=10000, target_error=None, seed=1, set=None, max_iterations=200000))]
+#[pyo3(signature = (spec, base_gear, variants, calib=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000))]
 #[allow(clippy::too_many_arguments)]
 fn sim_batch(
     py: Python<'_>,
@@ -61,6 +62,7 @@ fn sim_batch(
     calib: Option<String>,
     iterations: u64,
     target_error: Option<f64>,
+    target_error_pct: Option<f64>,
     seed: u64,
     set: Option<BTreeMap<String, f64>>,
     max_iterations: u64,
@@ -75,7 +77,7 @@ fn sim_batch(
     }
     let req = Request {
         spec, calib, base_gear, variants: vs, set: set.unwrap_or_default(),
-        iterations, target_error, max_iterations, seed,
+        iterations, target_error, target_error_pct, max_iterations, seed,
     };
     exec(py, req)
 }

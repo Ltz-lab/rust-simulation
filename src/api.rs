@@ -81,6 +81,9 @@ pub struct Request {
     /// has a 95% error at or below this many DPS, up to `max_iterations`.
     #[serde(default)]
     pub target_error: Option<f64>,
+    /// Same, as a percentage of the base DPS (`target_error` wins if both are set).
+    #[serde(default)]
+    pub target_error_pct: Option<f64>,
     #[serde(default = "default_max_iterations")]
     pub max_iterations: u64,
     #[serde(default = "default_seed")]
@@ -204,7 +207,7 @@ pub fn run(req: &Request) -> Result<Response, String> {
     }
 
     let mut dps: Vec<Vec<f64>> = vec![Vec::new(); models.len()];
-    let (total, step) = match req.target_error {
+    let (total, step) = match req.target_error.or(req.target_error_pct) {
         Some(_) => (req.max_iterations.max(1), 2_000u64),
         None => (req.iterations.max(2), req.iterations.max(2)),
     };
@@ -218,7 +221,8 @@ pub fn run(req: &Request) -> Result<Response, String> {
         }
         done += n;
         if done >= total { break; }
-        if let Some(t) = req.target_error {
+        let target = req.target_error.or_else(|| req.target_error_pct.map(|p| p / 100.0 * mean_err(&dps[0]).0));
+        if let Some(t) = target {
             let worst = (1..models.len())
                 .map(|k| delta_stat(&dps[k], &dps[0]).1)
                 .fold(if models.len() == 1 { mean_err(&dps[0]).1 } else { 0.0 }, f64::max);
@@ -289,6 +293,7 @@ mod tests {
             set: Default::default(),
             iterations: 400,
             target_error: None,
+            target_error_pct: None,
             max_iterations: 1000,
             seed: 7,
         };
@@ -313,7 +318,7 @@ mod tests {
         let req = Request {
             spec: "retribution_herald".into(), calib: None, base_gear: gear_lines(),
             variants: vec![Variant { name: "same".into(), ..Default::default() }],
-            set: Default::default(), iterations: 0, target_error: Some(50.0),
+            set: Default::default(), iterations: 0, target_error: Some(50.0), target_error_pct: None,
             max_iterations: 20_000, seed: 1,
         };
         let r = run(&req).unwrap();

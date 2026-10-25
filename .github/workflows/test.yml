@@ -1,0 +1,17 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --release
+      - run: pip install maturin pytest
+      - run: python -m venv .venv && . .venv/bin/activate && pip install maturin pytest && maturin develop --release && pytest -q python/tests

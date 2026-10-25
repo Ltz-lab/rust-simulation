@@ -37,3 +37,8 @@ def test_bad_spec():
     except ValueError:
         return
     raise AssertionError("expected ValueError")
+
+
+def test_target_error_pct():
+    r = azsim.sim_batch("retribution_herald", GEAR, [{"name": "same"}], target_error_pct=0.1, max_iterations=20_000)
+    assert r["iterations"] == 2_000
