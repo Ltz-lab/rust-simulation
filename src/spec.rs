@@ -385,20 +385,37 @@ fn default_armor() -> f64 { 0.70 }
 fn default_refresh() -> String { "pandemic".into() }
 
 /// Calibration overlay, kept in its own file so the hand-written spec stays
-/// clean: per damage source, a residual multiplier and crit-chance offset
-/// fitted from observed logs.
+/// clean: per damage source, the multiplier derived from the game's spell
+/// modifiers (tools/effects.py) and a residual multiplier and crit-chance
+/// offset fitted from observed logs (tools/calibrate.py); per buff, the
+/// damage modifiers it carries in the game data.
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct Calibration {
     #[serde(default)]
     pub sources: HashMap<String, CalibEntry>,
+    #[serde(default)]
+    pub buffs: HashMap<String, BuffPatch>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct CalibEntry {
+    /// From talents and spec auras in the game data.
+    #[serde(default = "one")]
+    pub derived: f64,
+    /// Residual: whatever the derived layer doesn't explain.
     #[serde(default = "one")]
     pub mult: f64,
     #[serde(default)]
     pub crit_bonus: f64,
+}
+
+/// Damage bonuses added to a spec buff (percent, keyed like BuffDef's).
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct BuffPatch {
+    #[serde(default)]
+    pub ability_pct: HashMap<String, f64>,
+    #[serde(default)]
+    pub school_pct: HashMap<String, f64>,
 }
 
 impl Spec {
@@ -408,13 +425,13 @@ impl Spec {
         for a in &mut self.abilities {
             let src = a.source.as_ref().unwrap_or(&a.name);
             if let (Some(d), Some(c)) = (&mut a.damage, cal.sources.get(src)) {
-                d.mult *= c.mult;
+                d.mult *= c.derived * c.mult;
                 d.crit_bonus += c.crit_bonus;
                 seen.insert(src.clone());
             }
             if let Some(d) = &mut a.dot
                 && let Some(c) = cal.sources.get(&d.name) {
-                    d.mult *= c.mult;
+                    d.mult *= c.derived * c.mult;
                     d.crit_bonus += c.crit_bonus;
                     seen.insert(d.name.clone());
                 }
@@ -424,6 +441,47 @@ impl Spec {
                 return Err(format!("calibration: no damage source named '{k}'"));
             }
         }
+        for (name, p) in &cal.buffs {
+            let b = self.buffs.iter_mut().find(|b| &b.name == name)
+                .ok_or_else(|| format!("calibration: no buff named '{name}'"))?;
+            for (k, v) in &p.ability_pct {
+                *b.ability_pct.entry(k.clone()).or_default() += v;
+            }
+            for (k, v) in &p.school_pct {
+                *b.school_pct.entry(k.clone()).or_default() += v;
+            }
+        }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calibration_applies_derived_residual_and_buff_patches() {
+        let mut spec: Spec = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
+        let fv = |s: &Spec| s.abilities.iter().find(|a| a.name == "final_verdict").unwrap().damage.clone().unwrap();
+        let aw = |s: &Spec| s.buffs.iter().find(|b| b.name == "avenging_wrath").unwrap().ability_pct.clone();
+        let base = fv(&spec).mult;
+        let cal: Calibration = toml::from_str(
+            r#"
+            [sources."final_verdict"]
+            derived = 1.5
+            mult = 2.0
+            crit_bonus = 0.01
+            [buffs."avenging_wrath".ability_pct]
+            "final_verdict" = 20
+            "#,
+        )
+        .unwrap();
+        spec.apply_calibration(&cal).unwrap();
+        assert!((fv(&spec).mult - base * 3.0).abs() < 1e-12);
+        assert!((fv(&spec).crit_bonus - 0.01).abs() < 1e-12);
+        assert_eq!(aw(&spec).get("final_verdict"), Some(&20.0));
+
+        let bad: Calibration = toml::from_str("[buffs.\"nope\".ability_pct]\nx = 1").unwrap();
+        assert!(spec.apply_calibration(&bad).is_err());
     }
 }

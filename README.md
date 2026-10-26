@@ -21,8 +21,8 @@ source code.
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
 |---|---:|---:|---:|---|---:|
-| Retribution Paladin | 131,766 | 132,942 | +0.89% | haste +0.74 pts | ~16× |
-| Fire Mage | 147,374 | 148,453 | +0.73% | haste +2.23 pts | ~15× |
+| Retribution Paladin | 131,766 | 132,884 | +0.85% | haste +0.86 pts | ~16× |
+| Fire Mage | 147,374 | 148,454 | +0.73% | haste +2.19 pts | ~15× |
 
 ## Retribution Paladin
 
@@ -34,7 +34,7 @@ tier set or consumables), 300s Patchwerk, 5,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 131,766 |
-| azsim | 132,942 (±58) |
+| azsim | 132,884 (±60) |
 | difference | **+0.89%** |
 
 ### Structure: hit counts per fight
@@ -87,14 +87,14 @@ keep the calibration fixed, and compare DPS gains.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +8.50% | +8.24% | -0.25 pts |
-| +500 haste | +9.00% | +9.74% | +0.74 pts |
-| +500 mastery | +9.33% | +9.26% | -0.07 pts |
+| +500 crit | +8.50% | +8.20% | -0.30 pts |
+| +500 haste | +9.00% | +9.86% | +0.86 pts |
+| +500 mastery | +9.33% | +9.25% | -0.08 pts |
 | +500 vers | +8.79% | +8.82% | +0.03 pts |
 | +200 strength | +6.05% | +6.10% | +0.05 pts |
 
 Mastery, versatility and strength are within 0.1 points, crit within 0.3.
-**Haste over-responds by 0.7 points**, enough to swap haste and mastery at the
+**Haste over-responds by 0.9 points**, enough to swap haste and mastery at the
 top of the stat priority. See *Known gaps*.
 
 ### Paired comparisons
@@ -223,7 +223,7 @@ Pet damage (Arcane Phoenix) is included, as `arcane_phoenix_*` sources.
 | | DPS |
 |---|---:|
 | reference | 147,374 |
-| azsim | 148,453 (±138) |
+| azsim | 148,454 (±139) |
 | difference | **+0.73%** |
 
 ### Structure: hit counts per fight
@@ -259,9 +259,9 @@ Fireball and Scorch counts are within a few casts of the reference in each.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +4.61% | +4.17% | -0.43 pts |
-| +500 haste | +8.24% | +10.47% | +2.23 pts |
-| +500 mastery | +6.53% | +6.44% | -0.09 pts |
+| +500 crit | +4.61% | +4.20% | -0.41 pts |
+| +500 haste | +8.24% | +10.43% | +2.19 pts |
+| +500 mastery | +6.53% | +6.44% | -0.08 pts |
 | +500 vers | +7.96% | +7.92% | -0.04 pts |
 | +200 intellect | +6.49% | +6.61% | +0.13 pts |
 
@@ -313,6 +313,64 @@ All generic, data-driven, and Ret's results are bit-for-bit unchanged:
 - cooldown-rate buffs now also speed up a recharge already in progress;
 - **`source`**: several ability variants (hardcast / Hot Streak / Hyperthermia
   Pyroblast) report under one result row and share one calibration entry.
+
+## Talents and auras from game data
+
+Calibration fits one residual multiplier per damage source. Before this layer,
+that multiplier had to stand in for every talent, spec aura and buff that
+changes a spell's damage, so it ran to 2-4× on some sources. Most of those
+modifiers are plain data, and `tools/effects.py` now reads them:
+
+1. **Talents** come from the loadout string (the in-game export, SimC's
+   `talents=`), decoded against the DB2 trait tables by `tools/talents.py`:
+   the class tree's nodes in id order, selected/purchased/ranks/choice bits,
+   hero talents filtered to the chosen hero tree.
+2. **Passives** in effect are the talents, the spec's own spells and its
+   mastery, keeping those with the passive attribute.
+3. **Spell modifiers** on those passives that scale damage: aura 107/108
+   (flat/percent, matched by spell family and class mask), 218/219 (matched by
+   spell label), on the direct-damage, periodic-damage and effect-points ops,
+   plus aura 79 (percent damage done to a school).
+4. Each damage source gets the product of the percent modifiers that hit the
+   spell that dealt it. The spell id comes from the observations, as a combat
+   log records it; the spec's `spell_id` is only a fallback.
+5. **Buffs the spec models** get their own modifiers from their buff spell,
+   applied only while they're up: Avenging Wrath's +20% to every Ret spender,
+   Heat Shimmer's +100% Scorch damage. Buffs whose damage the spec already
+   sets by hand are left alone.
+
+`calibrate.py --derived` writes these into the calibration file (`derived` per
+source, `[buffs.*]` patches) and fits the residual `mult` on top. How much of
+the old multiplier is now explained (damage-weighted mean of |log residual|,
+as a factor):
+
+| spec | residual before | residual after | damage with residual beyond ±25% |
+|---|---:|---:|---|
+| Retribution | ×2.10 | ×1.38 | 95% → 60% |
+| Fire | ×1.46 | ×1.18 | 70% → 10% |
+
+DPS and the stat probes are unchanged within 0.15 points, except Ret haste,
+which moves from +0.74 to +0.86: with Avenging Wrath's +20% damage now applied
+inside its window rather than averaged over the fight, the window weighs more,
+and the Hammer of Wrath chain inside it is where the haste over-response sits.
+
+The tool also flags coefficients in the spec that disagree with the game data
+for the spell that dealt the damage: Wake of Ashes uses 1.743 (spell 205273)
+where the logged spell 255937 has 3.2186.
+
+What stays in the residual, by source: scripted effects the data only names
+(aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), target
+debuffs (Judgment's +20% from spenders, aura 271), buffs and procs the spec
+doesn't model, and the coefficient mismatches above.
+
+```sh
+python3 tools/db2.py --build 12.1.5.70575      # fetch the DB2 tables into target/db2
+python3 tools/talents.py target/db2 CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMz...
+python3 tools/effects.py target/db2 specs/retribution_herald.toml reference/ret_core_observations.json \
+    profiles/MID2_Paladin_Retribution.simc --out derived/retribution_herald.toml --explain final_verdict
+python3 tools/calibrate.py specs/retribution_herald.toml reference/ret_core_observations.json \
+    calibration/retribution_herald.toml --derived derived/retribution_herald.toml
+```
 
 ## Batch mode and Python
 
@@ -379,6 +437,7 @@ src/
   sim.rs       the engine: event queue, cooldowns/charges, buffs, DoTs,
                triggers, procs, resources. No class-specific code.
   spec.rs      the spec file format (serde) and calibration overlay
+               (derived multipliers, residuals, buff patches)
   gear.rs      gear -> stats: parses /simc gear lines, item level from bonus
                IDs, stat budgets from the game's item scaling tables
   expr.rs      rotation condition language (holy_power>=3&!buff.x.up ...)
@@ -389,14 +448,20 @@ data/
   gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
 profiles/
   MID2_Paladin_Retribution.simc   gear of SimC's MID2 sample Ret profile
+derived/
+  retribution_herald.toml   multipliers and buff modifiers read from game data (tools/effects.py)
+  fire_mage.toml
 calibration/
-  retribution_herald.toml   generated per-hit multipliers + crit offsets
+  retribution_herald.toml   derived multipliers + fitted residuals and crit offsets
   fire_mage.toml
 reference/                  observations used for calibration and validation
 tools/
   spelldb.py         look up spells in raw DB2 tables
+  db2.py             shared DB2 CSV loading
+  talents.py         decode a talent loadout string against the DB2 trait tables
+  effects.py         derive per-source and per-buff damage modifiers from talents and auras
   observe.py         turn a SimC (stand-in for logs) report into observations (pets included)
-  calibrate.py       fit per-hit multipliers; never touches hit counts
+  calibrate.py       fit residual per-hit multipliers on top of derived ones; never touches hit counts
   compare.py         side-by-side per-source comparison
   validate_stats.py  held-out stat-sensitivity test
   paired_noise.py    paired vs independent noise of stat comparisons
@@ -425,7 +490,8 @@ cargo build --release
 python3 tools/compare.py reference/ret_core_observations.json out.json
 
 # re-fit calibration, then run the held-out validation
-python3 tools/calibrate.py specs/retribution_herald.toml reference/ret_core_observations.json calibration/retribution_herald.toml
+python3 tools/calibrate.py specs/retribution_herald.toml reference/ret_core_observations.json calibration/retribution_herald.toml \
+    --derived derived/retribution_herald.toml
 python3 tools/validate_stats.py specs/retribution_herald.toml calibration/retribution_herald.toml \
     reference/ret_core_observations.json \
     "+500 crit=reference/ret_probe_crit_rating.json" "+500 haste=reference/ret_probe_haste_rating.json" \
@@ -453,7 +519,8 @@ python3 tools/gamedata.py --build 12.1.5.70575
 # Fire: same loop
 ./target/release/azsim specs/fire_mage.toml -n 10000 --calib calibration/fire_mage.toml --json out.json
 python3 tools/compare.py reference/fire_core_observations.json out.json
-python3 tools/calibrate.py specs/fire_mage.toml reference/fire_core_observations.json calibration/fire_mage.toml --rounds 6
+python3 tools/calibrate.py specs/fire_mage.toml reference/fire_core_observations.json calibration/fire_mage.toml \
+    --derived derived/fire_mage.toml --rounds 6
 python3 tools/validate_stats.py specs/fire_mage.toml calibration/fire_mage.toml \
     reference/fire_core_observations.json \
     "+500 crit=reference/fire_probe_crit_rating.json" "+500 haste=reference/fire_probe_haste_rating.json" \
@@ -557,12 +624,13 @@ extend-on-crit, on-tick effects, and `banked` rolling damage fed by hits.
 
 ### Not yet built
 
-Trinkets and tier sets, multi-target, movement, healers and tanks, a real Warcraft Logs ingestion pipeline, and an effect-interpretation layer for DB2 aura types.
+Trinkets and tier sets, multi-target, movement, healers and tanks, a real Warcraft Logs ingestion pipeline. The DB2 effect layer covers passive and buff spell modifiers; scripted auras, target debuffs and talent rank curves (TraitDefinitionEffectPoints) are next.
 
 ## Next steps
 
-1. Interpret DB2 aura/effect types (percent modifiers by spell family mask)
-   to replace the calibration overlay with derived multipliers.
+1. Extend the DB2 effect layer: target debuffs (aura 271) on the debuffs the
+   spec applies, talent rank curves, and the coefficient mismatches it flags;
+   then move hand-set buff values (`damage_pct` etc.) over to derived ones.
 2. Warcraft Logs ingestion: the same `observe → calibrate → validate` loop on
    real logs instead of SimC output.
 3. A rotation optimizer (search over priority lists with the engine as the judge).
