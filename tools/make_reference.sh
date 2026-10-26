@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate the reference observations in reference/ from SimulationCraft.
-# SimC is only used as a stand-in for real combat logs: we run it, read its
-# report, and never use its source code.
+# SimC's output stands in for real combat logs: we run it and read its report.
 #
 #   tools/make_reference.sh <prefix> <profile.simc> <primary-stat> [/path/to/simc-binary]
 #

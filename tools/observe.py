@@ -3,8 +3,7 @@
 
 SimC is used here as a stand-in for real combat logs: the same numbers
 (casts per fight, average hit, crit rate, buff uptime) can be mined from
-Warcraft Logs. The engine is calibrated against observations, never against
-SimC's source code.
+Warcraft Logs.
 
   python3 tools/observe.py report.json > observations.json
 """

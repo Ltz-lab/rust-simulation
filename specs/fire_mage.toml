@@ -6,6 +6,7 @@
 #   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py, incl.
 #          the Spell table's tooltip text for what a talent does
 #   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (class module or APL)
 # Damage coefficients are spell-power coefficients straight from SpellEffect.
 # Residual damage multipliers (talents, auras, target debuffs) live in a
 # separate calibration file produced by tools/calibrate.py — not hand-tuned here.
