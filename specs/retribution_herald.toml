@@ -4,6 +4,7 @@
 # Where numbers come from:
 #   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
 #   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (class module or APL)
 # Spell-power coefficients are converted to attack power with the observed
 # Ret ratio SP/AP = 3362/2696 = 1.247.
 # Residual damage multipliers (talents, auras, armor) live in a separate
