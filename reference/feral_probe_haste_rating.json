@@ -1,0 +1,462 @@
+{
+ "player": "MID2_Druid_Feral_Wildstalker",
+ "dps": 184467.25780917887,
+ "fight_length": 299.99180260086695,
+ "buffed_stats": {
+  "attributes": null,
+  "stats": {
+   "attack_power": 2577.0,
+   "spell_crit": 0.26891304347826084,
+   "attack_crit": 0.26891304347826084,
+   "spell_haste": 0.720772526615017,
+   "attack_haste": 0.720772526615017,
+   "spell_cast_speed": 0.720772526615017,
+   "auto_attack_speed": 0.720772526615017,
+   "mastery_value": 0.7473913043478261,
+   "damage_versatility": 0.07981481481481481,
+   "heal_versatility": 0.07981481481481481,
+   "mitigation_versatility": 0.039907407407407405,
+   "crit_rating": 777.0,
+   "crit_pct": 0.26891304347826084,
+   "haste_rating": 1302.0,
+   "haste_pct": 0.38740027272727273,
+   "mastery_rating": 1259.0,
+   "mastery_pct": 0.7473913043478261,
+   "versatility_rating": 107.0,
+   "versatility_pct": 0.07981481481481481,
+   "avoidance_rating": 167.0,
+   "avoidance_pct": 0.04537978699848076,
+   "speed_pct": 8.19,
+   "manareg_per_second": 2560.0,
+   "armor": 1267.76,
+   "dodge": 0.16755551827480375
+  }
+ },
+ "sources": {
+  "ferocious_bite": {
+   "spell_id": 22568,
+   "school": "physical",
+   "dps": 28369.39652466126,
+   "share": 0.15389647859832842,
+   "executes": 63.32144048016006,
+   "direct_hits": 63.32144048016005,
+   "direct_noncrit_avg": 99936.33289075513,
+   "direct_crit_rate": 0.3215096287012707,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rip": {
+   "spell_id": 1079,
+   "school": "physical",
+   "dps": 27235.389197906567,
+   "share": 0.14774478854949205,
+   "executes": 16.14104701567189,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 271.21340446815606,
+   "tick_noncrit_avg": 22368.06741966546,
+   "tick_crit_rate": 0.3223973374938066
+  },
+  "rake": {
+   "spell_id": 1822,
+   "school": "physical",
+   "dps": 19451.589831776066,
+   "share": 0.1055197341137355,
+   "executes": 28.366788929643214,
+   "direct_hits": 28.366788929643214,
+   "direct_noncrit_avg": 14640.05888296945,
+   "direct_crit_rate": 0.4752797630242618,
+   "ticks": 179.98966322107367,
+   "tick_noncrit_avg": 19020.351310324382,
+   "tick_crit_rate": 0.42088667979525335
+  },
+  "unseen_slash": {
+   "spell_id": 1263890,
+   "school": "physical",
+   "dps": 18487.286472481508,
+   "share": 0.1002886432385043,
+   "executes": 76.51517172390797,
+   "direct_hits": 76.40780260086696,
+   "direct_noncrit_avg": 7413.046624799756,
+   "direct_crit_rate": 0.32212946274662113,
+   "ticks": 141.04101367122374,
+   "tick_noncrit_avg": 25142.134770738892,
+   "tick_crit_rate": 0.3236142436321167
+  },
+  "shred": {
+   "spell_id": 5221,
+   "school": "physical",
+   "dps": 16339.054219208025,
+   "share": 0.08863505100566461,
+   "executes": 113.22807602534178,
+   "direct_hits": 113.22807602534178,
+   "direct_noncrit_avg": 26342.43336217404,
+   "direct_crit_rate": 0.42978640696643705,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "cat_melee": {
+   "spell_id": 0,
+   "school": "physical",
+   "dps": 15740.059482323328,
+   "share": 0.08538566286216452,
+   "executes": 502.50050016672225,
+   "direct_hits": 502.50050016672225,
+   "direct_noncrit_avg": 6970.418112907402,
+   "direct_crit_rate": 0.32249125580043514,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "feral_frenzy": {
+   "spell_id": 274837,
+   "school": "physical",
+   "dps": 15488.38162287111,
+   "share": 0.08402037698880477,
+   "executes": 10.037012337445816,
+   "direct_hits": 50.06868956318773,
+   "direct_noncrit_avg": 4872.867182434025,
+   "direct_crit_rate": 0.322737686139748,
+   "ticks": 59.08136045348449,
+   "tick_noncrit_avg": 54241.71330246644,
+   "tick_crit_rate": 0.3231481220193583
+  },
+  "bloodseeker_vines": {
+   "spell_id": 439531,
+   "school": "physical",
+   "dps": 12676.06936535515,
+   "share": 0.06876432623797585,
+   "executes": 61.78092697565855,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 184.46248749583197,
+   "tick_noncrit_avg": 15321.048253906496,
+   "tick_crit_rate": 0.3229248576020014
+  },
+  "lunar_inspiration": {
+   "spell_id": 155625,
+   "school": "arcane",
+   "dps": 11015.96267140651,
+   "share": 0.05975868616120798,
+   "executes": 19.29576525508503,
+   "direct_hits": 19.29576525508503,
+   "direct_noncrit_avg": 8722.544714650985,
+   "direct_crit_rate": 0.3234430082256169,
+   "ticks": 247.11637212404133,
+   "tick_noncrit_avg": 9249.695341072036,
+   "tick_crit_rate": 0.3225628860804586
+  },
+  "bursting_growth": {
+   "spell_id": 440122,
+   "school": "physical",
+   "dps": 5670.622684168299,
+   "share": 0.0307616294126906,
+   "executes": 149.6545515171724,
+   "direct_hits": 148.67155718572857,
+   "direct_noncrit_avg": 8489.884454451481,
+   "direct_crit_rate": 0.3224107691548582,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "ferocious_bite_convoke": {
+   "spell_id": 22568,
+   "school": "physical",
+   "dps": 4536.189706191547,
+   "share": 0.024607630318466942,
+   "executes": 10.89996665555185,
+   "direct_hits": 10.89996665555185,
+   "direct_noncrit_avg": 92120.63178838605,
+   "direct_crit_rate": 0.33041695983358316,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "shred_convoke": {
+   "spell_id": 5221,
+   "school": "physical",
+   "dps": 3566.7506655722646,
+   "share": 0.019348679729322152,
+   "executes": 17.932644214738247,
+   "direct_hits": 17.932644214738247,
+   "direct_noncrit_avg": 34804.73387072644,
+   "direct_crit_rate": 0.4873930829304574,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rampancy": {
+   "spell_id": 440122,
+   "school": "physical",
+   "dps": 2022.1587377422468,
+   "share": 0.010969676730164015,
+   "executes": 55.258752917639214,
+   "direct_hits": 55.258752917639214,
+   "direct_noncrit_avg": 8127.393822440734,
+   "direct_crit_rate": 0.3240929031323731,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "feral_frenzy_convoke": {
+   "spell_id": 274837,
+   "school": "physical",
+   "dps": 1159.8010571665118,
+   "share": 0.006291614219477161,
+   "executes": 0.5901967322440813,
+   "direct_hits": 2.9433144381460483,
+   "direct_noncrit_avg": 5786.934508815352,
+   "direct_crit_rate": 0.3178882972697406,
+   "ticks": 3.3144381460486825,
+   "tick_noncrit_avg": 72591.19980009008,
+   "tick_crit_rate": 0.3267605633802817
+  },
+  "rune_of_unleashed_fire": {
+   "spell_id": 1286970,
+   "school": "fire",
+   "dps": 1106.398036451435,
+   "share": 0.006001916945606016,
+   "executes": 49.546182060686895,
+   "direct_hits": 49.546182060686895,
+   "direct_noncrit_avg": 6698.9787524101575,
+   "direct_crit_rate": 0.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lunar_inspiration_convoke": {
+   "spell_id": 155625,
+   "school": "arcane",
+   "dps": 983.9575680941058,
+   "share": 0.005337709763696354,
+   "executes": 1.608536178726242,
+   "direct_hits": 1.608536178726242,
+   "direct_noncrit_avg": 9959.944352449425,
+   "direct_crit_rate": 0.3312603648424544,
+   "ticks": 17.474158052684228,
+   "tick_noncrit_avg": 11576.021629050856,
+   "tick_crit_rate": 0.3254842095219922
+  },
+  "rune_of_unleashed_fire_lingering": {
+   "spell_id": 1287663,
+   "school": "cosmic",
+   "dps": 333.3180008595122,
+   "share": 0.0018081620643964696,
+   "executes": 49.546182060686895,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 238.79859953317774,
+   "tick_noncrit_avg": 418.7301707839815,
+   "tick_crit_rate": 0.0
+  },
+  "wrath_convoke": {
+   "spell_id": 5176,
+   "school": "nature",
+   "dps": 126.12954939833274,
+   "share": 0.0006842194715958659,
+   "executes": 9.836612204068024,
+   "direct_hits": 9.827275758586195,
+   "direct_noncrit_avg": 2853.7893833729972,
+   "direct_crit_rate": 0.32362920738327905,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rake_convoke": {
+   "spell_id": 1822,
+   "school": "physical",
+   "dps": 32.26214102128407,
+   "share": 0.00017501358870648665,
+   "executes": 0.06068689563187729,
+   "direct_hits": 0.06068689563187729,
+   "direct_noncrit_avg": 18944.949883854322,
+   "direct_crit_rate": 0.6043956043956044,
+   "ticks": 0.219406468822941,
+   "tick_noncrit_avg": 22168.247715329853,
+   "tick_crit_rate": 0.4787234042553192
+  }
+ },
+ "buffs": {
+  "arcanoweave_insight": {
+   "spell_id": 1229746,
+   "uptime": 0.5277246064885335,
+   "starts": 5.91297099033011,
+   "refreshes": 5.241747249083027,
+   "interval": 49.724107502875306,
+   "duration": 26.796001686340635
+  },
+  "berserk_cat": {
+   "spell_id": 106951,
+   "uptime": 0.1472922346604466,
+   "starts": 2.984661553851284,
+   "refreshes": 0.0,
+   "interval": 120.43153516409909,
+   "duration": 14.686308428905472
+  },
+  "clearcasting_cat": {
+   "spell_id": 135700,
+   "uptime": 0.42484170314296216,
+   "starts": 47.12670890296766,
+   "refreshes": 29.223074358119373,
+   "interval": 6.259891253125448,
+   "duration": 2.705776949023369
+  },
+  "coiled_to_spring": {
+   "spell_id": 449538,
+   "uptime": 0.17060004193855405,
+   "starts": 33.28842947649216,
+   "refreshes": 18.13237745915305,
+   "interval": 8.870099115700166,
+   "duration": 1.5366231588828
+  },
+  "frantic_momentum": {
+   "spell_id": 391876,
+   "uptime": 0.434787833159179,
+   "starts": 16.059353117705903,
+   "refreshes": 11.03567855951984,
+   "interval": 18.678573269489625,
+   "duration": 8.12168668266842
+  },
+  "lycaras_teachings_haste": {
+   "spell_id": 378989,
+   "uptime": 0.0,
+   "starts": 1.0,
+   "refreshes": 0.0,
+   "interval": 0.0,
+   "duration": 0.0
+  },
+  "might_of_the_void": {
+   "spell_id": 1241715,
+   "uptime": 0.5844738429153687,
+   "starts": 8.149383127709237,
+   "refreshes": 8.605535178392797,
+   "interval": 36.38464808961607,
+   "duration": 21.525911960200634
+  },
+  "overflowing_power": {
+   "spell_id": 405189,
+   "uptime": 0.06053552383133976,
+   "starts": 13.89996665555185,
+   "refreshes": 37.30310103367789,
+   "interval": 19.29626421800947,
+   "duration": 1.3127665358337
+  },
+  "predatory_swiftness": {
+   "spell_id": 69369,
+   "uptime": 0.9932011606967205,
+   "starts": 1.0050016672224076,
+   "refreshes": 89.35745248416139,
+   "interval": 148.88253333333333,
+   "duration": 296.5015251322752
+  },
+  "prowl": {
+   "spell_id": 5215,
+   "uptime": 0.0,
+   "starts": 1.0,
+   "refreshes": 0.0,
+   "interval": 0.0,
+   "duration": 0.0
+  },
+  "rune_of_burning_haste": {
+   "spell_id": 1287774,
+   "uptime": 0.8718858816060704,
+   "starts": 11.60053351117039,
+   "refreshes": 38.751583861287095,
+   "interval": 18.816401326643987,
+   "duration": 22.54529285755196
+  },
+  "savage_fury": {
+   "spell_id": 449646,
+   "uptime": 0.27489354553737827,
+   "starts": 10.432144048016005,
+   "refreshes": 0.0,
+   "interval": 30.20338883602917,
+   "duration": 7.900890173962914
+  },
+  "shadowmeld": {
+   "spell_id": 58984,
+   "uptime": 0.0,
+   "starts": 2.8862954318106033,
+   "refreshes": 0.0,
+   "interval": 121.34429822089132,
+   "duration": 0.0
+  },
+  "stalking_predator": {
+   "spell_id": 1263962,
+   "uptime": 0.1098095430546044,
+   "starts": 10.432144048016005,
+   "refreshes": 0.0,
+   "interval": 30.20338883602917,
+   "duration": 3.1390731536353886
+  },
+  "strategic_infusion": {
+   "spell_id": 439891,
+   "uptime": 0.2068671637114844,
+   "starts": 10.432144048016005,
+   "refreshes": 1.0,
+   "interval": 30.20338883602917,
+   "duration": 5.944816255655388
+  },
+  "sudden_ambush": {
+   "spell_id": 1244483,
+   "uptime": 0.12118033499151357,
+   "starts": 25.231077025675226,
+   "refreshes": 1.9026342114038013,
+   "interval": 11.727350753948116,
+   "duration": 1.4407291941179634
+  },
+  "tigers_fury": {
+   "spell_id": 5217,
+   "uptime": 0.5094278632699906,
+   "starts": 10.432144048016005,
+   "refreshes": 0.0,
+   "interval": 30.20338883602917,
+   "duration": 14.647760625756707
+  },
+  "tigers_tenacity": {
+   "spell_id": 391873,
+   "uptime": 0.26395224305020343,
+   "starts": 10.432144048016005,
+   "refreshes": 0.0,
+   "interval": 30.20338883602917,
+   "duration": 7.591785541324159
+  },
+  "unseen_predators_craving": {
+   "spell_id": 1263939,
+   "uptime": 0.996631040574306,
+   "starts": 1.3544514838279427,
+   "refreshes": 75.03901300433478,
+   "interval": 27.805272727272715,
+   "duration": 220.71685230618255
+  },
+  "venomcursed_ascendance": {
+   "spell_id": 1317581,
+   "uptime": 0.3843433351640194,
+   "starts": 7.330776925641881,
+   "refreshes": 3.691230410136712,
+   "interval": 39.1399785256747,
+   "duration": 15.737641985944231
+  },
+  "venomcursed_haste": {
+   "spell_id": 1307927,
+   "uptime": 0.38652967629485646,
+   "starts": 7.338446148716239,
+   "refreshes": 3.740580193397799,
+   "interval": 39.26338575698777,
+   "duration": 15.822154950629583
+  },
+  "venomcursed_mastery": {
+   "spell_id": 1307922,
+   "uptime": 0.3876011110651249,
+   "starts": 7.311437145715239,
+   "refreshes": 3.7795931977325776,
+   "interval": 39.27804085930918,
+   "duration": 15.910452433980277
+  }
+ }
+}
