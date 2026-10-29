@@ -61,8 +61,12 @@ name = "combustion"         # [db2 190319: 10s, +100% crit] +10% duration [db2 B
 duration = 11
 crit_pct = 100
 damage_pct = 16             # [obs] buff value 0.16 (Burn It All: 10% + 20% of crit chance)
+pets = true                 # also the Arcane Phoenix's damage (as calibrated)
 cooldown_rate_pct = { fire_blast = 50 }   # Fiery Rush [db2 383637]
-on_expire = [{ type = "buff", buff = "hyperthermia" }]   # Memory of Al'ar: phoenix leaving grants Hyperthermia [db2 449619]
+on_expire = [
+  { type = "dismiss", pet = "arcane_phoenix" },   # it only ever acted during Combustion [obs]
+  { type = "buff", buff = "hyperthermia" },       # Memory of Al'ar: phoenix leaving grants Hyperthermia [db2 449619]
+]
 
 [[buffs]]
 name = "hyperthermia"       # Pyroblast instant and a guaranteed crit [db2 383874; 4s from Memory of Al'ar 449619 s2]
@@ -87,6 +91,7 @@ duration = 8
 max_stacks = 100
 overlap = true
 damage_pct = 2
+pets = true                 # also the Arcane Phoenix's damage (as calibrated)
 
 [[buffs]]
 name = "feel_the_burn"      # Fire Blast: +2 mastery for 4s, overlapping [db2 383395]
@@ -126,6 +131,7 @@ name = "spellfire_sphere"   # +1% spell damage per sphere, +1% Rondurmancy [db2 
 duration = 1e9
 max_stacks = 3
 damage_pct = 2
+pets = true                 # also the Arcane Phoenix's damage (as calibrated)
 
 [[buffs]]
 name = "glorious_incandescence"   # a new sphere makes the next Fire Blast call 4 Meteorites [db2 449394]
@@ -153,6 +159,7 @@ name = "molten_fury"        # +15% damage below 35% health [db2 457803]
 duration = 0
 below_health = 35
 damage_pct = 15
+pets = true                 # also the Arcane Phoenix's damage (as calibrated)
 
 # ---------------------------------------------------------------- crit chain helpers
 
@@ -215,7 +222,7 @@ cooldown = 60               # [db2 120s] - 60s Kindling [db2 1254194]
 on_cast = [
   { type = "buff", buff = "combustion" },
   { type = "consume", buff = "spellfire_sphere", all = true },   # Codex of the Sunstriders: the phoenix eats them [db2 449382]
-  { type = "trigger", ability = "arcane_phoenix" },
+  { type = "summon", pet = "arcane_phoenix" },
 ]
 
 [[abilities]]
@@ -384,70 +391,63 @@ school = "fire"
 # Fire Blast falls ~10% short inside Combustion; also counting its other spells for
 # From the Ashes overshoots.
 
-[[abilities]]
+[[pets]]
 name = "arcane_phoenix"
-triggered_only = true
+duration = 30               # cap; Combustion ending dismisses it
+# exceptional spells, one per sphere consumed [db2 449382]; timings [obs]
+on_summon = [
+  { type = "trigger", ability = "arcane_surge", delay = 1.0 },
+  { type = "trigger", ability = "greater_pyroblast", delay = 3.25 },
+  { type = "trigger", ability = "meteorite_impact", delay = 6.0 },
+  { type = "trigger", ability = "meteorite_bug_impact", delay = 6.075 },
+  { type = "trigger", ability = "meteorite_bug_impact", delay = 6.15 },
+  { type = "trigger", ability = "meteorite_bug_impact", delay = 6.225 },
+]
+
+[[pets.abilities]]
+name = "casts"              # one cast per second while Combustion lasts [obs]
+gcd = 1.0
+gcd_hasted = false
 on_cast = [
-  # exceptional spells, one per sphere consumed [db2 449382]; timings [obs]
-  { type = "trigger", ability = "arcane_phoenix_arcane_surge", delay = 1.0 },
-  { type = "trigger", ability = "arcane_phoenix_greater_pyroblast", delay = 3.25 },
-  { type = "trigger", ability = "arcane_phoenix_meteorite_impact", delay = 6.0 },
-  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.075 },
-  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.15 },
-  { type = "trigger", ability = "arcane_phoenix_meteorite_bug_impact", delay = 6.225 },
-  { type = "trigger", ability = "arcane_phoenix_caster" },
+  { type = "trigger", ability = "arcane_barrage", chance = 0.37 },   # [obs] 5.3 of each per summon
+  { type = "trigger", ability = "pyroblast", chance = 0.37 },
 ]
 
-[[abilities]]
-name = "arcane_phoenix_caster"
-triggered_only = true
-[abilities.dot]
-name = "arcane_phoenix_casts"   # one cast per second while Combustion lasts [obs]
-tick_time = 1.0
-duration = 30.0
-hasted = false
-tick_on_apply = true
-refresh = "reset"
-on_tick = [
-  { type = "trigger", ability = "arcane_phoenix_arcane_barrage", chance = 0.37 },   # [obs] 5.3 of each per summon
-  { type = "trigger", ability = "arcane_phoenix_pyroblast", chance = 0.37 },
-]
-
-[[abilities]]
-name = "arcane_phoenix_arcane_barrage"
+[[pets.abilities]]
+name = "arcane_barrage"
 spell_id = 450499
 triggered_only = true
 requires_buff = "combustion"
 damage = { sp_coeff = 1.95, school = "arcane", crit_bonus = -10 }   # the phoenix never crits [obs]
 
-[[abilities]]
-name = "arcane_phoenix_pyroblast"
+[[pets.abilities]]
+name = "pyroblast"
 spell_id = 450461
 triggered_only = true
 requires_buff = "combustion"
 damage = { sp_coeff = 2.4, school = "fire", crit_bonus = -10 }
 
-[[abilities]]
-name = "arcane_phoenix_arcane_surge"
+[[pets.abilities]]
+name = "arcane_surge"
 spell_id = 453326
 triggered_only = true
 damage = { sp_coeff = 5.2, school = "arcane", crit_bonus = -10 }
 
-[[abilities]]
-name = "arcane_phoenix_greater_pyroblast"
+[[pets.abilities]]
+name = "greater_pyroblast"
 spell_id = 450421
 triggered_only = true
 damage = { sp_coeff = 7.8, school = "fire", crit_bonus = -10 }
 
-[[abilities]]
-name = "arcane_phoenix_meteorite_impact"
+[[pets.abilities]]
+name = "meteorite_impact"
 spell_id = 456139
 triggered_only = true
 damage = { sp_coeff = 2.805, school = "fire", crit_bonus = -10 }
 on_cast = [{ type = "reduce_cooldown", ability = "fire_blast", seconds = 0.5 }]
 
-[[abilities]]
-name = "arcane_phoenix_meteorite_bug_impact"
+[[pets.abilities]]
+name = "meteorite_bug_impact"
 spell_id = 449569
 triggered_only = true
 damage = { sp_coeff = 1.02, school = "fire", crit_bonus = 10 }   # except these, always [obs]

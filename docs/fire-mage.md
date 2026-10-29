@@ -12,7 +12,9 @@ data. Every mechanic below is generic engine data, not mage code.
 
 Reference: SimC's Midnight S2 sample Fire profile (Sunfury), core kit only (no
 trinkets, tier set, consumables or Bloodlust), 300s Patchwerk, 5,000 iterations.
-Pet damage (Arcane Phoenix) is included, as `arcane_phoenix_*` sources.
+Pet damage (Arcane Phoenix) is included, as `arcane_phoenix_*` sources. The
+phoenix is a `[[pets]]` entry (see [spec-format.md](spec-format.md#pets-and-summons)),
+summoned by Combustion and dismissed when it ends.
 
 | | DPS |
 |---|---:|

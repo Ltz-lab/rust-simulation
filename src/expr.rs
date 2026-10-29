@@ -1,5 +1,6 @@
 //! Tiny condition language for rotations, e.g.
 //!   holy_power>=3&!buff.avenging_wrath.up|cooldown.wake_of_ashes.remains>6
+//!   pet.wild_imp.active>=6
 //! Compiled once to an AST with names resolved to indices.
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,13 @@ pub enum Var {
     DotTicking(usize),
     DotRemains(usize),
     DotStack(usize),
+    /// Active instances of a pet.
+    PetActive(usize),
+    /// Longest time left among a pet's active instances.
+    PetRemains(usize),
+    /// The pet instance an effect or pet action runs for (`self.*`).
+    SelfEnergy,
+    SelfRemains,
     Const(f64),
 }
 

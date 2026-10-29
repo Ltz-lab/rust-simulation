@@ -198,11 +198,25 @@ def coefficient(sp, target, periodic):
     return None
 
 
+def all_abilities(spec):
+    """Owner abilities, then the pets' named as the engine reports them (`<pet>_<ability>`)."""
+    yield from spec.get("abilities", [])
+    for p in spec.get("pets", []):
+        pre = p["name"] + "_"
+        for a in p.get("abilities", []):
+            q = dict(a, name=pre + a["name"])
+            if "source" in a:
+                q["source"] = pre + a["source"]
+            if "dot" in a:
+                q["dot"] = dict(a["dot"], name=pre + a["dot"]["name"])
+            yield q
+
+
 def sources(spec, obs):
     """source name -> (spell id, periodic, spec damage def). The spell id is
     the one the observations recorded; the spec's `spell_id` is the fallback."""
     out = {}
-    for a in spec.get("abilities", []):
+    for a in all_abilities(spec):
         if a.get("damage"):
             name = a.get("source", a["name"])
             o = obs["sources"].get(name)

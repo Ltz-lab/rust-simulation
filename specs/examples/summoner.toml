@@ -1,0 +1,147 @@
+# Example: pets and summons. Not a real class; numbers are made up. It shows
+# what a Demonology-style spec needs from the engine: many concurrent summons
+# with their own timers and action loops, an energy-limited caster pet, pet
+# counts in rotation conditions, consuming pets (Implosion-style), extending
+# them and buffing their damage by how many are out (Tyrant-style).
+# Run: azsim specs/examples/summoner.toml --log
+
+name = "Example summoner"
+
+[player]
+spell_power = 1000
+crit = 0.20
+haste = 0.15
+versatility = 0.05
+mastery = 0.20
+
+[fight]
+duration = 120
+variance = 0.1
+
+[resources.shards]
+max = 5
+start = 3
+
+[[buffs]]
+name = "empowered"          # +10% overlord damage per demon out when it arrives
+duration = 15
+max_stacks = 30
+pet_pct = { overlord = 10 }
+
+[[buffs]]
+name = "frenzy"             # owner-wide +10%: reaches pets too because `pets = true`
+duration = 8
+damage_pct = 10
+pets = true
+
+# ---------------------------------------------------------------- pets
+
+[[pets]]
+name = "imp"
+duration = 40
+energy = 100                # five 20-energy Firebolts, then it leaves
+owner_coeff = { sp_from_sp = 0.6 }
+on_expire = [{ type = "trigger", ability = "imp_fades" }]
+
+[[pets.abilities]]
+name = "firebolt"
+cast_time = 2.0
+gcd = 0
+cost = { energy = 20 }
+damage = { sp_coeff = 0.9, school = "fire", mastery = true }
+
+[[pets]]
+name = "hound"
+duration = 12
+max_active = 4
+delay = 0.5                 # runs to the target first
+owner_coeff = { ap_from_sp = 0.8 }
+melee = { ability = "melee", speed = 2.0 }
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.6, mastery = true }   # physical: armor applies
+
+[[pets.abilities]]
+name = "maul"               # once per summon
+cooldown = 60
+damage = { ap_coeff = 2.0, mastery = true }
+on_cast = [{ type = "gain", resource = "shards", amount = 1 }]
+
+[[pets]]
+name = "overlord"
+duration = 15
+inherit_crit = false        # its own crit chance, not the owner's
+crit = 0.05
+
+[[pets.abilities]]
+name = "blast"
+cast_time = 2.0
+cast_hasted = true
+gcd = 0
+damage = { sp_coeff = 2.0, school = "shadow", mastery = true }
+
+# ---------------------------------------------------------------- owner
+
+[[abilities]]
+name = "call_imps"
+cast_time = 1.5
+cost = { shards = 1 }
+on_cast = [{ type = "summon", pet = "imp", count = 3 }]
+
+[[abilities]]
+name = "call_hounds"
+cooldown = 20
+cost = { shards = 1 }
+on_cast = [
+  { type = "summon", pet = "hound", count = 2 },
+  { type = "buff", buff = "frenzy" },
+]
+
+[[abilities]]
+name = "implode"            # every imp explodes for its remaining energy
+on_cast = [{ type = "dismiss", pet = "imp", each = [{ type = "trigger", ability = "implode_hit" }] }]
+
+[[abilities]]
+name = "implode_hit"
+triggered_only = true
+damage = { sp_coeff = 1.5, school = "shadow", scale = "self.energy/100" }
+
+[[abilities]]
+name = "call_overlord"
+cooldown = 60
+cast_time = 2.0
+on_cast = [
+  { type = "buff", buff = "empowered", set = "pet.imp.active+pet.hound.active" },
+  { type = "extend_pet", pet = "hound", seconds = 15 },
+  { type = "summon", pet = "overlord" },
+]
+
+[[abilities]]
+name = "imp_fades"
+triggered_only = true
+gain = { shards = 0.5 }
+
+[[abilities]]
+name = "bolt"
+cast_time = 2.0
+gain = { shards = 1 }
+damage = { sp_coeff = 1.2, school = "shadow" }
+
+[[rotation]]
+action = "call_overlord"
+if = "pet.imp.active>=6"
+
+[[rotation]]
+action = "implode"
+if = "pet.imp.active>=6&cooldown.call_overlord.remains>20"
+
+[[rotation]]
+action = "call_hounds"
+
+[[rotation]]
+action = "call_imps"
+
+[[rotation]]
+action = "bolt"

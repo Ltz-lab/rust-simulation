@@ -7,7 +7,7 @@
 src/
   main.rs      CLI, parallel iterations (rayon), reporting, JSON output
   sim.rs       the engine: event queue, cooldowns/charges, buffs, DoTs,
-               triggers, procs, resources. No class-specific code.
+               triggers, procs, resources, pets. No class-specific code.
   spec.rs      the spec file format (serde) and calibration overlay
                (derived multipliers, residuals, buff patches)
   gear.rs      gear -> stats: parses /simc gear lines, item level from bonus
@@ -17,6 +17,7 @@ specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
   fire_mage.toml            Fire spec, same tagging
   destruction_hellcaller.toml  Destruction Warlock spec, same tagging
+  examples/summoner.toml    made-up spec showing pets and summons
 data/
   gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
 profiles/
