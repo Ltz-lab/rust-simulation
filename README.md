@@ -34,6 +34,7 @@ profiles (core kit, 300s Patchwerk):
 | [Subtlety Rogue (Deathstalker)](docs/subtlety-rogue.md) | 179,254 | 181,350 | +1.17% | crit -0.40 pts | ~4× |
 | [Elemental Shaman (Farseer)](docs/elemental-shaman.md) | 161,888 | 163,606 | +1.06% | haste +0.80 pts | — |
 | [Demonology Warlock (Diabolist)](docs/demonology-warlock.md) | 160,301 | 158,236 | -1.29% | haste +0.74 pts | — |
+| [Balance Druid (Elune’s Chosen)](docs/balance-druid.md) | 150,502 | 148,765 | -1.15% | mastery +0.36 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -63,7 +64,7 @@ cargo build --release
 - Specs: [Retribution Paladin](docs/retribution.md), [Fire Mage](docs/fire-mage.md),
   [Destruction Warlock](docs/destruction-warlock.md), [Affliction Warlock](docs/affliction-warlock.md),
   [Subtlety Rogue](docs/subtlety-rogue.md), [Elemental Shaman](docs/elemental-shaman.md),
-  [Demonology Warlock](docs/demonology-warlock.md)
+  [Demonology Warlock](docs/demonology-warlock.md), [Balance Druid](docs/balance-druid.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer
