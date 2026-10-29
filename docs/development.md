@@ -44,6 +44,7 @@ tools/
   make_reference.sh  regenerate reference/ for a spec from a SimC profile + build
   gamedata.py        build data/gamedata.json.gz from wago.tools DB2/game tables
   check_gear.py      gear -> stats check against SimC's per-item and buffed stats
+  wcl.py             Warcraft Logs API -> observations from real fights (docs/warcraft-logs.md)
 ```
 
 
@@ -126,6 +127,10 @@ tools/make_reference.sh fire $SIMC/profiles/MID2/MID2_Mage_Fire.simc intellect $
 #              SpellCategory SpellPower SpellAuraOptions SpellDuration
 #              (optional) SpellCastTimes SpellProcsPerMinute
 python3 tools/spelldb.py path/to/db2 "Blade of Justice" 383328
+
+# real logs: top Demonology parses on a single-target boss -> observations (docs/warcraft-logs.md)
+python3 tools/wcl.py survey --zone 53 --class Warlock --spec Demonology
+python3 tools/wcl.py observe --encounter 3420 -n 25 --skip-aug --out reference/demo_wcl
 ```
 
-`validate_stats.py` needs Python 3.11+ (`tomllib`).
+`validate_stats.py` and `wcl.py` need Python 3.11+.
