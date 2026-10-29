@@ -3109,6 +3109,28 @@ action = "build"
     }
 
     #[test]
+    fn for_each_pet_uses_each_live_instance_context() {
+        let text = format!(r#"{}
+[[abilities]]
+name = "react"
+triggered_only = true
+on_cast = [{{ type = "for_each_pet", pet = "imp", each = [{{ type = "trigger", ability = "implode_hit" }}] }}]
+"#, BASE);
+        let c = compile(&text);
+        let mut st = state(&c);
+        cast(&mut st, "summon_imp");
+        cast(&mut st, "summon_imp");
+        cast(&mut st, "summon_imp");
+        cast(&mut st, "react");
+        assert_eq!(st.out.casts[src(&c, "implode_hit")], 3);
+        assert!((st.out.damage[src(&c, "implode_hit")] - 4500.0).abs() < 1e-9);
+        assert!(st.ctx.is_none());
+        advance(&mut st, 10.1);
+        cast(&mut st, "react");
+        assert_eq!(st.out.casts[src(&c, "implode_hit")], 3);
+    }
+
+    #[test]
     fn example_spec_runs() {
         let c = compile(include_str!("../specs/examples/summoner.toml"));
         let r = run_iteration(&c, 3, false);

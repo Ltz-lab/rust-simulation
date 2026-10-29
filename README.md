@@ -31,6 +31,7 @@ profiles (core kit, 300s Patchwerk):
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
 | [Arcane Mage (Spellslinger)](docs/arcane-mage.md) | 133,260 | 133,980 | +0.54% | mastery +0.51 pts | — |
 | [Subtlety Rogue (Deathstalker)](docs/subtlety-rogue.md) | 179,254 | 181,350 | +1.17% | crit -0.40 pts | ~4× |
+| [Elemental Shaman (Farseer)](docs/elemental-shaman.md) | 161,888 | 163,606 | +1.06% | haste +0.80 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -58,7 +59,8 @@ cargo build --release
 ## Docs
 
 - Specs: [Retribution Paladin](docs/retribution.md), [Fire Mage](docs/fire-mage.md),
-  [Destruction Warlock](docs/destruction-warlock.md), [Subtlety Rogue](docs/subtlety-rogue.md)
+  [Destruction Warlock](docs/destruction-warlock.md), [Subtlety Rogue](docs/subtlety-rogue.md),
+  [Elemental Shaman](docs/elemental-shaman.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer

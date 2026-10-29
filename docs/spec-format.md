@@ -197,3 +197,21 @@ negative expression results are clamped to zero. Expressions also expose
 `prev_gcd.<ability>`. A `gain` with `amount_expr` may subtract resource.
 A trigger may use `count = "<expression>"` and `interval` to schedule repeated
 activations; the count is evaluated at the trigger and limited to 1000.
+
+## Additional effect timing and selection
+
+`on_begin` runs for an owner action after its cast time is determined and
+before the cast starts, including instant casts. `choose` uniformly selects
+one eligible choice: `{ type = "choose", choices = [{ if = "condition", effects = [...] }, ...] }`.
+The `if` is optional; no eligible choices means no effect. Each selection has
+its own named random stream.
+
+`{ type = "for_each_pet", pet = "imp", each = [...] }` executes effects once
+for each active instance with `self` bound to that instance. It snapshots the
+instances at entry: newly summoned or replaced instances do not participate,
+and an instance dismissed before its turn is skipped. Delayed triggers use
+the normal pet event lifetime rules.
+
+DoTs may specify `duration_expr` and `tick_time_expr` to compute their base
+duration on application and base tick interval when scheduling each tick.
+Haste and the existing refresh rules apply to those values.
