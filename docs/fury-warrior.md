@@ -20,52 +20,63 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 167,734 |
-| azsim | 179,423 (±155) |
-| difference | **+6.97%** |
+| azsim | 179,730 (±149) |
+| difference | **+7.15%** |
 
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| slayers_strike | 18,187 | 17,864 | -1.8% | 57.4 | 56.7 |
-| crushing_blow_mh | 12,641 | 17,599 | +39.2% | 46.4 | 64.8 |
-| auto_attack_mh | 13,256 | 14,330 | +8.1% | 242.0 | 262.1 |
-| raging_blow_mh | 11,359 | 11,389 | +0.3% | 73.7 | 74.0 |
-| bladestorm_mh | 10,342 | 10,483 | +1.4% | 62.7 | 63.9 |
-| reap_the_storm_execute | 10,080 | 10,295 | +2.1% | 34.5 | 35.3 |
-| execute_mainhand | 9,814 | 8,900 | -9.3% | 48.1 | 43.9 |
-| rampage4 | 9,297 | 8,745 | -5.9% | 125.7 | 118.9 |
-| crushing_blow_oh | 6,174 | 8,614 | +39.5% | 46.4 | 64.8 |
-| rampage3 | 8,056 | 7,612 | -5.5% | 125.7 | 118.9 |
-| rampage2 | 7,298 | 6,901 | -5.4% | 125.9 | 119.2 |
-| auto_attack_oh | 6,263 | 6,976 | +11.4% | 234.1 | 261.3 |
-| rampage1 | 6,006 | 5,670 | -5.6% | 126.1 | 119.3 |
-| raging_blow_oh | 5,537 | 5,539 | +0.0% | 73.7 | 74.0 |
-| bladestorm_oh | 5,051 | 5,139 | +1.7% | 62.7 | 63.9 |
-| execute_offhand | 4,783 | 4,372 | -8.6% | 48.1 | 43.9 |
-| deep_wounds | 3,869 | 3,856 | -0.3% | 200.1 | 200.3 |
-| bloodbath_dot | 3,202 | 3,599 | +12.4% | 55.7 | 62.7 |
-| odyns_fury_mh | 2,465 | 2,523 | +2.4% | 37.2 | 38.2 |
-| bloodthirst | 1,425 | 2,305 | +61.7% | 8.6 | 13.9 |
-| rend_dot | 714 | 1,896 | +165.4% | 31.7 | 84.3 |
-| gushing_wound | 1,022 | 1,626 | +59.0% | 38.1 | 60.8 |
-| venomfang | 1,448 | 1,566 | +8.1% | 188.1 | 203.8 |
-| bloodbath | 43 | 1,087 | +2439.7% | 0.2 | 5.1 |
-| whirlwind (4 sources) | 412 | 1,811 | +339% | 30.6 | 134.9 |
+| slayers_strike | 18,187 | 17,969 | -1.2% | 57.4 | 57.1 |
+| crushing_blow_mh | 12,641 | 17,557 | +38.9% | 46.4 | 64.6 |
+| auto_attack_mh | 13,256 | 14,376 | +8.5% | 242.0 | 262.9 |
+| raging_blow_mh | 11,359 | 11,063 | -2.6% | 73.7 | 72.0 |
+| bladestorm_mh | 10,342 | 10,487 | +1.4% | 62.7 | 63.8 |
+| reap_the_storm_execute | 10,080 | 10,324 | +2.4% | 34.5 | 35.4 |
+| execute_mainhand | 9,814 | 8,787 | -10.5% | 48.1 | 43.4 |
+| rampage4 | 9,297 | 9,463 | +1.8% | 125.7 | 128.7 |
+| crushing_blow_oh | 6,174 | 8,590 | +39.1% | 46.4 | 64.6 |
+| rampage3 | 8,056 | 8,233 | +2.2% | 125.7 | 128.7 |
+| rampage2 | 7,298 | 7,474 | +2.4% | 125.9 | 129.0 |
+| auto_attack_oh | 6,263 | 6,998 | +11.7% | 234.1 | 262.1 |
+| bloodbath_bladestorm_unhinged | 6,402 | 6,014 | -6.1% | 28.8 | 27.0 |
+| rampage1 | 6,006 | 6,147 | +2.3% | 126.1 | 129.1 |
+| raging_blow_oh | 5,537 | 5,383 | -2.8% | 73.7 | 72.0 |
+| bladestorm_oh | 5,051 | 5,137 | +1.7% | 62.7 | 63.8 |
+| execute_offhand | 4,783 | 4,323 | -9.6% | 48.1 | 43.4 |
+| deep_wounds | 3,869 | 3,843 | -0.7% | 200.1 | 199.8 |
+| bloodbath_dot | 3,202 | 3,300 | +3.1% | 55.7 | 57.6 |
+| odyns_fury_mh | 2,465 | 2,487 | +0.9% | 37.2 | 37.7 |
+| bloodthirst | 1,425 | 2,170 | +52.3% | 8.6 | 13.1 |
+| rend_dot | 714 | 1,713 | +139.8% | 31.7 | 75.9 |
+| venomfang | 1,448 | 1,571 | +8.4% | 188.1 | 204.3 |
+| gushing_wound | 1,022 | 1,505 | +47.2% | 38.1 | 56.3 |
+| rune_of_unleashed_fire | 1,066 | 1,063 | -0.3% | 50.6 | 50.5 |
+| whirlwind_mh_others | 183 | 693 | +278.9% | 10.2 | 38.7 |
+| venomfang_burst | 628 | 669 | +6.5% | 46.3 | 49.3 |
+| bloodbath | 43 | 652 | +1422.0% | 0.2 | 3.0 |
+| odyns_fury_oh | 382 | 390 | +2.1% | 12.5 | 12.6 |
+| whirlwind_mh_first | 94 | 355 | +278.3% | 5.1 | 19.4 |
+| whirlwind_oh_others | 89 | 338 | +279.4% | 10.2 | 38.7 |
+| rune_of_unleashed_fire_lingering | 319 | 318 | -0.1% | 241.9 | 241.8 |
+| bloodthirst_bladestorm_unhinged | 123 | 201 | +63.3% | 0.7 | 1.2 |
+| whirlwind_oh_first | 46 | 174 | +278.0% | 5.1 | 19.4 |
 | storm_bolt | 94 | 0 | -100.0% | 7.8 | 0.0 |
+| charge_impact | 3 | 0 | -100.0% | 1.0 | 0.0 |
+| **total** | **167,734** | **179,730** | **+7.15%** | | |
 
-The Slayer kit matches closely: Slayer's Strike (-1.8%), Raging Blow (+0.3%),
-Bladestorm (+1.4%), Reap the Storm (+2.1%), Odyn's Fury (+2.4%), Deep Wounds
-(-0.3%). Rampage (-5.5%) and Execute (-9%) come out a little low, and the
-filler — Crushing Blow, Whirlwind, Bloodthirst, Bloodbath — a lot high; see
+The Slayer kit matches closely: Slayer's Strike (-1.2%), Raging Blow (-2.6%),
+Bladestorm (+1.4%), Reap the Storm (+2.4%), Odyn's Fury (+0.9%), Deep Wounds
+(-0.7%), Rampage (+2%). Execute comes out 10% low and the filler — Crushing
+Blow (+39%), Whirlwind (x3), Bloodthirst (+52%), Bloodbath — a lot high; see
 below.
 
 ## Held-out validation: stat sensitivity
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +8.17% | +9.56% | +1.39 pts |
-| +500 haste | +10.05% | +9.64% | -0.41 pts |
+| +500 crit | +8.17% | +9.45% | +1.27 pts |
+| +500 haste | +10.05% | +9.62% | -0.43 pts |
 | +500 mastery | +8.91% | +10.00% | +1.09 pts |
 | +500 vers | +8.53% | +8.59% | +0.06 pts |
 | +200 strength | +5.44% | +6.60% | +1.16 pts |
@@ -130,8 +141,9 @@ casts scale with crit.
   SimC), with the resets restarting the recharge like `cooldown_t::reset`;
   Bloodthirst and Bloodbath do *not* share their cooldown (SimC's do), which
   is part of why Bloodbath runs high.
-- `--gear` reproduces every item level and stat rating (see
-  `tools/check_gear.py`) and haste/mastery/versatility exactly; crit reads
-  +3 points because SimC's sheet (28.2%) excludes the ~5 points of critical
-  chance the abilities actually have, and attack power differs by the
-  trinkets' primary-stat procs, which aren't modelled.
+- `--gear` reproduces every item level and stat rating, attack power (3,226
+  vs SimC's 3,225) and haste/mastery/versatility exactly, and lands within
+  0.5% of the hand-entered stats (`tools/check_gear.py --dps`); crit reads
+  +5.4 points because SimC's sheet (24.96%) excludes the ~5 points of
+  critical chance the abilities actually have (Cruel Strikes and an
+  unmodelled ~3%).

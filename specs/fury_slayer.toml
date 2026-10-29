@@ -51,7 +51,7 @@ off_hand = { min = 0, max = 0, speed = 3.6 }
 # docs/gear.md). All [obs] from SimC's reported stats unless tagged.
 [gear]
 primary = "strength"
-base_primary = 739            # [obs] 2982 buffed / 1.05 less 2101 from gear
+base_primary = 937            # [obs] 2982 buffed / 1.05 less the core kit's 1903 strength from gear
 primary_mult = 1.05           # [obs] plate specialization (the +200 strength probe gives +227 AP)
 attack_power_mult = 1.0815    # [obs] 2982 strength -> 3225 AP: Battle Shout x1.05 and Skyfury x1.03
 crit_bonus = 0.124            # [obs] the sheet says 24.96% at 826 rating but abilities crit 30%: Cruel Strikes +2% and an unmodelled ~3%
@@ -300,6 +300,7 @@ name = "recklessness"
 spell_id = 1719
 gcd = 0                     # [db2] off the GCD
 cooldown = 90               # [db2], cut by Anger Management
+gain = { rage = 50 }        # [db2 396749 #1] Reckless Abandon: 50 rage on activation
 on_cast = [{ type = "buff", buff = "recklessness" }]
 
 [[abilities]]
@@ -556,6 +557,7 @@ name = "bloodthirst_bladestorm_unhinged"   # Unhinged: every other Bladestorm st
 spell_id = 23881
 triggered_only = true
 gcd = 0
+gain = { rage = 8 }         # [db2 23881 #1]
 damage = { ap_coeff = 4.24203, amount = 606.2, mastery = true }
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },
@@ -572,6 +574,7 @@ name = "bloodbath_bladestorm_unhinged"
 spell_id = 335096
 triggered_only = true
 gcd = 0
+gain = { rage = 8 }         # [db2 335096 #2]
 damage = { ap_coeff = 4.45413, amount = 606.2, mastery = true }
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },
