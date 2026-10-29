@@ -1,5 +1,6 @@
 # Retribution Paladin — Herald of the Sun, Midnight Season 2, core kit
 # (no trinkets / tier set / consumables; matches profiles/ret_core.simc).
+# With gear lines, [gear.kit] adds consumables and Bloodlust on top.
 #
 # Where numbers come from:
 #   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
@@ -43,6 +44,20 @@ mastery_coeff = 1.35       # [obs] Ret mastery: % damage per mastery point (+500
 versatility_bonus = 0.03   # [obs] Mark of the Wild
 weapon_ap_per_dps = 6.7909 # [obs] the engine's weapon AP component per main-hand weapon DPS (1058 at 155.8 DPS)
 
+# Raid-night kit, on top of the gear whenever gear lines are given (what
+# Raidbots / the app sim): SimC's default level-90 consumables plus Bloodlust.
+# The calibration reference is core kit, so --gear runs that compare against
+# it pass --set gear.kit.enabled=0. Runs without gear never get the kit.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
+#   primary 50     Royal Roast, Well Fed [db2 1294727]
+#   primary 25.1   Void-Touched augment rune [db2 1264426]
+#   mastery 165    Flask of the Magisters (rank 2) [db2 1235108, item-level scaled; SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs: SimC buffed stats]
+primary_buffs = { lights_potential = 695 }   # Light's Potential (rank 2) [db2 1236616, item-level scaled]
+
 [fight]
 duration = 300
 variance = 0.2
@@ -78,6 +93,20 @@ crit_pct = 20               # [db2 454351 aura 290 base 20]
 haste_pct = 15              # [obs] swing timer 1.62s -> 1.41s inside AW
 gcd_pct = 5                 # [obs] GCDs 0.94s inside AW (haste alone gives 0.99s)
 cooldown_rate_pct = { hammer_of_wrath = 35 }   # [obs] fitted to Hammer cast rate in AW; 7.5s hasted alone can't sustain it
+
+[[buffs]]
+name = "full_kit"           # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"   # potion: +695 strength for 30s [db2 1236616]
+duration = 30
+power_pct = 21.2            # as a share of attack power; [gear.kit] recomputes it from the gear
 
 [[buffs]]
 name = "haste_procs"
@@ -118,6 +147,23 @@ name = "haste_procs"
 gcd = 0
 triggered_only = true
 on_cast = [{ type = "buff", buff = "haste_procs" }]
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300              # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
 
 [[abilities]]
 name = "avenging_wrath"
@@ -477,6 +523,10 @@ refresh = "extend"           # [obs] stacking debuff: overlapping applications k
 
 [[rotation]]
 action = "avenging_wrath"
+
+[[rotation]]
+action = "potion"           # only with [gear.kit]; SimC APL: in Avenging Wrath or the last 30s
+if = "buff.avenging_wrath.up|fight_remains<30"
 
 [[rotation]]
 action = "execution_sentence_cast"

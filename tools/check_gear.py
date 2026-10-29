@@ -84,9 +84,14 @@ def ensure_engine():
         subprocess.run(["cargo", "build", "--release"], cwd=ROOT, check=True)
 
 
+def core_kit(spec):
+    """SimC runs here are core kit, so switch off the spec's consumables/Bloodlust."""
+    return ["--set", "gear.kit.enabled=0"] if "[gear.kit]" in open(spec).read() else []
+
+
 def run_azsim_gear_stats(spec, gear_path):
     ensure_engine()
-    out = subprocess.check_output([ENGINE, spec, "--gear", gear_path, "--gear-stats"], text=True)
+    out = subprocess.check_output([ENGINE, spec, "--gear", gear_path, "--gear-stats", *core_kit(spec)], text=True)
     return json.loads(out)
 
 
@@ -97,7 +102,7 @@ def run_azsim_dps(spec, calib, gear_path=None):
     try:
         cmd = [ENGINE, spec, "--calib", calib, "-n", "5000", "--seed", "42", "--json", out]
         if gear_path:
-            cmd += ["--gear", gear_path]
+            cmd += ["--gear", gear_path, *core_kit(spec)]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, check=True)
         return json.load(open(out))["dps"]
     finally:

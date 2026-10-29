@@ -32,6 +32,19 @@ DPS from `--gear` is 132,876 vs 132,902 from the hand-entered final stats
 rating exactly, Demonology is within 2 (one off-hand, see [Known gaps](#known-gaps)).
 Loading the item data costs about 30ms once per run.
 
+### Raid-night kit
+
+An optional `[gear.kit]` table adds what a raid night brings on top of the
+gear: flat `stats` (primary stat and ratings from food, flask, augment rune and
+weapon oil, added before multipliers and rating conversion), `precombat`
+abilities appended to the spec's (Ret: Bloodlust, and a marker that unlocks the
+potion), and `primary_buffs` (buff name → flat primary stat, written into that
+buff's `power_pct` from the computed attack power). It is on by default and
+only ever applied with gear lines; `--set gear.kit.enabled=0` (or the same key
+in a batch request's `set`) turns it off. `check_gear.py` does that, since its
+SimC side is core kit. Ret's numbers and the gap they close are in
+[retribution.md](retribution.md#full-kit-a-real-character-against-simc).
+
 
 ## Known gaps
 

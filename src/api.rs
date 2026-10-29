@@ -157,10 +157,12 @@ fn build(
     gear_lines: &[String],
     sets: &[&BTreeMap<String, f64>],
 ) -> Result<sim::Compiled, String> {
+    // Sets go in before the gear too, so they can steer it (`gear.kit.enabled`),
+    // and again after, so `player.*` overrides win over the gear's stats.
     let doc = if gear_lines.is_empty() {
         doc.clone()
     } else {
-        gear::apply_text(doc.clone(), &gear_lines.join("\n"))?.0
+        gear::apply_text(apply_sets(doc.clone(), sets)?, &gear_lines.join("\n"))?.0
     };
     let doc = apply_sets(doc, sets)?;
     let mut sp: spec::Spec = doc.try_into().map_err(|e| format!("spec: {e}"))?;
@@ -334,6 +336,27 @@ mod tests {
         };
         let r = run(&req).unwrap();
         assert_eq!(r.iterations, 2_000); // identical variant: delta error 0 after the first chunk
+    }
+
+    #[test]
+    fn gear_kit_is_on_by_default_and_switchable() {
+        let req = |kit: Option<f64>| Request {
+            spec: "retribution_herald".into(), calib: None, base_gear: gear_lines(), variants: vec![],
+            set: kit.map(|v| BTreeMap::from([("gear.kit.enabled".to_string(), v)])).unwrap_or_default(),
+            iterations: 400, target_error: None, target_error_pct: None, max_iterations: 0, seed: 3,
+        };
+        let full = run(&req(None)).unwrap().base.dps;
+        let core = run(&req(Some(0.0))).unwrap().base.dps;
+        assert_eq!(run(&req(Some(1.0))).unwrap().base.dps, full);
+        // consumables + Bloodlust: SimC puts this at +15.3% for this gear
+        let gain = full / core - 1.0;
+        assert!((0.12..0.18).contains(&gain), "kit gain {gain}");
+        // the kit never touches gearless (calibration) runs
+        let mut bare = req(None);
+        bare.base_gear.clear();
+        let mut bare_off = req(Some(0.0));
+        bare_off.base_gear.clear();
+        assert_eq!(run(&bare).unwrap().base.dps, run(&bare_off).unwrap().base.dps);
     }
 
     #[test]

@@ -94,7 +94,8 @@ fn main() {
     let text = std::fs::read_to_string(&args.spec).expect("read spec");
     let mut doc: toml::Value = toml::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", args.spec));
     if let Some(path) = &args.gear {
-        let (new_doc, report) = gear::apply(doc, path).unwrap_or_else(|e| {
+        // overrides first too, so they can steer the gear (`gear.kit.enabled=0`)
+        let (new_doc, report) = gear::apply(apply_overrides(doc, &args.set), path).unwrap_or_else(|e| {
             eprintln!("gear error: {e}");
             std::process::exit(1);
         });

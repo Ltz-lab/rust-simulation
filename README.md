@@ -30,7 +30,9 @@ profiles (core kit, 300s Patchwerk):
 | [Fire Mage (Sunfury)](docs/fire-mage.md) | 147,374 | 148,454 | +0.73% | haste +2.19 pts | ~15× |
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
 
-Not yet built: trinkets and tier sets, multi-target, movement, healers and
+With gear lines, Ret also models SimC's default consumables and Bloodlust
+([full kit vs SimC](docs/retribution.md#full-kit-a-real-character-against-simc)).
+Not yet built: trinket effects and tier sets, multi-target, movement, healers and
 tanks, Warcraft Logs ingestion. See the [roadmap](docs/roadmap.md).
 
 ## Quick start

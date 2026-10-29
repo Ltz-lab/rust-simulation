@@ -110,3 +110,135 @@ is for.
   cadence. Blessing of An'she isn't modelled individually.
 - **Small sources:** Consecration overlap (-11%) and Sun Sear (+10%) are each
   under 1% of damage.
+
+## Full kit: a real character against SimC
+
+The app sims real characters with Raidbots-style settings: 300s Patchwerk, all
+raid buffs, Bloodlust, and SimC's default consumables. The core-kit
+calibration models none of the extras, so on the app's test character
+(`validation/cases/retribution_paladin.txt` in dpsmaxxing, the MID2 sample
+gear with its trinkets and tier set) azsim gave **144,343** where SimC gives
+**218,843**. SimC numbers below are 20,000 iterations, seed 1, ±~95 DPS.
+
+### Where SimC's DPS comes from
+
+Each extra switched off on its own, from the app's full SimC run:
+
+| switched off | SimC DPS | contribution | share of full |
+|---|---:|---:|---:|
+| nothing (app settings) | 218,843 | | |
+| Bloodlust (`override.bloodlust=0`) | 207,195 | 11,648 | 5.3% |
+| potion (Light's Potential) | 211,471 | 7,372 | 3.4% |
+| flask (Flask of the Magisters) | 212,376 | 6,467 | 3.0% |
+| food (Royal Roast) | 216,147 | 2,696 | 1.2% |
+| augment rune (Void-Touched) | 217,572 | 1,271 | 0.6% |
+| weapon oil (Thalassian Phoenix Oil) | 217,550 | 1,293 | 0.6% |
+| trinkets, stats and effects | 177,798 | 41,045 | 18.8% |
+| — trinket effects only (stats kept) | 192,710 | 26,133 | 11.9% |
+| tier set, 2pc + 4pc | 183,709 | 35,134 | 16.1% |
+| — 4pc only | 197,326 | 21,517 | 9.8% |
+| Bite of Zul'jan 2pc (the two trinkets) | 217,556 | 1,287 | 0.6% |
+| everything above (core kit) | 127,156 | 91,687 | 41.9% |
+
+The same steps stacked, from core kit up (they interact, so these sum exactly
+to the total but differ from the one-at-a-time numbers):
+
+| step | SimC DPS | gain |
+|---|---:|---:|
+| core kit, gear only | 127,156 | |
+| + trinket stats | 138,232 | +11,076 |
+| + trinket effects | 158,980 | +20,748 |
+| + tier set | 190,529 | +31,549 |
+| + flask, food, augment rune, oil | 201,307 | +10,778 |
+| + potion | 207,244 | +5,937 |
+| + Bloodlust | 218,843 | +11,599 |
+
+**Setting differences.** The app's raid-buff overrides are SimC's Patchwerk
+defaults, so they change nothing (core kit with them 131,738, the reference
+without them 131,766). Fight length (300s ±20%) and Patchwerk agree. One
+difference does matter: the app's test character has **no `omnium_talents`
+line**, while the calibration reference (SimC's sample profile) has them.
+Those traits are worth +3.6% in SimC (core kit 127,156 → 131,738; full
+218,843 → 225,641) and are baked into azsim's calibrated multipliers. So for
+this character azsim reads ~3.6% high before anything else, and the
+like-for-like SimC target is 225,641.
+
+### What azsim now models
+
+`[gear.kit]` in the spec adds SimC's default consumables and Bloodlust on top
+of the gear. It applies only when gear lines are given (the app always sends
+them), is on by default, and switches off with
+`--set gear.kit.enabled=0` or `set: {"gear.kit.enabled": 0}` in a batch
+request. Runs without gear lines (calibration, validation, stat probes) never
+see it, so their results are unchanged bit for bit.
+
+| piece | how | source |
+|---|---|---|
+| food: +50 strength | flat primary stat before multipliers | [db2 1294727] |
+| augment rune: +25.1 strength | flat primary stat | [db2 1264426] |
+| flask: +165 mastery rating | rating before conversion | [db2 1235108], item-level scaled |
+| weapon oil: +16 crit, +16 haste rating | rating before conversion | [obs] SimC buffed stats |
+| potion: +695 strength for 30s, 300s cooldown | buff, cast in Avenging Wrath or the last 30s (1.5 per fight, as in SimC) | [db2 1236616], item-level scaled |
+| Bloodlust: +30% haste for 40s at the pull | buff cast before the pull | [db2 2825] |
+
+With the kit, azsim's stats for this character match SimC's buffed sheet
+exactly (3,008 AP, 35.43% crit, 21.29% haste, 54.91% mastery).
+
+### Before and after
+
+| | azsim | SimC like-for-like | diff |
+|---|---:|---:|---:|
+| core kit + trinket stats (kit off) | 144,391 | 143,164 | +0.86% |
+| + consumables and Bloodlust (kit on) | 165,924 | 165,025 | +0.54% |
+| kit gain | +14.9% | +15.3% | |
+
+"SimC like-for-like" is SimC with the same pieces azsim models: trinkets
+replaced by their stats, no tier set, and `omnium_talents` on to match the
+calibration. Through the app's batch path (seed 1, 0.2% target error):
+**144,343 → 165,849**, against SimC's 218,843 for the full character.
+
+### What's left: trinkets and tier set
+
+Of the remaining 53,000 DPS (24% of SimC's), trinket effects and the tier set
+are nearly all of it; the other ~3.6% runs the other way (`omnium_talents`).
+Both need engine work, so neither is in this change.
+
+**Tier set (MID2 2pc + 4pc), ~35,000 DPS on this character.** In SimC's
+paladin module (`sc_paladin.hpp`, the spender's execute):
+- 2pc: consuming Divine Purpose triggers *Divine Power*, a damage buff (84%
+  uptime here). Needs an effect that fires *when `free_with` is consumed*:
+  today a free spend can't trigger anything of its own.
+- 4pc: consuming Divine Purpose with one kind of spender arms an *Arbiter*
+  buff for a different kind (Final Verdict arms Divine Storm's and the other
+  way round); the next spender of that other kind spends it and fires
+  *Divine Arbiter* (1306923, 10.125 AP holy). Worth 23,000 DPS by itself, and
+  it changes the rotation: SimC hard-casts Divine Storm (+6,000) in place of
+  Final Verdicts (−11,000). Needs the same on-free-spend hook, a hard-cast
+  Divine Storm with its APL conditions, and the cross-spender consume, which
+  `requires_buff` triggers can already express.
+- The set needs gear to know it's worn: set membership from item ids (the app
+  already has a set table, `gearsim/surrogate._item_sets`), switching spec
+  sections on by piece count.
+
+**Trinkets, ~26,000 DPS of effects on top of their stats.** Each trinket is
+its own effect, as in SimC's `unique_gear_midnight.cpp`:
+- *Zul'jin's Guillotine Technique*: a damage proc whose damage rises with the
+  target's missing health (+x% per 1% missing). Perfected Guillotine, 9,558
+  DPS with the Bite of Zul'jan 2pc, which also adds a Venomfang hit. Needs
+  health-scaled damage (the engine already tracks target health for
+  `below_health`) and the 2pc check.
+- *Voracious Heart of Ula'tek*: an on-use primary-stat buff; while it's up
+  every hit can proc Devour Morsel (2,402 DPS) and stacks Devoured Strength,
+  which falls off with the buff. Needs procs that only run while a buff is up
+  and stacking stat buffs. The on-use itself is plain data.
+- Common to both: **effect values scale with item level**. Gear has to map a
+  trinket's item id to an effect template and scale its numbers from the
+  spell-effect coefficients and item-level budgets, the same tables gear
+  stats already use. That per-item effect library is the bulk of the work,
+  and it's what lets the app's Top Gear compare trinkets by their effects
+  rather than their stats.
+
+Once both are in, expect azsim at about SimC's like-for-like 225,641 plus the
+calibration's ~+0.5–0.9%. That's about 3.6% over the 218,843 SimC gives for
+the character as the app sends it, until the character's `omnium_talents` are
+modelled or passed through.
