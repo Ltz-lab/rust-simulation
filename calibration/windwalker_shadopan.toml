@@ -4,13 +4,13 @@
 
 [sources."blackout_kick"]
 derived = 6.925318
-mult = 1.315712
-crit_bonus = +0.036076
+mult = 1.315707
+crit_bonus = +0.037903
 
 [sources."dual_threat"]
 derived = 1.075360
-mult = 3.325071
-crit_bonus = +0.125926
+mult = 3.325022
+crit_bonus = +0.125809
 
 [sources."expel_harm_damage"]
 derived = 1.482624
@@ -19,52 +19,52 @@ crit_bonus = +0.000000
 
 [sources."fists_of_fury"]
 derived = 1.075360
-mult = 3.534433
-crit_bonus = +0.137566
+mult = 3.534436
+crit_bonus = +0.137359
 
 [sources."flurry_strike"]
 derived = 1.075360
-mult = 1.203619
-crit_bonus = +0.007707
+mult = 1.203620
+crit_bonus = +0.007894
 
 [sources."flurry_strike_shado_over_the_battlefield"]
 derived = 1.161389
 mult = 1.145347
-crit_bonus = +0.304950
+crit_bonus = +0.305088
 
 [sources."flurry_strike_stand_ready"]
 derived = 1.075360
-mult = 1.243913
-crit_bonus = +0.229204
+mult = 1.243878
+crit_bonus = +0.229426
 
 [sources."flurry_strike_wisdom_of_the_wall"]
 derived = 1.075360
-mult = 1.245130
-crit_bonus = +0.103739
+mult = 1.245125
+crit_bonus = +0.103615
 
 [sources."glory_of_the_dawn_rising_sun_kick_damage"]
 derived = 6.538243
-mult = 1.826071
-crit_bonus = -0.003009
+mult = 1.826033
+crit_bonus = -0.004700
 
 [sources."glory_of_the_dawn_rushing_wind_kick_damage"]
 derived = 6.538243
-mult = 1.826790
-crit_bonus = +0.000232
+mult = 1.826834
+crit_bonus = +0.002169
 
 [sources."jadefire_stomp"]
 derived = 5.806944
-mult = 1.156972
-crit_bonus = +0.132136
+mult = 1.157002
+crit_bonus = +0.132345
 
 [sources."melee_main_hand"]
-mult = 1.401441
-crit_bonus = +0.278177
+mult = 1.401447
+crit_bonus = +0.277941
 
 [sources."rising_sun_kick_damage"]
 derived = 6.538243
-mult = 1.827812
-crit_bonus = -0.003276
+mult = 1.827814
+crit_bonus = -0.003566
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.235520
@@ -78,23 +78,23 @@ crit_bonus = +0.000000
 
 [sources."rushing_wind_kick_damage"]
 derived = 7.061302
-mult = 1.834521
-crit_bonus = +0.000793
+mult = 1.834539
+crit_bonus = -0.000587
 
 [sources."spinning_crane_kick_tick"]
 derived = 34.223547
-mult = 1.010255
-crit_bonus = +0.157805
+mult = 1.010252
+crit_bonus = +0.157627
 
 [sources."teachings_of_the_monastery"]
 derived = 1.731330
-mult = 1.260025
-crit_bonus = +0.106289
+mult = 1.260030
+crit_bonus = +0.106216
 
 [sources."tiger_palm"]
 derived = 7.549027
-mult = 1.411412
-crit_bonus = -0.000946
+mult = 1.411419
+crit_bonus = -0.001264
 
 [sources."touch_of_death"]
 derived = 1.144000
@@ -103,21 +103,21 @@ crit_bonus = +0.000000
 
 [sources."touch_of_karma"]
 derived = 1.000000
-mult = 1.108254
+mult = 0.949875
 crit_bonus = +0.000000
 
 [sources."whirling_dragon_punch_aoe"]
 derived = 1.075360
-mult = 1.228810
-crit_bonus = +0.143298
+mult = 1.228819
+crit_bonus = +0.142348
 
 [sources."whirling_dragon_punch_singletarget"]
 derived = 1.075360
-mult = 1.229114
-crit_bonus = +0.143715
+mult = 1.229068
+crit_bonus = +0.143277
 
 [sources."zenith_stomp_trigger"]
 derived = 1.393667
-mult = 1.192300
-crit_bonus = +0.218432
+mult = 1.192268
+crit_bonus = +0.216737
 
