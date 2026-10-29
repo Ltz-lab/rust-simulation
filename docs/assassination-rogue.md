@@ -20,7 +20,7 @@ set, consumables or Bloodlust), 300s Patchwerk, 5,000 iterations.
 Hit counts per fight (structurally the important part) are within a couple of
 percent for the rotation: 54.4 Envenoms (reference 54.3), 14.2 Garrotes (13.8),
 11.2 Ruptures (10.4), 120.0 Mutilates (121.9), 5.3 Kingsbanes (5.2),
-2.9 Deathmarks (2.9), 5.1 vanishes and 7.0 Thistle Teas. Amplifying and Deadly
+2.9 Deathmarks (2.9), 1.9 Vanishes (1.9) and 7.1 Thistle Teas (7.0). Amplifying and Deadly
 Poison each proc 694 times against 657.
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
@@ -75,8 +75,8 @@ points.
   25% of each strike into a rolling bleed), Shiv (10 energy through Toxic
   Stiletto, 20s hasted cooldown), Fan of Knives, Ambush, Envenom (0.395 AP per
   point, Rapid Injection's +40%, Amplifying Poison's +35% for 10 stacks),
-  Rupture and Garrote (Razor Wire's +6s), Seal Fate's point per builder crit,
-  Relentless Strikes is not in the Midnight kit.
+  Rupture and Garrote (Razor Wire's +6s), and Seal Fate's point per builder crit.
+  The reference records no Relentless Strikes energy, so none is modelled.
 - **Poisons.** Dragon-Tempered Blades keeps Deadly and Amplifying Poison both
   active; each rolls on every direct hit at (30% + 30% Envenom) x 0.70 + 5%
   Improved Poisons, doubled while Deathmark ticks (one extra roll per poison).
