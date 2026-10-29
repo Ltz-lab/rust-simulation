@@ -52,19 +52,22 @@ on_hit = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.20 }]
 # Random gear procs, as Poisson rates [obs]
 [[procs]]
 ability = "venomfang_proc"
-per_minute = 7.2             # [obs] 36 procs a fight
+per_minute = 5.62            # [obs] 36 procs a fight at 1.28 haste, RPPM is hasted too
+hasted = true
 
 [[procs]]
 ability = "rune_of_unleashed_fire"
-per_minute = 10.1            # [obs] 50.5 a fight
+per_minute = 10.1            # [obs] 50.5 a fight; the core rune's own rate is not hasted
 
 [[procs]]
 ability = "void_eruption"
-per_minute = 5.8             # [obs] 29 a fight
+per_minute = 4.53            # [obs] 29 a fight at 1.28 haste
+hasted = true
 
 [[procs]]
 ability = "acidbrood_scourge"
-per_minute = 4.3             # [obs] 21.6 a fight
+per_minute = 3.36            # [obs] 21.6 a fight at 1.28 haste
+hasted = true
 
 # ---------------------------------------------------------------- buffs
 
@@ -100,9 +103,17 @@ flat = true
 ability_pct = { moonlight_chakram_damage = 24 }
 
 [[buffs]]
-name = "mongoose_fury"       # [db2 259388: 8s, 20 stacks] +10% Raptor Strike damage a stack
+name = "rune_of_burning_haste"   # [db2 1287774: 10s, 20 stacks, "multiple applications may overlap"] 170 x 0.2601 = 44.2 haste rating a stack [db2 1288183 #3]
+duration = 10
+max_stacks = 20
+overlap = true
+haste_pct = 1.1115           # 44.21 rating / 39.78 a point [obs buffed_stats]
+
+[[buffs]]
+name = "mongoose_fury"       # [db2 259388: 8s, 20 stacks, Asynchronous Aura: each stack keeps its own timer]
 duration = 8
 max_stacks = 20
+overlap = true
 ability_pct = { raptor_strike = 10, raptor_swipe = 10 }
 
 [[buffs]]
@@ -156,23 +167,16 @@ on_cast = [
   { type = "trigger", ability = "mark_roll" },
 ]
 
-# 10% to mark, 20% while Takedown is up [db2 1253599 #1; Lunar Calling 1253852 #2 = 10]
+# 20% to mark on every Tip consumption: Sentinel's 10 [db2 1253599 #1] plus
+# Moon's Blessing's 10 [db2 1253825 #1]; 30% while Takedown is up (Lunar
+# Calling +10 [db2 1253852 #2]). SimC procs 37.5 marks a fight against ~162
+# consumptions [obs].
 [[abilities]]
 name = "mark_roll"
 triggered_only = true
 gcd = 0
 on_cast = [
-  { type = "if", if = "buff.takedown.up", then = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.20 }], else = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.10 }] },
-]
-
-# Raptor Strike and Raptor Swipe roll twice: SimC's log marks 24 of 113 strikes
-# from 162 Tip consumptions, twice the rate of Wildfire Bomb's rolls [obs]
-[[abilities]]
-name = "mark_roll2"
-triggered_only = true
-gcd = 0
-on_cast = [
-  { type = "if", if = "buff.takedown.up", then = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.20 }], else = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.10 }] },
+  { type = "if", if = "buff.takedown.up", then = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.30 }], else = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.20 }] },
 ]
 
 # Applying the mark also takes 6s off Wildfire Bomb [db2 1253825 #3, simc trigger_eagles_mark]
@@ -213,7 +217,6 @@ on_cast = [
   { type = "if", if = "buff.tip_of_the_spear.up", then = [
     { type = "consume", buff = "tip_of_the_spear" },
     { type = "trigger", ability = "tip_consumed" },
-    { type = "trigger", ability = "mark_roll2" },
   ] },
   { type = "consume", buff = "wallop", all = true },
   { type = "buff", buff = "raptor_swipe" },
@@ -234,7 +237,6 @@ on_cast = [
   { type = "if", if = "buff.tip_of_the_spear.up", then = [
     { type = "consume", buff = "tip_of_the_spear" },
     { type = "trigger", ability = "tip_consumed" },
-    { type = "trigger", ability = "mark_roll2" },
   ] },
   { type = "consume", buff = "wallop", all = true },
   { type = "consume", buff = "raptor_swipe", all = true },
@@ -308,7 +310,10 @@ whole_ticks = true
 school = "physical"
 mastery = true
 mastery_scale = 1.766
-on_tick = [{ type = "buff", buff = "mongoose_fury" }]   # Mongoose Rounds, 1 stack a tick [db2 1253945 #1]
+on_tick = [
+  { type = "buff", buff = "mongoose_fury" },   # Mongoose Rounds, 1 stack a tick [db2 1253945 #1]
+  { type = "trigger", ability = "wallop_roll" },   # every Mongoose Fury stack gain rolls Wallop [simc stack_change_callback]
+]
 
 # ---------------------------------------------------------------- Takedown
 
@@ -424,7 +429,7 @@ gcd = 0
 name = "rune_of_unleashed_fire_lingering"
 ap_coeff = 0.14
 tick_time = 1.0
-duration = 6.0
+duration = 8.0               # [db2 1287663]
 hasted = false
 school = "arcane"
 
@@ -433,7 +438,10 @@ name = "rune_of_unleashed_fire"   # [db2 1286970] and its Rune of Lingering blee
 triggered_only = true
 gcd = 0
 damage = { amount = 6000, school = "fire", no_procs = true }
-on_cast = [{ type = "trigger", ability = "rune_of_unleashed_fire_lingering" }]
+on_cast = [
+  { type = "trigger", ability = "rune_of_unleashed_fire_lingering" },
+  { type = "buff", buff = "rune_of_burning_haste" },   # each activation also grants the haste rune [db2 1279610]
+]
 
 [[abilities]]
 name = "void_eruption"
@@ -509,6 +517,7 @@ mastery = true
 mastery_scale = 1.766
 tick_time = 1.0
 duration = 5.0
+hasted = true                # [db2 1253138] Spell Haste Affects Periodic
 whole_ticks = true
 school = "physical"
 

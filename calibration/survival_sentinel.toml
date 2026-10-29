@@ -4,114 +4,114 @@
 
 [sources."acidbrood_scourge"]
 derived = 1.000000
-mult = 0.786865
-crit_bonus = +0.000077
+mult = 0.752769
+crit_bonus = +0.001243
 
 [sources."auto_attack_mh"]
-mult = 1.716964
-crit_bonus = +0.001337
+mult = 1.645248
+crit_bonus = +0.001772
 
 [sources."boomstick_damage"]
 derived = 1.221000
-mult = 1.284617
-crit_bonus = +0.005931
+mult = 1.235758
+crit_bonus = +0.003677
 
 [sources."duck_claw"]
 derived = 1.000000
-mult = 1.019206
-crit_bonus = +0.001778
+mult = 1.018528
+crit_bonus = +0.002008
 
 [sources."duck_kill_command"]
 derived = 1.380000
-mult = 0.821602
-crit_bonus = +0.202280
+mult = 0.821660
+crit_bonus = +0.201909
 
 [sources."duck_melee"]
-mult = 0.223414
-crit_bonus = +0.003196
+mult = 0.223411
+crit_bonus = +0.003612
 
 [sources."duck_sic_em"]
 derived = 1.110000
-mult = 3.475351
-crit_bonus = +0.003630
+mult = 3.477844
+crit_bonus = +0.003393
 
 [sources."duck_strike_as_one"]
 derived = 1.000000
-mult = 1.455783
-crit_bonus = +0.003082
+mult = 1.456259
+crit_bonus = +0.002356
 
 [sources."duck_takedown"]
 derived = 1.110000
-mult = 2.061053
-crit_bonus = -0.008401
+mult = 2.061321
+crit_bonus = +0.000246
 
 [sources."lunar_storm"]
 derived = 1.110000
-mult = 1.462767
-crit_bonus = +0.001154
+mult = 1.360739
+crit_bonus = +0.001725
 
 [sources."moonlight_chakram_damage"]
 derived = 1.110000
-mult = 3.963221
-crit_bonus = -0.000668
+mult = 3.799257
+crit_bonus = -0.000682
 
 [sources."raptor_strike"]
 derived = 1.332000
-mult = 0.945409
-crit_bonus = +0.202224
+mult = 1.942754
+crit_bonus = +0.202230
 
 [sources."raptor_swipe"]
 derived = 1.332000
-mult = 1.593796
-crit_bonus = +0.200670
+mult = 3.309306
+crit_bonus = +0.202914
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.794479
-crit_bonus = -0.330717
+mult = 0.761966
+crit_bonus = -0.330594
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.793087
-crit_bonus = -0.330581
+mult = 0.754602
+crit_bonus = -0.330395
 
 [sources."sanctified_armaments"]
 derived = 1.000000
-mult = 1.003373
+mult = 0.989296
 crit_bonus = +0.000000
 
 [sources."takedown_damage"]
 derived = 1.110000
-mult = 0.857692
-crit_bonus = +0.002548
+mult = 0.857814
+crit_bonus = +0.003170
 
 [sources."twilight_requiem"]
 derived = 1.110000
-mult = 1.299688
-crit_bonus = +0.003116
+mult = 1.232712
+crit_bonus = +0.006501
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.797103
-crit_bonus = +0.001894
+mult = 0.764118
+crit_bonus = +0.002486
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 1.142899
-crit_bonus = +0.000330
+mult = 1.096549
+crit_bonus = +0.000562
 
 [sources."void_eruption"]
 derived = 1.000000
-mult = 0.746121
-crit_bonus = +0.002929
+mult = 0.715064
+crit_bonus = +0.002206
 
 [sources."wildfire_bomb_bleed"]
 derived = 1.544565
-mult = 5.058697
-crit_bonus = +0.053295
+mult = 4.814965
+crit_bonus = +0.053189
 
 [sources."wildfire_bomb_damage"]
 derived = 1.776250
-mult = 4.047262
-crit_bonus = +0.049554
+mult = 3.921446
+crit_bonus = +0.051214
 
