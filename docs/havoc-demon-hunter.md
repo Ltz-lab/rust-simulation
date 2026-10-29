@@ -29,6 +29,24 @@ Stat probes (+500 rating / +200 agility, same calibration):
 | versatility | +8.42% | +8.50% | +0.08 |
 | agility | +6.40% | +6.33% | -0.08 |
 
+## Gear
+
+`[gear]` computes the character's stats from `/simc` slot lines, and
+`[gear.kit]` adds a raid-night approximation of SimC's default consumables and
+Bloodlust (flask, food, augment rune, both weapon oils, and a Potion of
+Recklessness at the pull). `tools/check_gear.py` matches every slot's item
+level and every rating against SimC, with and without trinkets: attack power
+2,784 (3,018 with trinkets), crit 36.96%, haste 16.86%, mastery 87.70% and
+versatility 8.98%. `--gear` gives 158,809 DPS against 158,811 from the
+hand-entered final stats (same seed, 5,000 iterations).
+
+Full-gear DPS is not validated: the Fel-Scarred tier set's bonuses (about 10%
+in SimC) are not in the effect library and the weapon oil's damage proc is not
+modelled, so SimC's full MID2 profile gives 261,044 against azsim's 224,740.
+The potion is modelled as +1,725 crit rating and -232 versatility rating for
+30s, the highest and lowest secondaries on this gear set; other gear with
+different highest/lowest stats would need its own buff.
+
 ## What is modelled
 
 - **Fury** (170): Demon Blades on every auto-attack hit (15), Immolation Aura

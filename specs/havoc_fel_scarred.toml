@@ -41,6 +41,34 @@ crit_multiplier = 2.4        # [obs] crit/non-crit of Chaos Strike; Know Your En
 weapon = { min = 7500, max = 8000, speed = 2.94 }   # [obs] effective swing interval 2.04s
 off_hand = { min = 0, max = 0, speed = 3.02 }       # [obs] the off hand lands 136.1 a fight
 
+[gear]
+primary = "agility"
+base_primary = 621            # [obs] level-90 blood elf demon hunter base agility (SimC report: 2339 at the pull = 621 + 1718 from gear)
+primary_mult = 1.0            # [obs] no agility raid buff
+attack_power_mult = 1.1904    # [obs] 2339 agility -> 2784 attack power and the +200 agility probe -> 3022: Battle Shout x1.05 times a +13.37% class aura
+crit_bonus = 0.11             # [obs] 36.96% at 1194 rating (25.96% from rating)
+haste_mult = 1.05             # [obs] 16.86% at 497 rating (11.30% from rating), multiplicative with rating haste
+mastery_points = 12           # [obs] 8 base + 2 Skyfury + 2, in mastery points
+mastery_coeff = 2.25          # [db2 185164] Mastery: Demonic Presence, % per mastery point
+versatility_bonus = 0.07      # [obs] 8.98% at 107 rating (1.98% from rating)
+weapon_ap_per_dps = 5.9505    # [obs] weapon_attack_power 700 at 117.64 main-hand DPS
+spec_id = 577                 # [db2] ChrSpecialization
+# Damage of the library's gear procs (data/item_effects.toml): the raid debuffs
+# the calibrated sources carry in their fitted multipliers, Chaos Brand (+3%
+# magic), Mystic Touch (+5% physical) and Hunter's Mark (+3%). [simc]
+effect_mult = { physical = 1.0815, magic = 1.0609 }
+
+# Raid-night kit with gear lines: SimC's default level-90 Havoc consumables plus
+# Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]      # Bloodlust at the pull; unlocks the potion
+stats = { primary = 25.1, crit_rating = 262, haste_rating = 32 }
+#   primary 25.1   Void-Touched augment rune [db2 1264426; obs +25 agility]
+#   crit 165       Flask of the Shattered Sun (rank 2) [obs: SimC's buffed stats]
+#   crit 65        Blooming Feast [obs: SimC's buffed stats]
+#   crit/haste 32  Thalassian Phoenix Oil (rank 2) on both warglaives [obs: 16 each]
+
 [fight]
 duration = 300
 variance = 0.2
@@ -61,6 +89,22 @@ name = "isolated_prey_marker"
 gcd = 0
 triggered_only = true
 on_cast = [{ type = "buff", buff = "isolated_prey" }]
+
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+# Potion of Recklessness: highest secondary up, lowest down [db2 1236994]
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
 
 # ---------------------------------------------------------------- auto attacks
 # A dual-wielded white swing misses 16.3% of the time ([obs] SimC's own result
@@ -569,6 +613,20 @@ crit_bonus = -2.0
 # ---------------------------------------------------------------- buffs
 
 [[buffs]]
+name = "full_kit"            # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"           # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"        # Potion of Recklessness: +highest secondary, -lowest [db2 1236994: 30s]
+duration = 30
+stats = { crit_rating = 1725, versatility_rating = -232 }   # [obs] at this gear set crit is highest, versatility lowest
+
+[[buffs]]
 name = "metamorphosis"
 duration = 20                                        # [db2 162264]
 refresh_extend = true                                # [simc] extend_duration_or_trigger
@@ -646,6 +704,10 @@ damage_pct = 5                                       # [db2 452416 #1] +5% a sta
 # dropped rather than being read as Blade Dance's longer 15s cooldown: with it, the
 # Blade Dance that follows every Demonic window blocks the hardcast Metamorphosis
 # for another 10s and Metamorphosis falls from 2.8 casts a fight to 2.1.
+
+[[rotation]]
+action = "potion"           # only with [gear.kit] [simc APL: cooldown.metamorphosis.up&(cooldown.eye_beam.up|!talent.chaotic_transformation)|fight_remains<=30]
+if = "cooldown.metamorphosis.ready&cooldown.eye_beam.ready|fight_remains<31"
 
 [[rotation]]
 action = "metamorphosis"
