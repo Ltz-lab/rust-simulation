@@ -879,9 +879,9 @@ impl Compiled {
         let mut stream_names = vec!["fight_length".to_string()];
         stream_names.extend(src_names.iter().map(|n| format!("crit/{n}")));
         stream_names.extend(src_names.iter().map(|n| format!("range/{n}")));
-        stream_names.extend(spec.procs.iter().filter(|p| !p.on_hit).map(|p| format!("rppm/{}", p.ability)));
+        stream_names.extend(spec.procs.iter().filter(|p| !p.on_hit && !p.on_tick).map(|p| format!("rppm/{}", p.ability)));
         stream_names.extend(roll_names.iter().map(|n| format!("roll/{n}")));
-        stream_names.extend(spec.procs.iter().filter(|p| p.on_hit).map(|p| format!("hit_proc/{}", p.ability)));
+        stream_names.extend(spec.procs.iter().filter(|p| p.on_hit || p.on_tick).map(|p| format!("hit_proc/{}", p.ability)));
         // the same proc listed twice still needs two streams
         let mut seen = HashMap::new();
         let stream_keys = stream_names
@@ -3156,6 +3156,51 @@ action = "strike"
         advance(&mut st, 40.0);
         // one per hit, at most one per 2s internal cooldown, for 20s
         assert_eq!(st.out.casts[src(&c, "gated")], 10);
+    }
+
+    #[test]
+    fn tick_only_proc_uses_named_stream_and_filters_sources() {
+        let spec = r#"
+name = "periodic proc"
+rotation = []
+[player]
+spell_power = 100
+crit = 0
+haste = 0
+versatility = 0
+[fight]
+duration = 10
+variance = 0
+[[abilities]]
+name = "proc"
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1 }
+[[abilities]]
+name = "eligible"
+triggered_only = true
+[abilities.dot]
+name = "eligible"
+sp_coeff = 1
+duration = 5
+tick_time = 1
+[[abilities]]
+name = "other"
+triggered_only = true
+damage = { sp_coeff = 1 }
+[[procs]]
+ability = "proc"
+on_tick = true
+sources = ["eligible"]
+chance = 1
+"#;
+        let c = compile(spec);
+        let mut st = state(&c);
+        st.hit_procs(src(&c, "eligible"), false);
+        st.hit_procs(src(&c, "other"), true);
+        assert_eq!(st.out.casts[src(&c, "proc")], 0);
+        st.hit_procs(src(&c, "eligible"), true);
+        assert_eq!(st.out.casts[src(&c, "proc")], 1);
     }
 
     /// Energy, combo points, dual wield and echoes on a bare character.

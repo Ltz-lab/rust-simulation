@@ -32,13 +32,17 @@ Buffs can modify damage, crit (globally or per ability), crit damage, haste,
 mastery, power, GCD, per-ability cast time and recharge rate, or store a
 percentage of damage dealt for a later burst; they can stack with independent
 timers (`overlap`), count stacks without multiplying bonuses (`flat`), extend
-on refresh (`refresh_extend`), follow the target's health, fire
+on refresh (`refresh_extend`), retain their original expiry when stacked
+(`refresh_duration = false`), follow the target's health, fire
 `on_expire` effects, copy a share of each hit as another ability's damage
 (`echo`), grow with haste (`haste_duration`) or change auto-attack speed only
 (`attack_speed_pct`, `attack_speed_per_haste`). DoTs support hasted ticks, partial final ticks (or
 `whole_ticks` only), `pandemic`/`extend`/`reset` refresh, stacks
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
-on-crit effects, and `banked` rolling damage fed by hits.
+on-crit effects, and `banked` rolling damage fed by direct hits or ticks. Feed entries may
+restrict contributions with `crit_only = true` and an `if` expression.
+`mastery_power` applies independent copies of the mastery factor for
+multischool damage (default 1).
 
 A DoT with `overlap = true` keeps an independent expiration for each
 application, up to `max_stacks`, replacing the oldest at the cap. Its ticks
@@ -64,7 +68,9 @@ player's direct hits as SimC's real PPM (one attempt per timestamp, the time
 since the last attempt capped at 3.5s, bad-luck protection), or with a flat
 `chance` per hit, plus an optional internal cooldown `icd`. Nothing is rolled
 while the ability's `requires_buff` is down, which makes "while X is up, hits
-can proc Y" plain data. Hits from pets and `no_procs` abilities don't roll.
+can proc Y" plain data. Use `on_tick = true` to include periodic hits (with or without `on_hit`),
+and `sources = ["name", ...]` to restrict eligible damage sources. Hits from
+pets and `no_procs` abilities don't roll.
 Each on-hit proc has its own `hit_proc/<ability>` random stream.
 
 Trinket effects and set bonuses are spec fragments in this same format, added

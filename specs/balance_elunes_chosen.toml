@@ -15,6 +15,31 @@ mastery = 0.3370
 versatility = 0.1469
 crit_multiplier = 2.0 # [simc] Night Elf, no dwarf racial
 
+[gear]
+primary = "intellect"
+base_primary = 619 # [obs] level 90 base intellect, approximate
+primary_mult = 1.0815 # [simc] leather specialization and Arcane Intellect
+spell_power_per_primary = 1.0 # [obs]
+crit_bonus = 0.05 # [obs]
+haste_mult = 1.01 # [obs] Moonkin form
+mastery_points = 16 # [obs] Moonkin Lycara and Skyfury
+mastery_coeff = 0.75 # [db2] Astral Invocation per mastery point
+versatility_bonus = 0.06 # [simc] Mark of the Wild and passive versatility
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
+spec_id = 102 # [db2] Balance
+
+[gear.procs]
+crit = 0.0049 # [obs]
+haste = 0.0492 # [obs]
+mastery = 0.0093 # [obs]
+versatility = 0.0339 # [obs]
+
+[gear.kit]
+enabled = 1 # [simc] standard raid consumables
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil
+precombat = ["full_kit"] # [simc] Bloodlust at pull
+primary_buffs = { lights_potential = 695 } # [db2 1236616] potion
+
 [fight]
 duration = 300 # [simc] reference default
 variance = 0.2 # [simc]
@@ -43,6 +68,29 @@ per_minute = 4.67
 [[procs]]
 ability = "void_eruption"
 per_minute = 6.31
+
+# [db2 2825, 1236616] raid haste and primary-stat potion, only with gear.
+[[buffs]]
+name = "full_kit"
+duration = 1000000000
+[[buffs]]
+name = "bloodlust"
+duration = 40
+haste_pct = 30
+[[buffs]]
+name = "lights_potential"
+duration = 30
+power_pct = 21.2
+[[abilities]]
+name = "full_kit"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+[[abilities]]
+name = "potion"
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
 
 # [db2 279709, 202345] Starlord: 2 ranks, +4% haste/stack, no refresh.
 [[buffs]]
@@ -566,6 +614,9 @@ if = "!buff.opened.up&astral_power<80&buff.umbral_embrace.up&buff.eclipse_lunar.
 [[rotation]]
 action = "starfire"
 if = "!buff.opened.up&astral_power<80"
+[[rotation]]
+action = "potion" # [simc] use near Incarnation
+if = "buff.incarnation.up|fight_remains<30"
 [[rotation]]
 action = "fury_of_elune"
 [[rotation]]
