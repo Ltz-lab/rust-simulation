@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Sixteen specs so far, all Midnight Season 2, compared against SimC's sample
+Seventeen specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -42,6 +42,7 @@ profiles (core kit, 300s Patchwerk):
 | [Devourer Demon Hunter (Void-Scarred)](docs/devourer-demon-hunter.md) | 164,261 | 164,308 | +0.03% | haste -1.13 pts | — |
 | [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,729 | -0.59% | haste -3.06 pts | ~10× |
 | [Survival Hunter (Sentinel)](docs/survival-hunter.md) | 163,198 | 163,103 | -0.06% | agility +1.71 pts | — |
+| [Assassination Rogue (Deathstalker)](docs/assassination-rogue.md) | 148,195 | 148,533 | +0.23% | haste +0.66 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -75,7 +76,8 @@ cargo build --release
   [Arms Warrior](docs/arms-warrior.md), [Shadow Priest](docs/shadow-priest.md),
   [Feral Druid](docs/feral-druid.md), [Devourer Demon Hunter](docs/devourer-demon-hunter.md),
   [Havoc Demon Hunter](docs/havoc-demon-hunter.md),
-  [Survival Hunter](docs/survival-hunter.md) (results, validation, known gaps)
+  [Survival Hunter](docs/survival-hunter.md),
+  [Assassination Rogue](docs/assassination-rogue.md) (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer
 - [Gear → stats](docs/gear.md): computing stats from /simc gear lines

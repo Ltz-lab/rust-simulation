@@ -6,7 +6,7 @@ S2 Assassination profile (Deathstalker) cut to the core kit (no trinkets, tier
 set, consumables or Bloodlust), 300s Patchwerk, 5,000 iterations.
 
 Calibration round 1 is done: hit and cast counts are within a few percent of
-the reference and the stat probes track within a point. Gear, registration and
+the reference and the stat probes track within a point. Gear and
 the gaps at the bottom are still open.
 
 ## Results
