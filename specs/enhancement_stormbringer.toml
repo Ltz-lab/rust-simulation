@@ -1,0 +1,852 @@
+# Enhancement Shaman — Stormbringer, Midnight Season 2, core kit.
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Shaman_Enhancement.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_shaman.cpp) or its default APL
+#
+# Maelstrom Weapon is a buff, not a resource: every melee hit has a 20% chance
+# to add a stack (187880 proc chance), and Lightning Bolt / Chain Lightning /
+# Tempest spend every stack they have: +20% damage and -20% cast time each
+# (344179), so from 5 stacks they are instant. Enhancement's spell power is
+# 101% of attack power (137041 effect #6, "Override Spell Power per Attack
+# Power"), so every spell coefficient below is sp_coeff x 1.01 expressed as
+# an attack-power coefficient, scaled by the same AP the engine computes.
+#
+# Stormstrike has two charges (Stormblast) on a hasted 7.5s recharge; every
+# hit can proc Stormsurge (5% + 30% of mastery) which resets it and makes the
+# next one deal an extra 25% hit. Ascendance replaces Stormstrike with
+# Windstrike and starts Doom Winds; while Doom Winds is up every Stormstrike,
+# Windstrike and Crash Lightning re-casts the last Lightning Bolt (Thorim's
+# Invocation). Crash Lightning leaves a 12s weapon enhancement: while it is
+# up Stormstrike and Lava Lash each add a Crash Lightning hit that grows with
+# its stack count.
+
+name = "Enhancement Shaman (Stormbringer, core kit)"
+precombat = ["flurry_always", "windfury_weapon", "flametongue_weapon", "lightning_shield"]
+
+[player]
+# [obs] SimC's buffed snapshot; agility -> attack power (1911 agility).
+attack_power = 2652
+# [obs] the main-hand weapon's share of ability power, 6 x its DPS (350)
+weapon_attack_power = 830
+crit = 0.3198            # [obs]
+haste = 0.1927           # [obs]
+versatility = 0.0528     # [obs]
+mastery = 0.72           # [obs] Mastery: Enhanced Elements: Fire/Frost/Nature damage
+crit_multiplier = 2.0    # [obs] fitted per source by the calibration
+# [db2 137041 #1/#2] Enhancement Shaman: +25% direct and periodic spell damage
+global_mult = 1.25
+weapon = { min = 0, max = 0, speed = 2.6 }   # [obs] swings every 2.6s hasted
+off_hand = { min = 0, max = 0, speed = 2.6 }
+
+[fight]
+duration = 300
+variance = 0.2
+
+[auto_attack]
+replace_with = "auto_attack_mh"
+off_hand_replace_with = "auto_attack_offhand"
+
+# Maelstrom Weapon: 20% chance per hit (187880), one stack each [db2/simc]
+[[procs]]
+ability = "mw_gain"
+on_hit = true
+chance = 0.20
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "flurry_always"     # [obs] 98% uptime: every crit refreshes it
+duration = 1e9
+max_stacks = 3
+attack_speed_pct = 15      # [db2 382889]
+
+[[buffs]]
+name = "windfury_imbue"    # marker: main hand imbued (Windfury Weapon)
+duration = 1e9
+
+[[buffs]]
+name = "flametongue_imbue" # marker: off hand imbued (Flametongue Weapon)
+duration = 1e9
+
+[[buffs]]
+name = "lightning_shield"
+duration = 1e9
+
+[[buffs]]
+name = "enhancement_autos" # 137041 #5: auto attacks deal +421% damage
+duration = 1e9
+ability_pct = { main_hand = 421, offhand = 421, windlash = 421, windlash_offhand = 421 }
+
+[[buffs]]
+name = "maelstrom_weapon"  # [db2 344179]
+duration = 30
+max_stacks = 10            # [db2 384143: +5 over the base 5]
+ability_pct = { lightning_bolt = 20, lightning_bolt_ti = 20, tempest = 20, tempest_ti = 20, chain_lightning_ti = 20 }
+cast_time_pct = { lightning_bolt = 20, lightning_bolt_ti = 20, tempest = 20, tempest_ti = 20, chain_lightning_ti = 20 }
+
+[[buffs]]
+name = "stormblast"        # [db2 470466] next Stormstrike's extra hit; also its +25%
+duration = 12
+max_stacks = 2
+
+[[buffs]]
+name = "stormsurge"        # [db2 201846] marker for the reset
+duration = 12
+
+[[buffs]]
+name = "doom_winds"        # [db2 466772] 8s, +2s Thorim's Invocation
+duration = 10
+
+[[buffs]]
+name = "ascendance"        # [db2 114051]
+duration = 15
+cooldown_rate_pct = { stormstrike = 150 }   # [db2 114051 #10] Windstrike recharges 60% faster
+
+[[buffs]]
+name = "crash_lightning"   # [db2 1252415] weapon enhancement, one stack per cast
+duration = 12
+max_stacks = 20
+overlap = true             # Storm Unleashed: each cast's stack expires on its own [simc]
+
+[[buffs]]
+name = "tempest"           # [db2 454015] next Lightning Bolt is Tempest
+duration = 30
+max_stacks = 2
+
+[[buffs]]
+name = "arc_discharge"     # [db2 455097] next Chain Lightning casts twice, +40%
+duration = 15
+max_stacks = 2
+
+[[buffs]]
+name = "storm_unleashed"   # [db2 1262830] Crash Lightning ignores its cooldown and leaves a storm
+duration = 20
+max_stacks = 2
+
+[[buffs]]
+name = "lightning_strikes" # [db2 384451] next Stormstrike/Lava Lash +25% and 1 MW
+duration = 30
+max_stacks = 3
+ability_pct = { stormstrike_mh = 25, stormstrike_offhand = 25, windstrike_mh = 25, windstrike_offhand = 25, lava_lash = 25 }
+
+[[buffs]]
+name = "mw_spent"           # helper: the stacks a Lightning spell is about to spend
+duration = 5
+max_stacks = 20
+
+[[buffs]]
+name = "unlimited_power"   # [db2 454394] 1% haste per stack, 15 stacks
+duration = 15
+max_stacks = 15
+haste_pct = 1
+
+[[buffs]]
+name = "storm_swell"       # [db2 455089] +5 mastery
+duration = 6
+mastery_pct = 5
+
+# ---------------------------------------------------------------- imbues
+
+[[abilities]]
+name = "windfury_weapon"
+gcd = 0
+triggered_only = false
+on_cast = [{ type = "buff", buff = "windfury_imbue" }]
+
+[[abilities]]
+name = "flametongue_weapon"
+gcd = 0
+on_cast = [{ type = "buff", buff = "flametongue_imbue" }]
+
+[[abilities]]
+name = "lightning_shield"
+gcd = 0
+on_cast = [{ type = "buff", buff = "lightning_shield" }]
+
+[[abilities]]
+name = "flurry_always"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "flurry_always", stacks = 3 }, { type = "buff", buff = "enhancement_autos" }]
+
+# ---------------------------------------------------------------- procs / support
+
+[[abilities]]
+name = "mw_gain"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "maelstrom_weapon" }]
+
+[[abilities]]
+name = "stormsurge_proc"   # [db2 201845] 5% + 30% of mastery, per Stormstrike hit
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "buff", buff = "stormsurge" },
+  { type = "buff", buff = "stormblast" },
+  { type = "reset_cooldown", ability = "stormstrike" },
+  { type = "reset_cooldown", ability = "stormstrike" },
+]
+
+[[abilities]]
+name = "doom_winds_apply"  # Doom Winds buff + its damage-over-time [db2 466772/469270]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "doom_winds" }, { type = "trigger", ability = "static_accumulation" }]
+
+[abilities.dot]
+name = "doom_winds_damage"
+ap_coeff = 1.212            # [db2 469270] 1.2 x 1.01 spell-power-to-AP
+school = "nature"
+crit_damage_per_crit = 0.4   # [db2 1251026] Overcharge
+mastery = true
+duration = 10
+tick_time = 1
+hasted = false
+whole_ticks = true
+
+[[abilities]]
+name = "static_accumulation"   # [db2 384411/384437] 1 MW every 3s during Doom Winds
+gcd = 0
+triggered_only = true
+
+[abilities.dot]
+name = "static_accumulation_tick"
+ap_coeff = 0
+duration = 10
+tick_time = 3
+whole_ticks = true
+on_tick = [{ type = "buff", buff = "maelstrom_weapon" }]
+
+[[abilities]]
+name = "doom_winds_proc"    # 3 successes per 600 stacks spent [simc asc_dw deck]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "doom_winds_apply" }]
+
+# ---------------------------------------------------------------- auto attacks
+
+[[abilities]]
+name = "auto_attack_mh"
+source = "main_hand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.35, school = "physical", scale = "1-buff.ascendance.up" }
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "if", if = "buff.windfury_imbue.up", then = [ { type = "trigger", ability = "windfury_proc", chance_expr = "0.394*(1+0.5*buff.doom_winds.up)" }, ] },
+  { type = "if", if = "buff.ascendance.up", then = [{ type = "trigger", ability = "windlash" }] },
+]
+
+[[abilities]]
+name = "auto_attack_offhand"
+source = "offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.175, school = "physical", scale = "1-buff.ascendance.up" }
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "if", if = "buff.ascendance.up", then = [{ type = "trigger", ability = "windlash_offhand" }] },
+]
+
+[[abilities]]
+name = "windlash"          # [db2 114089] Ascendance replaces auto attacks; ignores armor
+source = "windlash"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.35, school = "stormstrike" }
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+[[abilities]]
+name = "windlash_offhand"  # [db2 114093]
+source = "windlash_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.175, school = "stormstrike" }
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+[[abilities]]
+name = "windfury_proc"      # three main-hand strikes [db2 390288]
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "trigger", ability = "windfury_attack" },
+  { type = "trigger", ability = "windfury_attack" },
+  { type = "trigger", ability = "windfury_attack" },
+]
+
+[[abilities]]
+name = "windfury_attack"    # [db2 25504]
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.27945, school = "physical" }
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+[[abilities]]
+name = "flametongue_attack" # [db2 10444] every melee hit adds fire damage
+gcd = 0
+triggered_only = true
+no_procs = true             # Magic-school hit: does not generate Maelstrom Weapon [simc]
+damage = { ap_coeff = 0.0396, school = "fire", mastery = true }
+
+# ---------------------------------------------------------------- strikes
+
+[[abilities]]
+name = "stormstrike"
+gcd = 1.5
+cooldown = 7.5
+cooldown_hasted = true
+charges = 2                 # [db2 319930]
+on_cast = [  { type = "if", if = "buff.ascendance.up", then = [ { type = "trigger", ability = "windstrike_mh" }, { type = "trigger", ability = "windstrike_offhand" }, ], else = [ { type = "trigger", ability = "stormstrike_mh" }, { type = "trigger", ability = "stormstrike_offhand" }, ] },
+  { type = "if", if = "buff.crash_lightning.up", then = [{ type = "trigger", ability = "crash_lightning_proc" }] },
+  { type = "if", if = "buff.stormblast.up", then = [ { type = "consume", buff = "stormblast" }, { type = "if", if = "buff.ascendance.up", then = [ { type = "trigger", ability = "stormblast_ws_mh" }, { type = "trigger", ability = "stormblast_ws_offhand" }, ], else = [ { type = "trigger", ability = "stormblast_mh" }, { type = "trigger", ability = "stormblast_offhand" }, ] }, ] },
+  { type = "if", if = "buff.lightning_strikes.up", then = [ { type = "buff", buff = "maelstrom_weapon" }, { type = "consume", buff = "lightning_strikes" }, ] },
+  { type = "buff", buff = "maelstrom_weapon" },   # Elemental Assault [db2 210853]
+  { type = "trigger", ability = "stormflurry", chance = 0.2 },
+  { type = "trigger", ability = "thorims_invocation" },
+  { type = "if", if = "buff.ascendance.up", then = [{ type = "trigger", ability = "ride_the_lightning_ws" }], else = [{ type = "trigger", ability = "ride_the_lightning" }] },
+  { type = "trigger", ability = "awakening_storms_roll" },
+]
+
+[[abilities]]
+name = "stormstrike_mh"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 3.52324, school = "physical" }   # [db2 32175]
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "trigger", ability = "windfury_proc", chance_expr = "0.394*(1+0.5*buff.doom_winds.up)" },
+  { type = "trigger", ability = "stormsurge_proc", chance_expr = "0.05+0.3*mastery" },
+]
+
+[[abilities]]
+name = "stormstrike_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 3.52324, school = "physical" }   # [db2 32176]
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "trigger", ability = "stormsurge_proc", chance_expr = "0.05+0.3*mastery" },
+]
+
+[[abilities]]
+name = "windstrike_mh"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 3.84355, school = "stormstrike" }   # [db2 115357] ignores armor
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "trigger", ability = "windfury_proc", chance_expr = "0.394*(1+0.5*buff.doom_winds.up)" },
+  { type = "trigger", ability = "stormsurge_proc", chance_expr = "0.05+0.3*mastery" },
+]
+
+[[abilities]]
+name = "windstrike_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 3.84355, school = "stormstrike" }   # [db2 115360]
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "trigger", ability = "stormsurge_proc", chance_expr = "0.05+0.3*mastery" },
+]
+
+# Stormblast: 25% of the Stormstrike hit as its own never-crit hit [db2 319930 #1, simc]
+[[abilities]]
+name = "stormblast_mh"
+source = "stormblast_stormstrike_mh"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.88081, school = "physical", crit_bonus = -1 }
+no_procs = true
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+[[abilities]]
+name = "stormblast_offhand"
+source = "stormblast_stormstrike_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.88081, school = "physical", crit_bonus = -1 }
+no_procs = true
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+[[abilities]]
+name = "stormblast_ws_mh"
+source = "stormblast_windstrike_mh"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9608875, school = "stormstrike", crit_bonus = -1 }
+no_procs = true
+
+[[abilities]]
+name = "stormblast_ws_offhand"
+source = "stormblast_windstrike_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9608875, school = "stormstrike", crit_bonus = -1 }
+no_procs = true
+
+# Stormflurry: 20% chance for 40% of a Stormstrike, chaining off itself [db2 344357]
+[[abilities]]
+name = "stormflurry"
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "trigger", ability = "stormflurry_mh" },
+  { type = "trigger", ability = "stormflurry_offhand" },
+  { type = "trigger", ability = "stormflurry", chance = 0.2 },
+]
+
+[[abilities]]
+name = "stormflurry_mh"
+source = "stormstrike_mh"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.409296, school = "physical" }
+on_cast = [  { type = "trigger", ability = "flametongue_attack" },
+  { type = "trigger", ability = "windfury_proc", chance_expr = "0.394*(1+0.5*buff.doom_winds.up)" },
+]
+
+[[abilities]]
+name = "stormflurry_offhand"
+source = "stormstrike_offhand"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.409296, school = "physical" }
+on_cast = [{ type = "trigger", ability = "flametongue_attack" }]
+
+# Ride the Lightning: Stormstrike/Lava Lash cast a full Chain Lightning [db2 289874]
+[[abilities]]
+name = "ride_the_lightning"
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "if", if = "buff.arc_discharge.up", then = [ { type = "consume", buff = "arc_discharge" }, { type = "trigger", ability = "chain_lightning_ss_rtl" }, { type = "trigger", ability = "chain_lightning_ad_rtl" }, ], else = [{ type = "trigger", ability = "chain_lightning_ss_rtl" }] },
+]
+
+[[abilities]]
+name = "chain_lightning_ss_rtl"
+source = "chain_lightning_ss_rtl"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.17564, school = "nature", crit_damage_per_crit = 0.4, mastery = true }   # [db2 211094] 1.164 x 1.01
+on_cast = [{ type = "trigger", ability = "lightning_rod_cl" }]
+
+[[abilities]]
+name = "chain_lightning_ad_rtl"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.645896, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [{ type = "trigger", ability = "lightning_rod_cl" }]
+
+[[abilities]]
+name = "ride_the_lightning_ws"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "if", if = "buff.arc_discharge.up", then = [
+      { type = "consume", buff = "arc_discharge" },
+      { type = "trigger", ability = "chain_lightning_ws_rtl" },
+      { type = "trigger", ability = "chain_lightning_ad_rtl" },
+    ], else = [{ type = "trigger", ability = "chain_lightning_ws_rtl" }] },
+]
+
+[[abilities]]
+name = "chain_lightning_ws_rtl"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.17564, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [{ type = "trigger", ability = "lightning_rod_cl" }]
+
+[[abilities]]
+name = "chain_lightning_ll_rtl"
+source = "chain_lightning_ll_rtl"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.17564, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [{ type = "trigger", ability = "lightning_rod_cl" }]
+
+[[abilities]]
+name = "thorims_invocation"
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "if", if = "(buff.doom_winds.up|buff.ascendance.up)&buff.maelstrom_weapon.stack>0", then = [ { type = "if", if = "buff.tempest.up", then = [{ type = "trigger", ability = "tempest_ti" }], else = [{ type = "trigger", ability = "lightning_bolt_ti" }] }, ] },
+]
+
+[[abilities]]
+name = "awakening_storms_roll"   # rppm 1.1 on Stormstrike [db2 455129]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "tempest", chance = 0.12 }]
+
+# ---------------------------------------------------------------- lightning spells
+
+[[abilities]]
+name = "lightning_bolt"
+gcd = 1.5
+cast_time = 2.5
+damage = { ap_coeff = 1.717, school = "nature", crit_damage_per_crit = 0.4, mastery = true }   # [db2 188196] 1.7 x 1.01
+on_cast = [  { type = "buff", buff = "mw_spent", set = "buff.maelstrom_weapon.stack" },   # what this cast spends
+  { type = "trigger", ability = "lightning_rod_lb" },
+  { type = "buff", buff = "unlimited_power" },
+  { type = "if", if = "buff.maelstrom_weapon.stack>=10", then = [{ type = "buff", buff = "lightning_strikes" }] },
+  { type = "trigger", ability = "storm_unleashed_roll", chance_expr = "0.02*buff.maelstrom_weapon.stack" },
+  { type = "trigger", ability = "doom_winds_proc", chance_expr = "0.005*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "stormstrike", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "lava_lash", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "consume", buff = "maelstrom_weapon", all = true },
+  { type = "buff", buff = "maelstrom_weapon", set = "buff.mw_spent.stack", chance = 0.2 },   # Thunder Capacitor [db2 1262635]
+]
+
+[[abilities]]
+name = "lightning_bolt_ti"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.717, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [  { type = "buff", buff = "mw_spent", set = "buff.maelstrom_weapon.stack" },   # what this cast spends
+  { type = "trigger", ability = "lightning_rod_lb" },
+  { type = "trigger", ability = "doom_winds_proc", chance_expr = "0.005*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "stormstrike", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "lava_lash", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "consume", buff = "maelstrom_weapon", all = true },
+  { type = "buff", buff = "maelstrom_weapon", set = "buff.mw_spent.stack", chance = 0.2 },   # Thunder Capacitor [db2 1262635]
+]
+
+[[abilities]]
+name = "chain_lightning_ti"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.17564, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [  { type = "trigger", ability = "lightning_rod_cl" },
+  { type = "consume", buff = "maelstrom_weapon", all = true },
+]
+
+[[abilities]]
+name = "tempest"
+gcd = 1.5
+cast_time = 2.0
+requires_buff = "tempest"
+damage = { ap_coeff = 3.92006, school = "nature", crit_damage_per_crit = 0.4, mastery = true }   # [db2 452201] 3.88125 x 1.01
+on_cast = [  { type = "buff", buff = "mw_spent", set = "buff.maelstrom_weapon.stack" },   # what this cast spends
+  { type = "consume", buff = "tempest" },
+  { type = "trigger", ability = "lightning_rod_tempest" },
+  { type = "buff", buff = "arc_discharge" },
+  { type = "buff", buff = "storm_swell" },
+  { type = "buff", buff = "unlimited_power" },
+  { type = "if", if = "buff.maelstrom_weapon.stack>=10", then = [{ type = "buff", buff = "lightning_strikes" }] },
+  { type = "trigger", ability = "storm_unleashed_roll", chance_expr = "0.02*buff.maelstrom_weapon.stack" },
+  { type = "trigger", ability = "doom_winds_proc", chance_expr = "0.005*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "stormstrike", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "lava_lash", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "consume", buff = "maelstrom_weapon", all = true },
+  { type = "buff", buff = "maelstrom_weapon", set = "buff.mw_spent.stack", chance = 0.2 },   # Thunder Capacitor [db2 1262635]
+]
+
+[[abilities]]
+name = "tempest_ti"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 3.92006, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+on_cast = [  { type = "buff", buff = "mw_spent", set = "buff.maelstrom_weapon.stack" },   # what this cast spends
+  { type = "consume", buff = "tempest" },
+  { type = "trigger", ability = "lightning_rod_tempest" },
+  { type = "buff", buff = "arc_discharge" },
+  { type = "reduce_cooldown", ability = "stormstrike", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "reduce_cooldown", ability = "lava_lash", seconds_expr = "0.3*buff.maelstrom_weapon.stack" },
+  { type = "consume", buff = "maelstrom_weapon", all = true },
+  { type = "buff", buff = "maelstrom_weapon", set = "buff.mw_spent.stack", chance = 0.2 },   # Thunder Capacitor [db2 1262635]
+]
+
+[[abilities]]
+name = "storm_unleashed_roll"    # 2% per Maelstrom Weapon spent [db2 1262713]
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "buff", buff = "storm_unleashed" },
+  { type = "reset_cooldown", ability = "crash_lightning" },
+]
+
+# Lightning Rod (Conductive Energy): 10% of the Lightning damage dealt,
+# dealt again as its own (never-crit) hit [db2 210689 #2, simc]
+[[abilities]]
+name = "lightning_rod_lb"
+source = "lightning_rod"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 0.1717, school = "nature", crit_bonus = -1 }
+
+[[abilities]]
+name = "lightning_rod_cl"
+source = "lightning_rod"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 0.117564, school = "nature", crit_bonus = -1 }
+
+[[abilities]]
+name = "lightning_rod_tempest"
+source = "lightning_rod"
+gcd = 0
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 0.392006, school = "nature", crit_bonus = -1 }
+
+# ---------------------------------------------------------------- melee cooldowns
+
+[[abilities]]
+name = "lava_lash"
+gcd = 1.5
+cooldown = 12               # [db2 60103] 18s, Molten Assault -6s [db2 334033]
+damage = { ap_coeff = 3.22268, school = "fire", mastery = true }   # [db2 60103]
+on_cast = [  { type = "trigger", ability = "flame_shock_apply" },
+  { type = "trigger", ability = "ride_the_lightning_ll" },
+  { type = "if", if = "buff.crash_lightning.up", then = [{ type = "trigger", ability = "crash_lightning_proc" }] },
+  { type = "if", if = "buff.lightning_strikes.up", then = [ { type = "buff", buff = "maelstrom_weapon" }, { type = "consume", buff = "lightning_strikes" }, ] },
+  { type = "buff", buff = "maelstrom_weapon" },   # Elemental Assault [db2 210853]
+]
+
+[[abilities]]
+name = "ride_the_lightning_ll"
+gcd = 0
+triggered_only = true
+on_cast = [  { type = "if", if = "buff.arc_discharge.up", then = [ { type = "consume", buff = "arc_discharge" }, { type = "trigger", ability = "chain_lightning_ll_rtl" }, { type = "trigger", ability = "chain_lightning_ad_rtl" }, ], else = [{ type = "trigger", ability = "chain_lightning_ll_rtl" }] },
+]
+
+[[abilities]]
+name = "crash_lightning"
+gcd = 1.5
+cooldown = 15               # [db2 187874] 15s recharge
+cooldown_hasted = true
+damage = { ap_coeff = 1.83617, school = "nature", crit_damage_per_crit = 0.4, mastery = true }   # [db2 187874]
+on_cast = [  { type = "buff", buff = "crash_lightning" },
+  { type = "trigger", ability = "windfury_proc", chance_expr = "1.0" },   # Stormwell [db2 1264762]
+  { type = "trigger", ability = "thorims_invocation" },
+  { type = "trigger", ability = "flametongue_attack" },
+  { type = "if", if = "buff.storm_unleashed.up", then = [ { type = "consume", buff = "storm_unleashed" }, { type = "trigger", ability = "crash_lightning_unleashed" }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 1 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 2 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 3 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 4 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 5 }, ] },
+]
+
+[[abilities]]
+name = "crash_lightning_proc"    # [db2 195592] grows with the enhancement's stacks
+gcd = 0
+triggered_only = true
+no_procs = false
+damage = { ap_coeff = 0.987367, school = "nature", crit_damage_per_crit = 0.4, mastery = true, scale = "buff.crash_lightning.stack" }
+
+[[abilities]]
+name = "crash_lightning_unleashed"   # [db2 1252431]
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.927267, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+
+[[abilities]]
+name = "ascendance"
+gcd = 1.5
+cooldown = 120              # [db2 114051] 180s, Thorim's Invocation -60s
+on_cast = [  { type = "buff", buff = "ascendance" },
+  { type = "buff", buff = "tempest" },          # Descending Skies [db2 1264688]
+  { type = "trigger", ability = "ascendance_damage" },
+  { type = "trigger", ability = "doom_winds_apply" },
+  { type = "reset_cooldown", ability = "stormstrike" },
+  { type = "reset_cooldown", ability = "stormstrike" },
+  { type = "summon", pet = "lightning_wolf", count = 3 },
+]
+
+[[abilities]]
+name = "ascendance_damage"  # [db2 344548]
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.1778125, school = "nature", crit_damage_per_crit = 0.4, mastery = true }
+
+# ---------------------------------------------------------------- flame shock
+
+[[abilities]]
+name = "flame_shock"
+gcd = 1.5
+cooldown = 6
+on_cast = [{ type = "trigger", ability = "flame_shock_apply" }]
+
+[[abilities]]
+name = "flame_shock_apply"   # every application: the direct hit and the DoT [simc]
+source = "flame_shock"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.2264925, school = "fire", mastery = true }   # [db2 188389] 0.22425 x 1.01
+
+[abilities.dot]
+name = "flame_shock"
+ap_coeff = 0.134734   # [db2 188389] 0.1334 x 1.01
+school = "fire"
+mastery = true
+duration = 18
+tick_time = 2
+hasted = true
+
+[[abilities]]
+name = "voltaic_blaze"  # [db2 470057/1259101] always crits, always applies Flame Shock
+gcd = 1.5
+cooldown = 10
+damage = { ap_coeff = 4.04, school = "nature", crit_damage_per_crit = 0.4, mastery = true, crit_bonus = 1 }
+on_cast = [  { type = "trigger", ability = "flame_shock_apply" },
+  { type = "buff", buff = "maelstrom_weapon", stacks = 2 },   # Fire Nova talent: 1 additional [db2 1260666]
+]
+
+# ---------------------------------------------------------------- wolves
+
+[[pets]]
+name = "lightning_wolf"    # [db2 469314] 2 from Doom Winds + 1 from Rolling Thunder
+duration = 8
+max_active = 0
+owner_coeff = { ap_from_ap = 1.125 }
+melee = { ability = "melee", speed = 1.5 }
+
+[[pets.abilities]]
+name = "melee"
+damage = { ap_coeff = 0.15, school = "physical" }
+
+# ---------------------------------------------------------------- gear procs
+# The core-kit profile keeps the weapon enchant and the gear's damage
+# embellishments, so their procs are part of the reference [obs].
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.06          # [obs] 50.3 a fight
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.28           # [obs] 21.4 a fight
+
+[[procs]]
+ability = "void_eruption"
+per_minute = 5.76           # [obs] 28.8 a fight
+
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 7.16           # [obs] 35.8 a fight
+
+[[abilities]]
+name = "rune_of_unleashed_fire"   # [db2 1286970]
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.818, school = "fire", crit_bonus = -10 }
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+ap_coeff = 0.1212           # [db2 1287663]
+tick_time = 1
+duration = 8
+hasted = false
+school = "cosmic"
+crit_bonus = -10            # [obs] never crits
+refresh = "extend"
+
+[[abilities]]
+name = "acidbrood_scourge"  # [db2 1310088]
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 2.727, school = "nature" }
+
+[[abilities]]
+name = "void_eruption"      # [db2 1310209]
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.515, school = "shadow" }
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "venomfang_apply" },
+  { type = "trigger", ability = "venomfang_burst", delay = 5.0 },
+]
+
+[[abilities]]
+name = "venomfang_burst"    # [db2 1306639]
+triggered_only = true
+damage = { ap_coeff = 1.1009, school = "nature", crit_damage_bonus = -0.15 }
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+
+[abilities.dot]
+name = "venomfang"          # [db2 1306635]
+ap_coeff = 0.5858
+tick_time = 1.2
+duration = 5
+hasted = false
+school = "nature"
+crit_damage_bonus = -0.15
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Default Stormbringer single-target APL (actions.single_sb), single target.
+
+[[rotation]]
+action = "flame_shock"
+if = "!dot.flame_shock.up&time<5"
+
+[[rotation]]
+action = "flame_shock"
+if = "!dot.flame_shock.up"
+
+[[rotation]]
+action = "stormstrike"
+if = "time<1"
+
+[[rotation]]
+action = "crash_lightning"
+
+[[rotation]]
+action = "voltaic_blaze"
+if = "buff.doom_winds.up&buff.maelstrom_weapon.stack>=7&buff.maelstrom_weapon.stack<10"
+
+[[rotation]]
+action = "ascendance"
+if = "!buff.doom_winds.up"
+
+[[rotation]]
+action = "tempest"
+if = "buff.maelstrom_weapon.stack>=10"
+
+[[rotation]]
+action = "lightning_bolt"
+if = "!buff.tempest.up&buff.maelstrom_weapon.stack>=10"
+
+[[rotation]]
+action = "tempest"
+if = "buff.maelstrom_weapon.stack>=8&(cooldown.voltaic_blaze.remains<=gcd|cooldown.crash_lightning.remains<=gcd)"
+
+[[rotation]]
+action = "lightning_bolt"
+if = "!buff.tempest.up&buff.maelstrom_weapon.stack>=8&(cooldown.voltaic_blaze.remains<=gcd|cooldown.crash_lightning.remains<=gcd)"
+
+[[rotation]]
+action = "stormstrike"
+if = "cooldown.stormstrike.charges_fractional>=1.8"
+
+[[rotation]]
+action = "stormstrike"
+
+[[rotation]]
+action = "voltaic_blaze"
+
+[[rotation]]
+action = "lava_lash"
+
+[[rotation]]
+action = "tempest"
+if = "buff.maelstrom_weapon.stack>=8"
+
+[[rotation]]
+action = "lightning_bolt"
+if = "!buff.tempest.up&buff.maelstrom_weapon.stack>=8"
+
+[[rotation]]
+action = "crash_lightning"
+
+[[rotation]]
+action = "lightning_bolt"
+if = "!buff.tempest.up&buff.maelstrom_weapon.stack>=5"
+
+[[rotation]]
+action = "flame_shock"

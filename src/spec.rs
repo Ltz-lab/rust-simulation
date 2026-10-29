@@ -370,6 +370,10 @@ pub struct DamageDef {
     /// Added to the player's crit damage multiplier for this ability.
     #[serde(default)]
     pub crit_damage_bonus: f64,
+    /// Added to the crit damage multiplier per point of crit chance
+    /// (0.4 = "crit damage increased by 40% of your crit chance").
+    #[serde(default)]
+    pub crit_damage_per_crit: f64,
     /// Deal the damage stored by this buff (see BuffDef::store_damage_pct)
     /// instead of a coefficient, and empty the store.
     #[serde(default)]
@@ -447,6 +451,10 @@ pub struct DotDef {
     pub crit_bonus: f64,
     #[serde(default)]
     pub crit_damage_bonus: f64,
+    /// Added to the crit damage multiplier per point of crit chance
+    /// (0.4 = "crit damage increased by 40% of your crit chance").
+    #[serde(default)]
+    pub crit_damage_per_crit: f64,
     /// Stack cap. A fresh application has one stack; refreshing keeps the
     /// count; `dot_stack` effects add or remove stacks.
     #[serde(default = "one_u32")]

@@ -1926,7 +1926,7 @@ impl<'a> State<'a> {
     /// also grows with the player's crit chance. `crit_mult`: multiplies the
     /// crit chance (Improved Shatter's x1.5).
     #[allow(clippy::too_many_arguments)]
-    fn hit(&mut self, src: usize, base: f64, mult: f64, mods: &[(usize, f64)], crit_mods: &[(usize, f64)], physical: bool, crit_bonus: f64, crit_dmg: f64, crit_scaling: bool, crit_mult: f64, raw: bool) -> (bool, f64) {
+    fn hit(&mut self, src: usize, base: f64, mult: f64, mods: &[(usize, f64)], crit_mods: &[(usize, f64)], physical: bool, crit_bonus: f64, crit_dmg: f64, crit_dmg_per_crit: f64, crit_scaling: bool, crit_mult: f64, raw: bool) -> (bool, f64) {
         let p = &self.c.spec.player;
         let mut m = mult;
         if crit_scaling {
@@ -1941,8 +1941,9 @@ impl<'a> State<'a> {
                 m *= 1.0 + pct * self.mod_stacks(b);
             }
         }
-        let crit = self.rng.f64(self.c.crit_stream(src)) < self.crit_chance(crit_bonus, crit_mods) * crit_mult;
-        let cm = p.crit_multiplier + crit_dmg + self.buff_sum(&self.c.crit_dmg_buffs);
+        let cc = self.crit_chance(crit_bonus, crit_mods);
+        let crit = self.rng.f64(self.c.crit_stream(src)) < cc * crit_mult;
+        let cm = p.crit_multiplier + crit_dmg + crit_dmg_per_crit * cc + self.buff_sum(&self.c.crit_dmg_buffs);
         let dmg = base * m * if crit { cm } else { 1.0 };
         self.record(src, dmg, crit);
         if !self.c.echoes.is_empty() && !self.c.echo_row[src] {
@@ -1964,7 +1965,7 @@ impl<'a> State<'a> {
             let base = if e.pre_armor { dmg / armor } else { dmg } * pct;
             let a = &c.abilities[e.ab];
             let d = a.def.damage.as_ref().unwrap();
-            self.hit(a.src, base, d.mult, &[], &a.crit_mods, false, d.crit_bonus, d.crit_damage_bonus, false, d.crit_chance_multiplier, true);
+            self.hit(a.src, base, d.mult, &[], &a.crit_mods, false, d.crit_bonus, d.crit_damage_bonus, d.crit_damage_per_crit, false, d.crit_chance_multiplier, true);
             self.out.casts[a.src] += 1;
         }
     }
@@ -2134,7 +2135,7 @@ impl<'a> State<'a> {
             if d.def.per_stack && d.def.max_stacks > 1 {
                 base *= self.dot_stk[di] as f64;
             }
-            let (crit, damage) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_scaling, 1.0, false);
+            let (crit, damage) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_damage_per_crit, d.def.crit_scaling, 1.0, false);
             self.feed_hit(&d.feeds, crit, damage);
             if d.pet.is_none() && !d.no_procs {
                 self.hit_procs(d.src, true);
@@ -2226,7 +2227,7 @@ impl<'a> State<'a> {
                 let raw = a.stored_from.is_some();
                 let mastery = mastery_factor(d.mastery && !raw, d.mastery_scale, d.mastery_power, self.mastery());
                 let instance_mult = self.ctx.filter(|(p, _)| Some(*p) == a.pet).map_or(1.0, |(p, s)| self.pets[p][s].damage_mult);
-                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery * instance_mult, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_scaling, d.crit_chance_multiplier, raw);
+                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery * instance_mult, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_damage_per_crit, d.crit_scaling, d.crit_chance_multiplier, raw);
                 self.feed_hit(&a.feeds, crit, dmg);
                 if a.pet.is_none() && !a.def.no_procs {
                     self.hit_procs(a.src, false);
@@ -2594,7 +2595,7 @@ impl<'a> State<'a> {
                     (None, Some(src)) => {
                         let w = c.spec.player.off_hand.as_ref().unwrap();
                         let base = if w.max > w.min { self.rng.range(c.range_stream(src), w.min, w.max) } else { w.min };
-                        self.hit(src, 0.5 * base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, 1.0, false);
+                        self.hit(src, 0.5 * base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, 0.0, false, 1.0, false);
                         self.out.casts[src] += 1;
                     }
                     (None, None) => unreachable!(),
@@ -2622,7 +2623,7 @@ impl<'a> State<'a> {
                     Some(i) => self.execute(i, true),
                     None => {
                         let base = self.weapon_roll(auto_src);
-                        self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, 1.0, false);
+                        self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, 0.0, false, 1.0, false);
                         self.out.casts[auto_src] += 1;
                         self.hit_procs(auto_src, false);
                     }
