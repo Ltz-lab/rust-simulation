@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Twelve specs so far, all Midnight Season 2, compared against SimC's sample
+Thirteen specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -38,6 +38,7 @@ profiles (core kit, 300s Patchwerk):
 | [Balance Druid (Elune’s Chosen)](docs/balance-druid.md) | 150,502 | 148,765 | -1.15% | mastery +0.36 pts | — |
 | [Arms Warrior (Slayer)](docs/arms-warrior.md) | 164,332 | 163,522 | -0.49% | crit +0.49 pts | ~6× |
 | [Shadow Priest (Voidweaver)](docs/shadow-priest.md) | 143,444 | 142,586 | -0.60% | haste -0.29 pts | — |
+| [Feral Druid (Wildstalker)](docs/feral-druid.md) | 169,230 | 169,363 | +0.08% | haste +0.17 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
