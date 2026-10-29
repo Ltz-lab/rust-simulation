@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Twenty-two specs so far, all Midnight Season 2, compared against SimC's sample
+Twenty-three specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -38,7 +38,7 @@ profiles (core kit, 300s Patchwerk):
 | [Balance Druid (Elune’s Chosen)](docs/balance-druid.md) | 150,502 | 148,765 | -1.15% | mastery +0.36 pts | — |
 | [Arms Warrior (Slayer)](docs/arms-warrior.md) | 164,332 | 163,522 | -0.49% | crit +0.49 pts | ~6× |
 | [Shadow Priest (Voidweaver)](docs/shadow-priest.md) | 143,444 | 142,586 | -0.60% | haste -0.29 pts | — |
-| [Enhancement Shaman (Stormbringer)](docs/enhancement-shaman.md) | 148,565 | 142,652 | -4.0% | crit -1.30 pts | — |
+| [Enhancement Shaman (Stormbringer)](docs/enhancement-shaman.md) | 148,565 | 142,652 | -4.0% (known gap) | crit -1.30 pts | — |
 | [Feral Druid (Wildstalker)](docs/feral-druid.md) | 169,230 | 169,363 | +0.08% | haste +0.17 pts | — |
 | [Devourer Demon Hunter (Void-Scarred)](docs/devourer-demon-hunter.md) | 164,261 | 164,308 | +0.03% | haste -1.13 pts | — |
 | [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,729 | -0.59% | haste -3.06 pts | ~10× |
@@ -88,7 +88,8 @@ cargo build --release
   [Marksmanship Hunter](docs/marksmanship-hunter.md),
   [Unholy Death Knight](docs/unholy.md),
   [Windwalker Monk](docs/windwalker-shadopan.md),
-  [Fury Warrior](docs/fury-warrior.md) (results, validation, known gaps)
+  [Fury Warrior](docs/fury-warrior.md),
+  [Enhancement Shaman](docs/enhancement-shaman.md) (results, validation, known gaps)
   [Unholy Death Knight](docs/unholy.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written

@@ -81,6 +81,8 @@ const SPECS: &[(&str, &str, &str)] = &[
         "enhancement_stormbringer",
         include_str!("../specs/enhancement_stormbringer.toml"),
         include_str!("../calibration/enhancement_stormbringer.toml"),
+    ),
+    (
         "feral_wildstalker",
         include_str!("../specs/feral_wildstalker.toml"),
         include_str!("../calibration/feral_wildstalker.toml"),
