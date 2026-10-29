@@ -34,6 +34,27 @@ versatility = 0.0567     # 0.0528 + 0.0039
 mastery = 0.8240         # 0.7357 + 0.0883: Chaotic Energies, up to this much damage [db2 77220]
 crit_multiplier = 2.466  # [obs] Incinerate crit/non-crit (Ruin +15% crit damage [db2 387103])
 
+[gear]
+primary = "intellect"
+base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3030 from gear = 2411 items + 619)
+primary_mult = 1.113945       # [obs] x1.05 x1.03 passives (unbuffed 3276) x1.03 Arcane Intellect (buffed 3375; +200 int probe 3598)
+spell_power_per_primary = 1.0 # [obs] spell power = buffed intellect (3375)
+crit_bonus = 0.11             # [obs] 35.98% at 1149 rating = 24.98% from rating + 11%
+haste_mult = 1.02             # [obs] 19.87% at 771 rating (17.52%): x1.02, multiplicative with rating haste
+mastery_points = 15           # [obs] incl. 2 Skyfury, in mastery points (73.57% at 21.78 points from rating)
+mastery_coeff = 2.0           # [obs] Chaotic Energies: +500 mastery probe gives +21.21% over +10.60 points
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+
+# The time-averaged gear stat procs folded into [player] above (34 intellect
+# = 38 spell power), so --gear lands on the same final stats. They belong to
+# this gear set; other gear keeps the same averages.
+[gear.procs]
+spell_power = 38
+crit = 0.0384
+haste = 0.0239
+mastery = 0.0883
+versatility = 0.0039
+
 [fight]
 duration = 300
 variance = 0.2

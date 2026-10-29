@@ -25,7 +25,7 @@ variant's delta is that tight (or `max_iterations`).
 
 `spec` is a built-in name (`retribution_herald`, `fire_mage`) or a path to a spec
 file; `calib` defaults to the built-in's calibration (`"none"` turns it off).
-Gear lines need a spec with a `[gear]` table (Ret today).
+Gear lines need a spec with a `[gear]` table (Ret, Fire and Destruction today).
 
 ## Python module
 
