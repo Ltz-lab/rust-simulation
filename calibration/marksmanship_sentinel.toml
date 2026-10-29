@@ -4,58 +4,58 @@
 
 [sources."acidbrood_scourge"]
 derived = 1.000000
-mult = 0.710245
-crit_bonus = +0.037314
+mult = 0.842044
+crit_bonus = +0.047695
 
 [sources."aimed_shot"]
 derived = 1.155000
-mult = 1.295694
-crit_bonus = +0.163231
+mult = 1.276938
+crit_bonus = +0.090549
 
 [sources."arcane_shot"]
 derived = 1.000000
-mult = 1.326169
-crit_bonus = +0.091527
+mult = 1.308748
+crit_bonus = -0.003934
 
 [sources."auto_shot"]
 derived = 1.562500
-mult = 0.911250
-crit_bonus = +0.080535
+mult = 1.111978
+crit_bonus = +0.076149
 
 [sources."blood_fletching"]
 derived = 1.000000
-mult = 1.279332
-crit_bonus = +0.051288
+mult = 1.528852
+crit_bonus = +0.050453
 
 [sources."explosive_shot"]
 derived = 1.160000
-mult = 1.703595
-crit_bonus = +0.093172
+mult = 1.704998
+crit_bonus = +0.092959
 
 [sources."kill_shot"]
 derived = 1.000000
-mult = 1.236772
-crit_bonus = +0.116260
+mult = 1.409374
+crit_bonus = +0.028348
 
 [sources."lunar_storm"]
 derived = 1.000000
-mult = 1.004478
-crit_bonus = +0.113433
+mult = 1.208915
+crit_bonus = +0.116651
 
 [sources."master_marksman"]
 derived = 1.000000
-mult = 1.110725
+mult = 1.102510
 crit_bonus = +0.000000
 
 [sources."moonlight_chakram_damage"]
 derived = 1.000000
-mult = 1.439042
-crit_bonus = +0.211964
+mult = 1.455472
+crit_bonus = +0.214753
 
 [sources."rapid_fire"]
 derived = 1.000000
-mult = 3.461834
-crit_bonus = +0.096656
+mult = 3.441097
+crit_bonus = +0.096143
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
@@ -64,26 +64,26 @@ crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.885365
+mult = 0.885598
 crit_bonus = +0.000000
 
 [sources."sanctified_armaments"]
 derived = 1.000000
-mult = 0.994963
+mult = 0.991133
 crit_bonus = +0.000000
 
 [sources."steady_shot"]
 derived = 1.200000
-mult = 1.267626
-crit_bonus = +0.053205
+mult = 1.274421
+crit_bonus = +0.051123
 
 [sources."void_eruption"]
 derived = 1.000000
-mult = 0.710941
-crit_bonus = +0.035681
+mult = 0.842120
+crit_bonus = +0.035808
 
 [sources."volley"]
 derived = 1.000000
-mult = 1.693814
-crit_bonus = +0.108204
+mult = 1.678836
+crit_bonus = +0.108145
 

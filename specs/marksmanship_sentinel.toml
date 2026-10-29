@@ -25,6 +25,15 @@
 # +50% Aimed Shot crit, consumed by the next Aimed Shot, which calls down
 # Lunar Storm), Arcane Shot and Kill Shot can apply it too, and Rapid Fire
 # ticks bank 25% of their damage into Sanctified Armaments.
+#
+# Known gap (round 1 of 3): Steady Shot is cast ~35 times a fight against
+# the reference's ~25. Every other source's hit count is within 5%. The
+# rotation is GCD-locked in both sims, and SimC leaves ~0.2s of slack between
+# an action and the next (measured in its combat log: an Aimed Shot cast ends
+# 0.23s before the next cast starts, and a Rapid Fire channel 0.21s), where
+# this engine starts the next action immediately. That slack is ~14s a fight,
+# which this spec spends on its filler. Fixing it needs a generic "time
+# between actions" knob in the engine, not a difference in this spec.
 
 name = "Marksmanship Hunter (Sentinel, core kit)"
 
@@ -39,7 +48,7 @@ crit = 0.3672                  # [obs]
 haste = 0.1155                 # [obs]
 mastery = 0.1977               # [obs] Mastery: Sniper Training [db2 193468 #2/#4]
 versatility = 0.1463           # [obs]
-crit_multiplier = 2.23         # [obs] 2.0 base, x1.05 Take Aim, x(1+0.25xcrit) Penetrating Shots
+crit_multiplier = 2.41         # [obs] the reference's own crit/noncrit ratio (2.0 base, x1.05 Take Aim, x(1+0.25xcrit) Penetrating Shots)
 weapon = { min = 0, max = 0, speed = 3.0 }   # [db2] caustic repose greatbow
 
 [fight]
@@ -98,6 +107,7 @@ icd = 0.1
 name = "precise_shots"      # [db2 260242: 15s, 1 stack] +50% +10% Can't Miss, Won't Miss [db2 1253830 #1]
 duration = 15
 ability_pct = { arcane_shot = 60, kill_shot = 60 }
+ability_crit_pct = { arcane_shot = 10, kill_shot = 10 }   # [db2 1277572 Critical Precision, simc sc_hunter.cpp:4158]
 
 [[buffs]]
 name = "bulletstorm"        # +20% Aimed Shot [db2 389020]; Accuracy By Volume makes it 2 stacks [db2 471428]
@@ -114,7 +124,7 @@ duration = 15
 name = "trueshot"           # [db2 288613: 15s]
 duration = 15
 crit_pct = 10               # [db2 288613 #3]
-crit_damage_pct = 43        # [db2 288613 #4: +20% crit bonus, x2.23]
+crit_damage_pct = 28.2      # [db2 288613 #4: +20% of the crit bonus (2.41 - 1)]
 cast_time_pct = { aimed_shot = 40 }           # Tensile Bowstring [db2 471366 #1]
 cooldown_rate_pct = { aimed_shot = 40, rapid_fire = 60 }   # [db2 288613 #2, #1]
 
@@ -134,10 +144,11 @@ duration = 12
 ability_pct = { rapid_fire = 55 }
 
 [[buffs]]
-name = "stargazer"          # [db2 1253750: 10s] +2% crit bonus per stack on consuming Precise Shots
+name = "stargazer"          # [simc] +2% crit bonus per stack on consuming Precise Shots, each stack on its own 10s timer [db2 1253750]
 duration = 10
 max_stacks = 100
-crit_damage_pct = 4.3
+overlap = true              # SimC's ASYNCHRONOUS stack behaviour: 2-3 stacks alive, not a running total
+crit_damage_pct = 2.82      # [db2] 2% of the crit bonus (2.41 - 1), added to the multiplier
 
 [[buffs]]
 name = "unstable_trigger"   # [db2 1301778: 3s] Explosive Shot can be cast again, free
@@ -180,7 +191,7 @@ gcd = 0
 on_cast = [
   { type = "buff", buff = "sentinels_mark" },
   { type = "buff", buff = "rapid_fire_mark" },
-  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 2.0 },   # Moon's Blessing [db2 1253825 #2]
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 1.0 },   # Moon's Blessing [db2 1253825 #1] as SimC applies it (sc_hunter.cpp:3747)
 ]
 
 [[abilities]]
@@ -226,7 +237,7 @@ damage = { ap_coeff = 3.6, school = "physical", crit_bonus = 0.15, feed = [{ dot
 name = "steady_shot"
 spell_id = 56641
 cast_time = 1.7             # [db2]
-damage = { ap_coeff = 4.8, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 56641 #1]
+damage = { ap_coeff = 4.8, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 56641 #1]
 on_cast = [
   { type = "gain", resource = "focus", amount = 25 },                      # [db2 77443 + 450379 #3]
   { type = "reduce_cooldown", ability = "aimed_shot", seconds = 2.0 },     # [db2 56641 #2]
@@ -237,13 +248,15 @@ name = "arcane_shot"
 spell_id = 185358
 requires_buff = "precise_shots"   # the APL only spends Precise Shots on it
 cost = { focus = 16 }             # 40 -60% Precise Shots [db2 260242 #3]
-damage = { ap_coeff = 3.758, school = "arcane", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 185358 #1]
+damage = { ap_coeff = 3.758, school = "arcane", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 185358 #1]
 on_cast = [
   { type = "consume", buff = "precise_shots" },
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 1.0 },   # Focused Aim [db2 378767 #1; simc consume_precise_shots]
   { type = "buff", buff = "stargazer" },
-  # Spotter's Mark: 30% base (20% Spotter's Mark + 10% Moon's Blessing [db2 1253825 #1]),
-  # 70% during Trueshot (Feathered Frenzy x2 [db2 470943] + Lunar Calling 10% [db2 1253852])
-  { type = "trigger", ability = "eagles_mark", chance_expr = "0.30+0.40*buff.trueshot.up" },
+  # Spotter's Mark: 40% (30% Spotter's Mark [db2 1219616 #1] + 10% Moon's Blessing [db2 1253825 #1]);
+  # 90% during Trueshot (Feathered Frenzy x2 [db2 470943] + Lunar Calling 10% [db2 1253852]).
+  # SimC hunter_t::trigger_eagles_mark (sc_hunter.cpp:3676)
+  { type = "trigger", ability = "eagles_mark", chance_expr = "0.40+0.50*buff.trueshot.up" },
 ]
 
 [[abilities]]
@@ -252,11 +265,12 @@ spell_id = 53351
 requires_buff = "precise_shots"
 cooldown = 10               # [db2]
 cost = { focus = 4 }        # 10 -60% Precise Shots
-damage = { ap_coeff = 10.5, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 53351 #1]
+damage = { ap_coeff = 10.5, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 53351 #1]
 on_cast = [
   { type = "consume", buff = "precise_shots" },
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 1.0 },   # Focused Aim [db2 378767 #1; simc consume_precise_shots]
   { type = "buff", buff = "stargazer" },
-  { type = "trigger", ability = "eagles_mark", chance_expr = "0.30+0.40*buff.trueshot.up" },
+  { type = "trigger", ability = "eagles_mark", chance_expr = "0.40+0.50*buff.trueshot.up" },
 ]
 
 [[abilities]]
@@ -268,7 +282,7 @@ charges = 2                 # [db2]
 cooldown = 15               # [db2] recharge
 cooldown_hasted = true      # [obs] 13.446s at 11.55% haste
 cost_expr = { focus = "35*(1-0.6*buff.trueshot.up)" }   # [db2] Tensile Bowstring -60% during Trueshot
-damage = { ap_coeff = 9.72, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 20, crit_only = true }] }   # [db2 19434 #1]; Blood Fletching raises the crit feed to 20%
+damage = { ap_coeff = 9.72, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 20, crit_only = true }] }   # [db2 19434 #1]; Blood Fletching raises the crit feed to 20%
 on_crit = [{ type = "buff", buff = "blood_fletching" }]   # [db2 1319016] applied after the hit, so it doesn't bleed for its own crit
 on_cast = [
   { type = "buff", buff = "precise_shots" },
@@ -309,7 +323,8 @@ hasted = true
 tick_on_apply = true
 whole_ticks = true
 school = "physical"
-mastery = true              # [db2 193468 #4]
+mastery = true
+mastery_scale = 2.154              # [db2 193468 #4]
 feed = [{ dot = "sanctified_armaments", pct = 25 }]   # [db2 1253831 #1]
 on_tick = [
   { type = "gain", resource = "focus", amount = 3 },               # [db2 263585 #1]
@@ -337,7 +352,8 @@ duration = 4.0              # [db2 3s] +1s Precision Detonation [db2 471369]
 hasted = false
 whole_ticks = true          # [obs] no shortened final tick: refresh pairs give 6 ticks
 school = "fire"
-mastery = true              # [db2 193468 #4]
+mastery = true
+mastery_scale = 2.154              # [db2 193468 #4]
 feed = [{ dot = "master_marksman", pct = 10, crit_only = true }]
 
 [[abilities]]
@@ -363,7 +379,8 @@ duration = 6.0
 hasted = false
 whole_ticks = true          # 12 ticks, the first 0.5s in [obs]
 school = "physical"
-mastery = true              # [db2 193468 #2/#4]
+mastery = true
+mastery_scale = 2.154              # [db2 193468 #2/#4]
 feed = [{ dot = "master_marksman", pct = 10, crit_only = true }]
 
 [[abilities]]
@@ -400,43 +417,43 @@ on_cast = [
 name = "moonlight_chakram_1"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 1.25, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 1266081 #1]
+damage = { ap_coeff = 2.844, mult = 1.25, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 1266081 #1]
 
 [[abilities]]
 name = "moonlight_chakram_2"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 1.5625, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 1.5625, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "moonlight_chakram_3"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 1.9531, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 1.9531, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "moonlight_chakram_4"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 2.4414, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 2.4414, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "moonlight_chakram_5"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 3.0518, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 3.0518, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "moonlight_chakram_6"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 3.8147, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 3.8147, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "moonlight_chakram_7"
 source = "moonlight_chakram_damage"
 triggered_only = true
-damage = { ap_coeff = 2.844, mult = 4.7684, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+damage = { ap_coeff = 2.844, mult = 4.7684, school = "physical", mastery = true, mastery_scale = 2.154, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
 
 [[abilities]]
 name = "lunar_storm"        # [db2 1253733 #1] 4 hits, 150ms apart [simc]
@@ -460,6 +477,7 @@ triggered_only = true
 [abilities.dot]
 name = "master_marksman"    # [db2 269576: 6s, 2s ticks] 10% of every crit (20% of Aimed Shot crits)
 banked = true
+mastery_scale = 2.154       # [obs] the reference's mastery probe raises its ticks 9.2% per hit
 tick_time = 2.0
 duration = 6.0
 hasted = false
@@ -471,6 +489,7 @@ triggered_only = true
 [abilities.dot]
 name = "sanctified_armaments"   # [db2 1253836: 6s, 1s ticks] 25% of Rapid Fire's ticks
 banked = true
+mastery_scale = 2.154       # [obs] scales with mastery in the reference's mastery probe (+9.5% a tick)
 tick_time = 1.0
 duration = 6.0
 hasted = false
