@@ -206,6 +206,11 @@ pub struct ResourceDef {
 #[derive(Debug, Deserialize, Clone)]
 pub struct AbilityDef {
     pub name: String,
+    /// Start the ability and its DoT immediately, locking actions for cast_time.
+    /// The DoT's duration and tick interval use the cast's snapshotted speed.
+    /// (A simpler alternative to the `channel` table below.)
+    #[serde(default)]
+    pub snapshot_channel: bool,
     /// Game spell id (documentation / data-pipeline cross reference).
     #[serde(default)]
     #[allow(dead_code)]
@@ -248,6 +253,10 @@ pub struct AbilityDef {
     /// If this buff is up, the ability costs nothing and consumes one stack.
     #[serde(default)]
     pub free_with: Option<String>,
+    /// If a free-cast buff arrives during a hard cast, use its cost reduction
+    /// without consuming a stack. Instant casts still consume it normally.
+    #[serde(default)]
+    pub preserve_late_free: bool,
     /// Ability is only usable while this buff is up.
     #[serde(default)]
     pub requires_buff: Option<String>,
@@ -357,6 +366,11 @@ pub struct FeedDef {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DotDef {
     pub name: String,
+    /// Each application adds a stack with its own duration and expiry effects.
+    #[serde(default)]
+    pub overlap: bool,
+    #[serde(default)]
+    pub on_expire: Vec<Effect>,
     #[serde(default)]
     pub ap_coeff: f64,
     #[serde(default)]

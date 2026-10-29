@@ -72,9 +72,12 @@ def main():
     targets = {}
     for name, o in obs["sources"].items():
         # a spell with both a direct hit and ticks (one result row) counts both
-        hits = o["direct_hits"] + o["ticks"]
+        # Some debuffs (e.g. Haunt) report zero-damage periodic callbacks
+        # alongside their actual hit. Those are not damage hits to calibrate.
+        ticks = o["ticks"] if o["tick_noncrit_avg"] > 0 else 0
+        hits = o["direct_hits"] + ticks
         if name in mine and hits > 0:
-            crit = (o["direct_crit_rate"] * o["direct_hits"] + o["tick_crit_rate"] * o["ticks"]) / hits
+            crit = (o["direct_crit_rate"] * o["direct_hits"] + o["tick_crit_rate"] * ticks) / hits
             targets[name] = (o["dps"] * length / hits, crit)
     missing = [n for n in obs["sources"] if n not in targets]
 

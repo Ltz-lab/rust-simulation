@@ -154,6 +154,7 @@ struct CDot {
     tick_time: Option<Expr>,
     on_tick: Vec<CEffect>,
     on_crit: Vec<CEffect>,
+    on_expire: Vec<CEffect>,
     buff_mods: Vec<(usize, f64)>,
     crit_mods: Vec<(usize, f64)>,
     physical: bool,
@@ -541,6 +542,7 @@ impl Compiled {
                     dots.push(CDot {
                         duration: d.duration_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         tick_time: d.tick_time_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
+                        on_expire: effects(&d.on_expire, &format!("{}/on_expire", d.name)).map_err(ctx)?,
                         on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
                         on_crit: effects(&d.on_crit, &format!("{}/on_crit", d.name)).map_err(ctx)?,
                         // banked damage already carries the hit's buffs: only buffs naming the DoT apply
@@ -742,6 +744,9 @@ impl Compiled {
             .map(|(i, b)| (i, b.crit_pct / 100.0))
             .collect();
         for a in &abilities {
+            if a.def.snapshot_channel && (a.def.channel.is_some() || a.dot.is_none() || a.def.cast_time <= 0.0) {
+                return Err(format!("snapshot_channel '{}' needs a dot and cast_time, and no channel table", a.def.name));
+            }
             if let Some(ch) = &a.def.channel {
                 let Some(di) = a.dot else { return Err(format!("channel '{}' needs a dot", a.def.name)); };
                 let d = &dots[di].def;
@@ -929,6 +934,7 @@ enum Ev {
     Auto(u32),
     AutoOh(u32),
     DotTick(u32, u32),
+    DotExpire(u32, u32),
     Trigger(u32),
     Proc(u32),
     CastEnd(u32),
@@ -1012,6 +1018,10 @@ struct State<'a> {
     dot_gen: Vec<u32>,
     dot_last: Vec<f64>,
     dot_stk: Vec<u32>,
+    /// Independent stack timers (overlapping DoTs), and channel tick snapshots.
+    dot_stacks_exp: Vec<Vec<f64>>,
+    dot_channel_tick: Vec<f64>,
+    resolving_cast: bool,
     /// Damage waiting to be dealt by banked DoTs.
     bank: Vec<f64>,
     /// Per on-hit proc: last attempt, real-PPM time banked since the last
@@ -1131,6 +1141,9 @@ impl<'a> State<'a> {
             dot_gen: vec![0; c.dots.len()],
             dot_last: vec![0.0; c.dots.len()],
             dot_stk: vec![0; c.dots.len()],
+            dot_stacks_exp: vec![Vec::new(); c.dots.len()],
+            dot_channel_tick: vec![0.0; c.dots.len()],
+            resolving_cast: false,
             bank: vec![0.0; c.dots.len()],
             hp_last: vec![0.0; c.hit_procs.len()],
             hp_blp: vec![0.0; c.hit_procs.len()],
@@ -1817,8 +1830,13 @@ impl<'a> State<'a> {
         self.dot_gen[di] += 1;
         self.dot_last[di] = self.now;
         let g = self.dot_gen[di];
-        let t = self.tick_len(di);
+        let t = self.dot_tick_len(di);
         self.push(self.now + t, Ev::DotTick(di as u32, g));
+    }
+
+    fn dot_tick_len(&self, di: usize) -> f64 {
+        if self.dot_channel_tick[di] > 0.0 { self.dot_channel_tick[di] }
+        else { self.tick_len(di) }
     }
 
     fn apply_dot(&mut self, di: usize) {
@@ -1827,6 +1845,24 @@ impl<'a> State<'a> {
         let duration = c.dots[di].duration.as_ref().map_or(def.duration, |e| e.eval(self).max(0.0));
         let remaining = (self.dot_exp[di] - self.now).max(0.0);
         let was = remaining > 0.0;
+        if def.overlap {
+            let v = &mut self.dot_stacks_exp[di];
+            v.retain(|&t| t > self.now);
+            if v.len() >= def.max_stacks as usize {
+                let k = (0..v.len()).min_by(|&a, &b| v[a].total_cmp(&v[b])).unwrap();
+                v.swap_remove(k);
+            }
+            let exp = self.now + duration;
+            v.push(exp);
+            self.dot_stk[di] = v.len() as u32;
+            self.dot_exp[di] = v.iter().copied().fold(exp, f64::max);
+            if !was {
+                self.start_ticking(di);
+                if def.tick_on_apply { self.dot_tick(di, 1.0); }
+            }
+            self.push(exp + 1e-6, Ev::DotExpire(di as u32, self.dot_gen[di]));
+            return;
+        }
         self.dot_exp[di] = self.now
             + duration
             + match def.refresh.as_str() {
@@ -1847,6 +1883,7 @@ impl<'a> State<'a> {
         self.dot_exp[di] = -1.0;
         self.dot_gen[di] += 1;
         self.dot_stk[di] = 0;
+        self.dot_stacks_exp[di].clear();
         self.bank[di] = 0.0;
     }
 
@@ -1925,7 +1962,9 @@ impl<'a> State<'a> {
         if !triggered {
             let free = a.free_with.is_some_and(|b| self.buff_up(b));
             if free {
-                self.apply(&CEffect::Consume { buff: a.free_with.unwrap(), all: false });
+                if !(a.def.preserve_late_free && self.resolving_cast) {
+                    self.apply(&CEffect::Consume { buff: a.free_with.unwrap(), all: false });
+                }
                 for e in &a.on_free {
                     self.apply(e);
                 }
@@ -1979,7 +2018,14 @@ impl<'a> State<'a> {
             }
         }
         if let Some(di) = a.dot.filter(|_| a.def.channel.is_none()) {
+            // Snapshot before on_cast consumes any channel-speed buff.
+            let speed = if a.def.snapshot_channel { self.cast_time(i) / a.def.cast_time } else { 1.0 };
+            if a.def.snapshot_channel {
+                self.cancel_dot(di);
+                self.dot_channel_tick[di] = c.dots[di].def.tick_time * speed;
+            }
             self.apply_dot(di);
+            if a.def.snapshot_channel { self.dot_exp[di] = self.now + c.dots[di].def.duration * speed; }
         }
         for e in &a.on_cast {
             self.apply(e);
@@ -2329,7 +2375,7 @@ impl<'a> State<'a> {
                     return true;
                 }
                 let d = &c.dots[di].def;
-                let tick = self.tick_len(di);
+                let tick = self.dot_tick_len(di);
                 let frac = ((self.now - self.dot_last[di]) / tick).clamp(0.0, 1.0);
                 self.dot_tick(di, frac);
                 self.dot_last[di] = self.now;
@@ -2338,6 +2384,19 @@ impl<'a> State<'a> {
                 } else if !d.whole_ticks && self.dot_exp[di] > self.now + 1e-6 {
                     // shortened final tick at expiry, like the real game
                     self.push(self.dot_exp[di], Ev::DotTick(di as u32, g));
+                }
+            }
+            Ev::DotExpire(di, g) => {
+                let di = di as usize;
+                if g != self.dot_gen[di] { return true; }
+                let old = self.dot_stacks_exp[di].len();
+                self.dot_stacks_exp[di].retain(|&t| t > self.now + 1e-6);
+                let expired = old - self.dot_stacks_exp[di].len();
+                self.dot_stk[di] = self.dot_stacks_exp[di].len() as u32;
+                // Preserve a final tick already queued at this timestamp. Effects
+                // can reapply the DoT, starting a new cadence after the last stack.
+                for _ in 0..expired {
+                    for e in &c.dots[di].on_expire { self.apply(e); }
                 }
             }
             Ev::Trigger(i) => self.execute(i as usize, true),
@@ -2369,7 +2428,9 @@ impl<'a> State<'a> {
                 }
             }
             Ev::CastEnd(i) => {
+                self.resolving_cast = true;
                 self.execute(i as usize, false);
+                self.resolving_cast = false;
                 self.push(self.gcd_ready.max(self.now), Ev::Ready);
             }
             Ev::PetAct(k, g) => {
@@ -2468,7 +2529,12 @@ impl<'a> State<'a> {
                                 println!("{:8.3} begin cast {} ({:.3}s)", self.now, d.name, ct);
                             }
                             self.cast_end = self.now + ct;
-                            self.push(self.cast_end, Ev::CastEnd(i as u32));
+                            if d.snapshot_channel {
+                                self.execute(i, false);
+                                self.push(self.cast_end.max(self.gcd_ready) + 1e-6, Ev::Ready);
+                            } else {
+                                self.push(self.cast_end, Ev::CastEnd(i as u32));
+                            }
                         } else {
                             self.execute(i, false);
                             if d.gcd > 0.0 {

@@ -1,0 +1,482 @@
+# Affliction Warlock — Hellcaller, Midnight Season 2, core kit.
+# Every numerical mechanic is [db2] game data, [simc] class module/APL,
+# or [obs] committed SimC observations; calibration fits damage per hit only.
+# Midnight uses UA as its shard spender, Wither instead of Corruption,
+# Dark Harvest instead of Soul Rot, and Malefic Grasp during Darkglare.
+name = "Affliction Warlock (Hellcaller, core kit)"
+precombat = ["summon_sayaad", "haunt"] # [simc] APL precast
+
+[player]
+spell_power = 3390       # [obs] 3352 snapshot +38 averaged gear procs
+crit = 0.3419            # [obs] 0.303478 +0.0384 averaged gear procs
+haste = 0.3534           # [obs] 0.329547 +0.0239 averaged gear procs
+mastery = 0.6642         # [obs] 0.553804 +0.1104 averaged gear procs
+versatility = 0.0632     # [obs] 0.059259 +0.0039 averaged gear procs
+crit_multiplier = 2.092  # [obs] non-DoT crit/noncrit (no dwarf racial)
+
+[gear]
+spec_id = 265           # [db2] Affliction
+primary = "intellect"
+base_primary = 599      # [obs] troll level 90
+primary_mult = 1.113945  # [simc] 1.05 *1.03 *1.03
+spell_power_per_primary = 1.0 # [obs]
+crit_bonus = 0.07        # [obs] 1074/46 +7%
+haste_mult = 1.02        # [db2] Pact of the Satyr
+mastery_points = 12     # [db2] base 8 +2 pact +2 Skyfury
+mastery_coeff = 2.5      # [obs] Potent Afflictions rating conversion
+versatility_bonus = 0.03 # [simc] Mark of the Wild
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
+use_after = "summon_darkglare"
+use_items = "pet.darkglare.active|buff.malevolence.up|fight_remains<20" # [simc] APL
+
+[gear.procs] # [obs] time-averaged sample-gear enchants/weapon/embellishments
+spell_power = 38
+crit = 0.0384
+haste = 0.0239
+mastery = 0.1104
+versatility = 0.0039
+
+[fight]
+duration = 300 # [obs] Patchwerk reference
+variance = 0.2 # [simc] reference settings
+
+[resources.soul_shard]
+max = 5 # [db2]
+start = 3 # [simc] out of combat
+
+[[buffs]]
+name = "cascading_calamity"
+duration = 15 # [db2 1261125]
+haste_pct = 5 # [db2]
+
+[[buffs]]
+name = "nightfall"
+duration = 12 # [db2 264571]
+max_stacks = 2 # [db2]
+flat = true
+cast_time_pct = { shadow_bolt = 100, malefic_grasp = 50 } # [db2]
+ability_pct = { shadow_bolt = 25 } # [db2]; MG does not gain damage [simc bug]
+
+[[buffs]]
+name = "shard_instability"
+duration = 30 # [db2 1260269]
+max_stacks = 3 # [db2]
+flat = true
+cast_time_pct = { unstable_affliction = 100 } # [db2]
+
+[[buffs]]
+name = "malevolence"
+duration = 20 # [db2 442726]
+refresh_extend = true # [simc]
+haste_pct = 12 # [db2] 8+4 Alzzin
+ability_pct = { unstable_affliction = 7.407407 } # [db2/simc] Felvine 1.16/1.08
+
+[[buffs]]
+name = "darkglare_presence"
+duration = 25 # [db2] 20+5 Eye Contract
+
+[[buffs]]
+name = "berserking"
+duration = 12 # [db2]
+haste_pct = 10 # [db2] troll racial
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.1 # [obs]
+
+[[procs]]
+ability = "devil_fruit"
+per_minute = 1.0 # [db2] RPPM
+hasted = true # [simc]
+
+[[procs]]
+ability = "ravenous_afflictions"
+per_minute = 1.2 # [db2] RPPM, DoT crit callbacks approximated by a clock
+
+[[procs]]
+ability = "summon_desperate_soul"
+per_minute = 2.25 # [obs] 2 RPPM + bad-luck protection, normalized by current haste
+hasted = true # [simc]
+
+[[abilities]]
+name = "ravenous_afflictions"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "nightfall" }]
+
+[[abilities]]
+name = "berserking"
+gcd = 0 # [simc] off GCD
+cooldown = 180 # [db2]
+on_cast = [{ type = "buff", buff = "berserking" }]
+
+[[abilities]]
+name = "agony"
+spell_id = 980
+[abilities.dot]
+name = "agony"
+sp_coeff = 0.0931297 # [db2]
+duration = 18 # [db2]
+tick_time = 1.6 # [db2] 2 * (1-0.1*2 Creeping Death)
+max_stacks = 8 # [db2]
+mastery = true
+school = "shadow"
+crit_damage_bonus = 0.16 # [db2/simc] Xavius' Gambit
+on_tick = [
+ { type = "dot_stack", dot = "agony", stacks = 1 }, # [simc]
+ { type = "gain", resource = "soul_shard", amount = 1, chance = 0.1665 }, # [simc] .370*.9/2 accumulator mean
+]
+
+[[abilities]]
+name = "unstable_affliction"
+spell_id = 1259790
+cast_time = 1.2 # [db2/simc] Practiced Pestilence? base cast 1.5, spell haste buffs affect GCD
+cost = { soul_shard = 1 } # [db2]
+free_with = "shard_instability"
+preserve_late_free = true # [simc] cost reduction gained during a hard cast is not consumed
+on_start = [{ type = "if", if = "dot.unstable_affliction.ticking", then = [{ type = "buff", buff = "cascading_calamity" }] }]
+on_cast = [{ type = "trigger", ability = "wither_stack" }]
+[abilities.dot]
+name = "unstable_affliction"
+sp_coeff = 0.869285 # [db2]
+tick_time = 1.6 # [db2] Creeping Death 2 ranks
+duration = 8 # [db2]
+max_stacks = 99 # [db2]
+overlap = true
+school = "shadow"
+mastery = true
+crit_damage_bonus = 0.16 # [db2/simc] Xavius' Gambit
+on_expire = [{ type = "trigger", ability = "fatal_echo", chance = 0.10 }] # [db2]
+
+[[abilities]]
+name = "fatal_echo"
+triggered_only = true
+on_cast = [
+ { type = "trigger", ability = "unstable_affliction" },
+ { type = "buff", buff = "cascading_calamity" },
+]
+
+[[abilities]]
+name = "shadow_bolt"
+spell_id = 686
+cast_time = 1.7 # [db2] 2 * .85 Improved Shadow Bolt
+on_cast = [
+ { type = "consume", buff = "nightfall" },
+ { type = "trigger", ability = "shadow_bolt_impact", delay = 1.5 }, # [simc] 30yd /20yd per second
+]
+damage = { sp_coeff = 1.74096, school = "shadow" }
+
+[[abilities]]
+name = "shadow_bolt_impact"
+triggered_only = true
+on_cast = [
+ { type = "buff", buff = "shard_instability", chance = 0.20 }, # [db2] PRD approximated by independent rolls
+ { type = "trigger", ability = "shadowbolt_volley", chance = 0.50 }, # [simc]
+]
+
+[[abilities]]
+name = "shadowbolt_volley"
+spell_id = 453176
+triggered_only = true
+damage = { sp_coeff = 1.2474, school = "shadow" } # [db2]
+
+[[abilities]]
+name = "malefic_grasp"
+spell_id = 1261153
+snapshot_channel = true
+cast_time = 4 # [db2]
+on_cast = [{ type = "consume", buff = "nightfall" }]
+[abilities.dot]
+name = "malefic_grasp"
+sp_coeff = 2.6325 # [db2]
+tick_time = 1 # [db2]
+duration = 4 # [db2]
+school = "shadow"
+whole_ticks = true
+on_tick = [
+ { type = "buff", buff = "shard_instability", chance = 0.10 }, # [db2]
+ { type = "trigger", ability = "shadowbolt_volley", chance = 0.50 }, # [simc] SB profile
+ { type = "if", if = "dot.agony.ticking", then = [{ type = "trigger", ability = "agony_malefic_grasp" }] },
+ { type = "if", if = "dot.unstable_affliction.ticking", then = [{ type = "trigger", ability = "unstable_affliction_malefic_grasp" }] },
+ { type = "if", if = "dot.wither.ticking", then = [{ type = "trigger", ability = "wither_malefic_grasp" }] },
+]
+
+[[abilities]]
+name = "agony_malefic_grasp"
+spell_id = 1261166
+triggered_only = true
+damage = { sp_coeff = 0.02793891, school = "shadow", scale = "dot.agony.stack" } # [db2/simc] .3 of base tick, mastery bug excluded
+on_cast = [{ type = "dot_stack", dot = "agony", stacks = 1 }]
+
+[[abilities]]
+name = "unstable_affliction_malefic_grasp"
+spell_id = 1261176
+triggered_only = true
+damage = { sp_coeff = 0.2607855, school = "shadow", mastery = true, scale = "dot.unstable_affliction.stack", crit_damage_bonus = 0.16 } # [simc] .3 base tick * active stacks
+
+[[abilities]]
+name = "wither_malefic_grasp"
+spell_id = 1279686
+triggered_only = true
+damage = { sp_coeff = 0.1235598, school = "shadowflame", mastery = true } # [simc] .3 of base tick
+
+[[abilities]]
+name = "haunt"
+spell_id = 48181
+cast_time = 1.2 # [db2] base 1.5 -.3 Improved Haunt
+cooldown = 15 # [db2]
+damage = { sp_coeff = 7.20612, school = "shadow" }
+[abilities.dot]
+name = "haunt_clock" # [simc] debuff ticks Shadow of Nathreza each second
+school = "shadow"
+tick_time = 1 # [db2]
+duration = 18 # [db2]
+hasted = false
+on_tick = [{ type = "trigger", ability = "shadow_of_nathreza" }]
+
+[[abilities]]
+name = "shadow_of_nathreza"
+spell_id = 1262710
+triggered_only = true
+damage = { sp_coeff = 0.452262, school = "shadow" } # [db2]
+
+[[abilities]]
+name = "summon_desperate_soul"
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "desperate_soul_wrath_of_nathreza", delay = 2 }] # [db2/simc] cast then impact
+
+[[abilities]]
+name = "desperate_soul_wrath_of_nathreza"
+spell_id = 1278047
+triggered_only = true
+damage = { sp_coeff = 22.7409, school = "shadow" } # [db2]
+
+[[abilities]]
+name = "dark_harvest"
+spell_id = 1257052
+snapshot_channel = true
+cast_time = 3 # [db2]
+cooldown = 60 # [db2]
+[abilities.dot]
+name = "dark_harvest_channel"
+tick_time = 1 # [db2]
+duration = 3 # [db2]
+tick_on_apply = true # [simc] 4 ticks total
+whole_ticks = true
+on_tick = [{ type = "trigger", ability = "dark_harvest_tick" }]
+
+[[abilities]]
+name = "dark_harvest_tick"
+spell_id = 1257065
+triggered_only = true
+damage = { sp_coeff = 8.39552, school = "shadowflame" } # [db2]
+
+[[abilities]]
+name = "summon_darkglare"
+spell_id = 205180
+cooldown = 120 # [db2]
+on_cast = [{ type = "summon", pet = "darkglare" }, { type = "buff", buff = "darkglare_presence" }]
+
+[[pets]]
+name = "darkglare"
+duration = 25 # [db2] 20+5 Eye Contract
+max_active = 1 # [simc]
+[[pets.abilities]]
+name = "eye_beam"
+spell_id = 205231
+cast_time = 2 # [db2]
+gcd = 0 # [simc] back-to-back
+# [simc] +10% per active core DoT
+damage = { sp_coeff = 4.87044, school = "shadow", scale = "1+0.1*(dot.agony.ticking+dot.wither.ticking+dot.unstable_affliction.ticking)" }
+
+[[abilities]]
+name = "summon_sayaad"
+triggered_only = true
+on_cast = [{ type = "summon", pet = "sayaad" }]
+
+[[pets]]
+name = "sayaad"
+duration = 0 # [simc] permanent
+inherit_haste = false # [obs/simc] main demon only inherits 10% of haste; approximated below
+melee = { ability = "melee", speed = 1.96, hasted = false } # [obs] 153 swings/300s
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+damage = { sp_coeff = 1, school = "physical" } # [obs] per-hit calibration
+[[pets.abilities]]
+name = "lash_of_pain"
+spell_id = 7814
+cooldown = 5.7 # [obs] energy-limited 52.7 casts/300s
+gcd = 1 # [db2]
+damage = { sp_coeff = 0.3, school = "shadow" } # [db2] owner coefficient in residual
+
+[[abilities]]
+name = "wither_direct"
+spell_id = 445468
+damage = { sp_coeff = 0.247969, school = "shadowflame", mastery = true, mastery_scale = 1.0 }
+on_cast = [{ type = "trigger", ability = "wither_apply" }]
+
+[[abilities]]
+name = "wither_apply"
+triggered_only = true
+[abilities.dot]
+name = "wither"             # [db2 445474: 0.4119 per tick, 18s] +3s Scalding Flames [db2 388832]
+sp_coeff = 0.411866
+tick_time = 1.6             # [obs] 2.5s ticks at 1.2 haste; DB2 lists a 2s period
+duration = 1e9
+school = "shadowflame"
+mastery = true
+mastery_scale = 1.0
+crit_damage_bonus = 0.368   # [obs] crit ratio 2.684 (Mark of Peroth'arn [db2 440045])
+max_stacks = 99             # stacks only count, for Blackened Soul; refreshing keeps them [simc]
+per_stack = false           # [simc dot_ignore_stack]
+on_tick = [
+  { type = "buff", buff = "nightfall", chance = 0.0585 },   # [db2 445468 tooltip]
+  { type = "trigger", ability = "seeds_check" },
+]
+on_crit = []   # [db2 445468 #1]
+
+[[abilities]]
+name = "wither_stack"       # Blackened Soul: Chaos Bolt/Shadowburn add a Wither stack [db2 440043]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.ticking", then = [
+  { type = "dot_stack", dot = "wither", stacks = 1 },
+  { type = "if", if = "buff.malevolence.up", then = [{ type = "dot_stack", dot = "wither", stacks = 1 }] },   # [db2 442726 #2]
+  { type = "trigger", ability = "bleakheart_tactics", chance = 0.15 },   # chance [simc]
+  # Seeds of Their Demise collapses at 8 stacks [db2 440055]; otherwise a chance per stack gained [simc 23%]
+  { type = "if", if = "dot.wither.stack>=8|target.health.pct<=20", then = [{ type = "trigger", ability = "seeds_check" }], else = [
+    { type = "if", if = "!dot.blackened_soul.ticking", then = [{ type = "trigger", ability = "blackened_soul_collapse", chance = 0.23 }] },
+  ] },
+] }]
+
+[[abilities]]
+name = "bleakheart_tactics"   # an extra Wither stack [db2 440051]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "dot_stack", dot = "wither", stacks = 1 }]
+
+[[abilities]]
+name = "seeds_check"        # Seeds of Their Demise: collapse at 8 stacks or below 20% health [db2 440055]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.stack>=8|(target.health.pct<=20&dot.wither.stack>1)", then = [{ type = "trigger", ability = "blackened_soul_collapse" }] }]
+
+[[abilities]]
+name = "blackened_soul_collapse"   # the collapse counts down from Wither's current stacks [simc]
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "if", if = "!dot.blackened_soul.ticking", then = [{ type = "trigger", ability = "blackened_soul_holder" }] },
+  { type = "dot_stack", dot = "blackened_soul", set = "dot.wither.stack" },
+]
+
+[[abilities]]
+name = "blackened_soul_holder"
+triggered_only = true
+[abilities.dot]
+name = "blackened_soul"     # [db2 445731: 1s ticks; 445736: 1.4447]
+sp_coeff = 1.44468
+tick_time = 1.0
+duration = 1e9
+hasted = false
+school = "shadowflame"
+mastery_scale = 1.0
+crit_damage_bonus = 0.268   # [obs] crit ratio 2.844 (Mark of Peroth'arn [db2 440045])
+max_stacks = 99
+per_stack = false
+refresh = "reset"
+on_tick = [
+  # each hit burns a Wither stack; stops when one is left or its own count runs out [simc]
+  { type = "dot_stack", dot = "wither", stacks = -1, min = 1 },
+  { type = "if", if = "dot.wither.stack<=1", then = [{ type = "cancel_dot", dot = "blackened_soul" }], else = [{ type = "dot_stack", dot = "blackened_soul", stacks = -1 }] },
+  # Seeds of Their Demise: 2 Flashpoint stacks [db2 440055 #2]; a threshold roll that
+  # never lands while Flashpoint is up, 6.9 per fight at 22.6% uptime [obs]
+
+]
+
+
+[[abilities]]
+name = "malevolence"
+spell_id = 442726
+cooldown = 60
+on_cast = [
+  { type = "buff", buff = "malevolence" },
+  # Wither +6 stacks +2 Alzzin's Iniquity [db2 430014, 1266803] and a hit
+  { type = "if", if = "dot.wither.ticking", then = [
+    { type = "dot_stack", dot = "wither", stacks = 8 },
+    { type = "trigger", ability = "malevolence_proc" },
+    { type = "trigger", ability = "seeds_check" },
+  ] },
+]
+
+[[abilities]]
+name = "malevolence_proc"
+spell_id = 446285
+triggered_only = true
+damage = { sp_coeff = 12.6551, school = "shadowflame" }
+
+[[abilities]]
+name = "devil_fruit"        # Wither ticks can grant Malevolence for 8s [db2 1266805]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.ticking", then = [{ type = "buff", buff = "malevolence", duration = 8 }] }]
+
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 0.12
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "reset"
+
+
+# Paraphrase of the SimC single-target Hellcaller APL. [simc]
+[[rotation]]
+action = "unstable_affliction"
+if = "soul_shard>0&fight_remains<8"
+[[rotation]]
+action = "berserking"
+if = "pet.darkglare.active|fight_remains<14"
+[[rotation]]
+action = "haunt"
+[[rotation]]
+action = "agony"
+if = "dot.agony.remains<5.4"
+[[rotation]]
+action = "wither_direct"
+if = "!dot.wither.ticking"
+[[rotation]]
+action = "dark_harvest"
+if = "dot.agony.remains>3"
+[[rotation]]
+action = "malevolence"
+[[rotation]]
+action = "summon_darkglare"
+if = "fight_remains>120|fight_remains<28"
+[[rotation]]
+action = "malefic_grasp"
+if = "pet.darkglare.active&(buff.nightfall.stack>1|pet.darkglare.remains<1)"
+[[rotation]]
+action = "shadow_bolt"
+if = "!pet.darkglare.active&buff.nightfall.stack>1"
+[[rotation]]
+action = "unstable_affliction"
+if = "pet.darkglare.active|buff.malevolence.up|soul_shard>4|buff.shard_instability.stack>2|buff.cascading_calamity.remains<1.2"
+[[rotation]]
+action = "malefic_grasp"
+if = "pet.darkglare.active"
+[[rotation]]
+action = "shadow_bolt"
