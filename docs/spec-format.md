@@ -40,6 +40,17 @@ on refresh (`refresh_extend`), follow the target's health, fire
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
 on-crit effects, and `banked` rolling damage fed by hits.
 
+A DoT with `overlap = true` keeps an independent expiration for each
+application, up to `max_stacks`, replacing the oldest at the cap. Its ticks
+share a cadence and, with `per_stack`, deal damage proportional to the number
+of active stacks; `on_expire` runs once per stack on natural expiration. This
+is an approximation when each application has its own tick cadence.
+`snapshot_channel = true` (a simpler alternative to the `channel` table
+below) starts the ability and its DoT at cast start, locks actions for the
+cast duration, and snapshots the cast speed for its ticks and duration.
+`preserve_late_free = true` leaves a `free_with` buff unconsumed if it arrives
+while a hard cast is underway, while still making that cast free.
+
 An ability paid by its `free_with` buff runs `on_free` effects as the buff is
 consumed (a set bonus "when Divine Purpose is consumed"). `damage.amount` adds
 flat damage (gear procs, scaled from item level), and `no_procs` keeps an

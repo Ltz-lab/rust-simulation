@@ -3197,6 +3197,71 @@ on_cast = [{{ type = "for_each_pet", pet = "imp", each = [{{ type = "trigger", a
     }
 
     #[test]
+    fn overlapping_dot_expires_each_application() {
+        let extra = r#"
+[[abilities]]
+name = "apply_overlap"
+triggered_only = true
+[abilities.dot]
+name = "overlap_dot"
+sp_coeff = 1.0
+duration = 4.0
+tick_time = 1.0
+max_stacks = 3
+overlap = true
+on_expire = [{ type = "trigger", ability = "expired" }]
+[[abilities]]
+name = "expired"
+triggered_only = true
+"#;
+        let c = compile(&format!("{BASE}\n{extra}"));
+        let mut st = state(&c);
+        cast(&mut st, "apply_overlap");
+        advance(&mut st, 2.0);
+        cast(&mut st, "apply_overlap");
+        advance(&mut st, 4.1);
+        assert_eq!(st.out.casts[src(&c, "expired")], 1);
+        let di = c.dots.iter().position(|d| d.def.name == "overlap_dot").unwrap();
+        assert_eq!(st.dot_stk[di], 1);
+        advance(&mut st, 6.1);
+        assert_eq!(st.out.casts[src(&c, "expired")], 2);
+        assert_eq!(st.dot_stk[di], 0);
+    }
+
+    #[test]
+    fn channel_starts_immediately_and_ticks_at_snapshotted_speed() {
+        let text = r#"
+name = "channel test"
+[player]
+spell_power = 1000
+haste = 1.0
+crit = 0.0
+[fight]
+duration = 10
+variance = 0
+[[abilities]]
+name = "channel"
+snapshot_channel = true
+cast_time = 4
+cooldown = 100
+[abilities.dot]
+name = "channel_dot"
+sp_coeff = 1.0
+duration = 4
+tick_time = 1
+whole_ticks = true
+[[rotation]]
+action = "channel"
+"#;
+        let c = compile(text);
+        let mut st = state(&c);
+        advance(&mut st, 0.1);
+        assert_eq!(st.out.casts[src(&c, "channel")], 1);
+        advance(&mut st, 2.1);
+        assert_eq!(st.out.hits[src(&c, "channel_dot")], 4);
+    }
+
+    #[test]
     fn example_spec_runs() {
         let c = compile(include_str!("../specs/examples/summoner.toml"));
         let r = run_iteration(&c, 3, false);

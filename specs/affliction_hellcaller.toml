@@ -17,7 +17,7 @@ crit_multiplier = 2.092  # [obs] non-DoT crit/noncrit (no dwarf racial)
 [gear]
 spec_id = 265           # [db2] Affliction
 primary = "intellect"
-base_primary = 599      # [obs] troll level 90
+base_primary = 617      # [obs] troll level 90
 primary_mult = 1.113945  # [simc] 1.05 *1.03 *1.03
 spell_power_per_primary = 1.0 # [obs]
 crit_bonus = 0.07        # [obs] 1074/46 +7%
@@ -27,7 +27,13 @@ mastery_coeff = 2.5      # [obs] Potent Afflictions rating conversion
 versatility_bonus = 0.03 # [simc] Mark of the Wild
 effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
 use_after = "summon_darkglare"
-use_items = "pet.darkglare.active|buff.malevolence.up|fight_remains<20" # [simc] APL
+use_items = { buff = "pet.darkglare.active|buff.malevolence.up|fight_remains<20" } # [simc] APL
+
+[gear.kit]
+enabled = 1 # [simc] consumables and Bloodlust when gear is supplied
+precombat = ["full_kit"] # [simc]
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2/obs] food, rune, flask, oil
+primary_buffs = { lights_potential = 695 } # [db2] potion
 
 [gear.procs] # [obs] time-averaged sample-gear enchants/weapon/embellishments
 spell_power = 38
@@ -43,6 +49,20 @@ variance = 0.2 # [simc] reference settings
 [resources.soul_shard]
 max = 5 # [db2]
 start = 3 # [simc] out of combat
+
+[[buffs]]
+name = "full_kit"
+duration = 1e9 # [simc] marker for gear consumables
+
+[[buffs]]
+name = "bloodlust"
+duration = 40 # [db2]
+haste_pct = 30 # [db2]
+
+[[buffs]]
+name = "lights_potential"
+duration = 30 # [db2]
+power_pct = 0 # [simc] computed from gear
 
 [[buffs]]
 name = "cascading_calamity"
@@ -97,6 +117,20 @@ per_minute = 1.2 # [db2] RPPM, DoT crit callbacks approximated by a clock
 ability = "summon_desperate_soul"
 per_minute = 2.25 # [obs] 2 RPPM + bad-luck protection, normalized by current haste
 hasted = true # [simc]
+
+[[abilities]]
+name = "full_kit"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616 # [db2]
+gcd = 0 # [simc]
+cooldown = 300 # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
 
 [[abilities]]
 name = "ravenous_afflictions"
@@ -447,6 +481,9 @@ refresh = "reset"
 [[rotation]]
 action = "unstable_affliction"
 if = "soul_shard>0&fight_remains<8"
+[[rotation]]
+action = "potion"
+if = "pet.darkglare.active|fight_remains<30" # [simc]
 [[rotation]]
 action = "berserking"
 if = "pet.darkglare.active|fight_remains<14"

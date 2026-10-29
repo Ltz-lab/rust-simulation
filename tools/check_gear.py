@@ -27,6 +27,7 @@ SPEC_BY_PROFILE = {
     "retribution": "retribution_herald",
     "fire": "fire_mage",
     "destruction": "destruction_hellcaller",
+    "affliction": "affliction_hellcaller",
     "subtlety": "subtlety_deathstalker",
 }
 DEFAULT_TALENTS = (

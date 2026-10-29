@@ -30,6 +30,7 @@ profiles (core kit, 300s Patchwerk):
 | [Fire Mage (Sunfury)](docs/fire-mage.md) | 147,374 | 148,454 | +0.73% | haste +2.19 pts | ~15× |
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
 | [Arcane Mage (Spellslinger)](docs/arcane-mage.md) | 133,260 | 133,980 | +0.54% | mastery +0.51 pts | — |
+| [Affliction Warlock (Hellcaller)](docs/affliction-warlock.md) | 157,898 | 157,573 | -0.21% | haste -0.60 pts | — |
 | [Subtlety Rogue (Deathstalker)](docs/subtlety-rogue.md) | 179,254 | 181,350 | +1.17% | crit -0.40 pts | ~4× |
 | [Elemental Shaman (Farseer)](docs/elemental-shaman.md) | 161,888 | 163,606 | +1.06% | haste +0.80 pts | — |
 
@@ -59,8 +60,8 @@ cargo build --release
 ## Docs
 
 - Specs: [Retribution Paladin](docs/retribution.md), [Fire Mage](docs/fire-mage.md),
-  [Destruction Warlock](docs/destruction-warlock.md), [Subtlety Rogue](docs/subtlety-rogue.md),
-  [Elemental Shaman](docs/elemental-shaman.md)
+  [Destruction Warlock](docs/destruction-warlock.md), [Affliction Warlock](docs/affliction-warlock.md),
+  [Subtlety Rogue](docs/subtlety-rogue.md), [Elemental Shaman](docs/elemental-shaman.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer
