@@ -28,6 +28,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../calibration/affliction_hellcaller.toml"),
     ),
     (
+        "shadow_voidweaver",
+        include_str!("../specs/shadow_voidweaver.toml"),
+        include_str!("../calibration/shadow_voidweaver.toml"),
+    ),
+    (
         "balance_elunes_chosen",
         include_str!("../specs/balance_elunes_chosen.toml"),
         include_str!("../calibration/balance_elunes_chosen.toml"),

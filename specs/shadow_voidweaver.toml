@@ -1,0 +1,1013 @@
+# Shadow Priest — Voidweaver, Midnight Season 2, core kit.
+# Tags: [db2] game tables (build 12.1.5.70575, tools/spelldb.py); [simc] SimC's
+# priest module / default shadow APL (midnight branch); [obs] reference/shadow_core_observations.json.
+# Source names match that file, so tools/compare.py lines them up. Calibration
+# fits damage per hit only: every cast and hit count comes from the mechanics and
+# the rotation below. Midnight has no Devouring Plague (Shadow Word: Madness
+# replaces it) and no Mind Spike, Dark Ascension, Mind Sear or Mindbender [simc].
+#
+# Shape of the spec:
+#  * Insanity (max 100) is built by Mind Blast / Void Blast, Mind Flay, Tentacle
+#    Slam, Void Torrent, Void Volley, apparitions and idols; Shadow Word: Madness
+#    (SW:M) spends 45.
+#  * Every SW:M impact, Shadow Word: Pain tick roll (Tormented Spirits) and idol
+#    event spawns a Shadowy or Void Apparition (travel 3.33 s). Each one fires
+#    Shadeburst and extends SW:P and VT by 1 s (Haunting Shadows).
+#  * Void Torrent opens an Entropic Rift (buff + hasted timer DoT); when it ends
+#    Collapsing Void hits and a Voidwraith appears.
+#  * Idol of N'Zoth (stacks on the target) and Idol of Yogg-Saron (stacks per
+#    apparition) are resources; Tentacle Slam draws a random idol.
+name = "Shadow Priest (Voidweaver, core kit)"
+
+# [simc] APL precombat: shadowform, then Tentacle Slam (VT and a 25% SW:M up at pull)
+precombat = ["shadowform", "tentacle_slam"]
+
+[player]
+# [obs] buffed snapshot of the reference character plus the time-averaged gear stat
+# procs of the same sample-gear family (Soul Fang, Rune of Critical Power, Venomcursed,
+# Arcanoweave: 187 crit / 103 haste / 208 mastery / 21 vers rating, 34 intellect,
+# as measured for the destruction and affliction specs). A later stage adds [gear].
+spell_power = 3412       # [obs] 3374 + 38 averaged gear procs
+crit = 0.1675            # [obs] 0.1291 + 0.0384
+haste = 0.2929           # [obs] snapshot, no proc average: SW:M's 204.9 ticks and 243 GCDs in 300 s imply a
+                         # total average of 1.355-1.37 with Power Infusion, Y'Shaarj and Ancient Madness, which is what 1.2929 gives
+versatility = 0.0567     # [obs] 0.0528 + 0.0039
+# [obs] mastery_value 0.2043 is the per-DoT value of Shadow Weaving (0.5% per point,
+# [db2 343690]); +0.0200 for the averaged procs (208 rating, 0.0096 per 100 rating).
+# Sources use mastery_scale = 3: SW:P, VT and SW:M all tick ~98% of the fight and
+# Voidform counts as three DoTs [simc shadow_weaving_active_dots].
+mastery = 0.2243
+crit_multiplier = 2.067  # [obs] crit/noncrit from avg damage, crit rate and non-crit avg: 2.060-2.078 on every source but SW:P/VT
+
+# [gear] turns the profiles/MID2_Priest_Shadow.simc items into stats (docs/gear.md).
+# Gearless runs (calibration, reference) never read it. The constants below are
+# checked against the reference's buffed snapshot (gear without trinkets, kit off):
+# ratings, crit, haste, mastery and vers match; spell power is 13 short. SimC's gear check is not done yet.
+[gear]
+spec_id = 258            # [db2] ChrSpecialization Shadow
+primary = "intellect"
+base_primary = 611       # [obs] level-90 Void Elf base intellect (as Arcane Spellslinger)
+primary_mult = 1.113945  # [simc] x1.05 x1.03 passives x1.03 Arcane Intellect (as Destruction)
+spell_power_per_primary = 1.0 # [obs] buffed intellect = spell power
+crit_bonus = 0.05        # [obs] 12.91% at 364 rating = 7.91% from rating + 5% base spell crit
+haste_mult = 1.03        # [obs] 29.29% at 1123 rating (25.52%): x1.03, multiplicative with rating haste
+mastery_points = 10      # [db2] base 8 + 2 Skyfury
+mastery_coeff = 0.5      # [db2 343690] % per point, per DoT (Shadow Weaving)
+versatility_bonus = 0.03 # [simc] Mark of the Wild
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
+
+[gear.procs] # [obs] time-averaged sample-gear procs, also included in [player] above
+spell_power = 38
+crit = 0.0384
+haste = 0.0              # [player] haste is the snapshot without a proc average (see there)
+mastery = 0.0200
+versatility = 0.0039
+
+[gear.kit] # [simc] raid-night kit, applied only with gear lines
+enabled = 1
+precombat = ["full_kit"] # [simc]
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2/obs] food, rune, flask, oil
+primary_buffs = { lights_potential = 695 } # [db2] potion
+
+[fight]
+duration = 300           # [obs] Patchwerk reference
+variance = 0.2           # [simc]
+
+# ------------------------------------------------------------------ resources
+[resources.insanity]
+max = 100                # [simc]
+start = 0                # [simc]
+
+[resources.nzoth]
+max = 200                # Idol of N'Zoth stacks on the target; thresholds at 50 and 100 [simc]
+start = 0
+
+[resources.nzoth_hv]
+max = 1                  # 1 once Horrific Vision fired in the current 0-100 cycle
+start = 0
+
+[resources.yogg]
+max = 20                 # Idol of Yogg-Saron: at 20 stacks a Thing from Beyond spawns [simc]
+start = 0
+
+# ------------------------------------------------------------------ buffs
+[[buffs]]
+name = "full_kit"
+duration = 1e9           # [simc] marker for gear consumables (gear lines only)
+
+[[buffs]]
+name = "bloodlust"
+duration = 40            # [db2]
+haste_pct = 30           # [db2]
+
+[[buffs]]
+name = "lights_potential"
+duration = 30            # [db2]
+power_pct = 0            # [simc] computed from gear
+
+[[buffs]]
+name = "shadowform"
+duration = 1e9
+damage_pct = 10          # [db2 232698] while Voidform is down
+
+[[buffs]]
+name = "cast_lag"
+duration = 1e9
+# SimC's queue_lag: 5 ms after every action (strict_gcd_queue off) [simc sim.cpp, player_t::schedule_ready],
+# about 0.45% of a ~1.1 s hasted GCD. APPROX only in form: a fixed delay written as a GCD percentage. The
+# channel lag after Void Torrent is on its finish_delay.
+gcd_pct = -0.45
+
+[[buffs]]
+name = "voidform"
+duration = 20            # [db2 194249]
+damage_pct = 20          # [db2 194249 mask 0/0/256]
+on_expire = [
+  # Crushing Void [simc]: reset Void Volley, one castable volley that blocks Voidform
+  { type = "consume", buff = "void_volley", all = true },
+  { type = "buff", buff = "crushing_void" },
+  { type = "buff", buff = "shadowform" },
+  # Ancient Madness [simc]: haste decays over 10 s after Voidform ends
+  { type = "buff", buff = "ancient_madness", set = "10*(buff.ancient_madness_extension.stack>0)" },
+  { type = "apply_dot", dot = "ancient_madness_clock" },
+  { type = "consume", buff = "ancient_madness_extension", all = true },
+]
+
+[[buffs]]
+name = "void_volley"
+duration = 30            # [db2 1242171]
+max_stacks = 3           # [db2 228260 #2]
+flat = true
+
+[[buffs]]
+name = "crushing_void"
+duration = 30            # [db2 1279437]
+
+[[buffs]]
+name = "ancient_madness_extension"
+duration = 60            # lasts as long as Voidform [simc]
+max_stacks = 5           # [simc]
+haste_pct = 2            # [db2 194249 #11-#13] per stack
+
+[[buffs]]
+name = "ancient_madness"
+duration = 10            # [simc] linear decay in 1 s steps
+max_stacks = 10
+refresh_duration = false
+# APPROX: SimC gives 10% x extension stacks / 5. Modelled as 10 stacks of 0.9%
+# (4.45 average extensions of 5 [obs: 13.04 refreshes / 2.93 starts]).
+haste_pct = 0.9
+
+[[buffs]]
+name = "power_infusion"
+duration = 15            # [db2 10060]
+haste_pct = 20           # [db2 10060]
+
+[[buffs]]
+name = "idol_of_yshaarj"
+duration = 7             # [obs] 7.2 s average, 9.0% uptime
+haste_pct = 10           # [simc 373316]
+
+[[buffs]]
+name = "shadowy_insight"
+duration = 10            # [db2 375981]
+
+[[buffs]]
+name = "screams_of_the_void"
+duration = 3             # [db2 393919]
+refresh_extend = true    # [simc] extends on refresh; 67.9 applications x 3 s = 67.5% uptime [obs]
+# SW:P and VT tick 40% faster per rank, 2 ranks taken: +80% [db2 375767 #0 +40 to 393919's dummy #1, and
+# #1 -28.6 to its tick-time field, i.e. 1/1.4, per rank; talent node 2/2]. Both are flat label modifiers
+# (aura 219) that SimC folds into 393919 [simc parse_all_passive_talents]. With SW:P's real 1.74 s base tick this
+# one value gives SW:P 362 / VT 202 ticks against 362.5 / 203.4 [obs]; the old 63/85 fit absorbed SW:P's
+# wrong 1.6 s base.
+tick_rate_pct = { shadow_word_pain = 80, vampiric_touch = 80 }
+
+[[buffs]]
+name = "entropic_rift"
+duration = 8             # [db2 459314]
+on_expire = [
+  # Collapsing Void hits, then Voidheart gets its post-rift 8 s (Touch of the Void) and
+  # a Voidwraith appears [simc]
+  { type = "trigger", ability = "collapsing_void" },
+  { type = "consume", buff = "collapsing_void", all = true },
+  { type = "consume", buff = "rift_armed", all = true },
+  { type = "consume", buff = "darkening_horizon", all = true },
+  { type = "buff", buff = "voidheart", duration = 8 },    # [db2 1266856]
+  { type = "summon", pet = "voidwraith" },                # [db2 451235]
+]
+
+[[buffs]]
+name = "void_blast_cast"  # marks a Mind Blast cast that started inside the rift
+duration = 5
+
+[[buffs]]
+name = "rift_armed"      # the rift's first tick never hits [simc]
+duration = 60
+
+[[buffs]]
+name = "darkening_horizon"
+duration = 60
+max_stacks = 3           # [db2 449912 #1] at most 3 extensions per rift
+flat = true
+
+[[buffs]]
+name = "collapsing_void"
+duration = 60
+max_stacks = 5           # [simc] Shadow
+ability_pct = { entropic_rift = 20 }   # [simc] +20% per stack (talent #2)
+
+[[buffs]]
+name = "voidheart"
+duration = 8
+damage_pct = 5           # [simc] player damage only, pets excluded
+
+[[buffs]]
+name = "twist_of_fate"   # +10% below 35% target health (2 ranks x 5%) [db2 390978]
+duration = 0
+below_health = 35
+damage_pct = 10
+
+[[buffs]]
+name = "entropic_embrace"
+duration = 12            # [db2 256374]
+damage_pct = 5           # [db2 256374 #0]
+
+# ------------------------------------------------------------------ random procs
+[[procs]]
+ability = "entropic_embrace_proc"
+per_minute = 1.5         # [obs] RPPM 1 [db2]; 7.6 applications per fight observed
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.04       # [obs] 50.2 per 300 s
+
+# ================================================================== player abilities
+[[abilities]]
+name = "full_kit"
+gcd = 0                  # [simc]
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "shadowform"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "shadowform" }, { type = "buff", buff = "cast_lag" }]
+
+[[abilities]]
+name = "power_infusion"
+spell_id = 10060
+gcd = 0                  # [simc] used off the GCD
+cooldown = 120           # [db2]
+on_cast = [{ type = "buff", buff = "power_infusion" }]   # self-cast [simc self_power_infusion]
+
+[[abilities]]
+name = "entropic_embrace_proc"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "entropic_embrace" }]
+
+# ---- Voidform and Void Volley
+[[abilities]]
+name = "voidform"
+spell_id = 228260
+cast_time = 1.5          # [db2] hasted
+cooldown = 120           # [db2]
+on_cast = [
+  { type = "consume", buff = "shadowform" },
+  { type = "buff", buff = "voidform" },
+  { type = "buff", buff = "void_volley", stacks = 3 },    # [db2 228260 #2]
+  { type = "trigger", ability = "void_volley_voidform" }, # free volley [simc]
+  { type = "gain", resource = "nzoth", amount = 10 },     # [simc]
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "ancient_madness_clock"      # 1 s unhasted steps that remove one haste stack [simc]
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "ancient_madness_clock"
+tick_time = 1
+duration = 10
+hasted = false
+whole_ticks = true
+on_tick = [{ type = "buff", buff = "ancient_madness", set = "buff.ancient_madness.stack-1" }]
+
+[[abilities]]
+name = "void_volley"
+spell_id = 1242173
+requires_buff = "void_volley"
+gain = { insanity = 10, nzoth = 10 }   # [db2 1242173 #1], [simc]
+on_cast = [
+  { type = "consume", buff = "void_volley" },
+  # 10 bolts 50 ms apart, 40 yd at 50 yd/s [simc]
+  { type = "trigger", ability = "void_volley_damage", count = "10", interval = 0.05, delay = 0.8 },
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "crushing_void_volley"      # the Crushing Void stack cast as a volley [simc]
+requires_buff = "crushing_void"
+gain = { insanity = 10, nzoth = 10 }
+on_cast = [
+  { type = "consume", buff = "crushing_void" },
+  { type = "trigger", ability = "void_volley_damage", count = "10", interval = 0.05, delay = 0.8 },
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "void_volley_voidform"
+triggered_only = true
+gcd = 0
+gain = { insanity = 10 }           # [db2 1242173 #1]
+on_cast = [{ type = "trigger", ability = "void_volley_voidform_damage", count = "10", interval = 0.05, delay = 0.8 }]
+
+[[abilities]]
+name = "void_volley_damage"
+spell_id = 1242189
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.9544, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+
+[[abilities]]
+name = "void_volley_voidform_damage"
+spell_id = 1242189
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.9544, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+
+# ---- Mind Blast / Void Blast (one ability: Void Blast shares Mind Blast's charges [simc])
+[[abilities]]
+name = "mind_blast"
+spell_id = 8092
+cast_time = 1.5          # [db2] hasted
+cooldown = 9             # [db2]
+cooldown_hasted = true
+charges = 1              # [simc]
+# The spell is chosen when the cast starts (the rift may end during the 1.1 s cast) [simc APL]
+on_begin = [{ type = "if", if = "buff.entropic_rift.up", then = [{ type = "buff", buff = "void_blast_cast" }], else = [{ type = "consume", buff = "void_blast_cast" }] }]
+on_start = [{ type = "if", if = "buff.void_blast_cast.up", then = [{ type = "consume", buff = "void_blast_cast" }, { type = "trigger", ability = "void_blast_hit" }], else = [{ type = "trigger", ability = "mind_blast_hit" }] }]
+
+[[abilities]]
+name = "mind_blast_insight"         # Shadowy Insight: instant, spends the buff instead of a charge [simc]
+requires_buff = "shadowy_insight"
+on_begin = [{ type = "if", if = "buff.entropic_rift.up", then = [{ type = "buff", buff = "void_blast_cast" }], else = [{ type = "consume", buff = "void_blast_cast" }] }]
+on_start = [
+  { type = "consume", buff = "shadowy_insight" },
+  { type = "if", if = "buff.void_blast_cast.up", then = [{ type = "consume", buff = "void_blast_cast" }, { type = "trigger", ability = "void_blast_hit" }], else = [{ type = "trigger", ability = "mind_blast_hit" }] },
+]
+
+[[abilities]]
+name = "mind_blast_hit"
+spell_id = 8092
+source = "mind_blast"
+triggered_only = true
+gcd = 0
+gain = { insanity = 6, nzoth = 6 }  # [db2 137033 #5], [simc]
+damage = { sp_coeff = 0.78336, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_cast = [{ type = "trigger", ability = "nzoth_check" }]
+
+[[abilities]]
+name = "void_blast_hit"
+spell_id = 450983
+source = "void_blast"
+triggered_only = true
+gcd = 0
+gain = { insanity = 8, nzoth = 6 }  # [db2 137033 #5 + Void Infusion 450612 #0]
+damage = { sp_coeff = 2.1, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_cast = [
+  # Darkening Horizon [db2 449912]: +1 s to the rift, Voidheart and the timer, at most 3 times
+  { type = "if", if = "buff.entropic_rift.up&buff.darkening_horizon.stack<3", then = [
+    { type = "extend_buff", buff = "entropic_rift", seconds = 1 },
+    { type = "extend_buff", buff = "voidheart", seconds = 1 },
+    { type = "extend_dot", dot = "entropic_rift_ticks", seconds = 1 },
+    { type = "buff", buff = "darkening_horizon" },
+  ] },
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+# ---- Mind Flay (2-tick channel, 3.9 Insanity a tick)
+[[abilities]]
+name = "mind_flay"
+spell_id = 15407
+channel = { ticks = 2 }  # [simc] interrupt_if = ticks>=2
+[abilities.dot]
+name = "mind_flay"
+sp_coeff = 1.38138       # [db2]
+tick_time = 0.75         # [db2] hasted
+duration = 1.5
+school = "shadow"
+mastery = true
+mastery_scale = 3
+on_tick = [
+  { type = "gain", resource = "insanity", amount = 3.9 },   # [db2 15407 #2] 3, +30% Surge of Insanity [db2 391399 #1]
+  { type = "gain", resource = "nzoth", amount = 1 },      # [simc]
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+# ---- Shadow Word: Pain
+[[abilities]]
+name = "shadow_word_pain"
+spell_id = 589
+gain = { insanity = 3, nzoth = 3 }   # [db2], [simc]
+damage = { sp_coeff = 0.168, school = "shadow", mastery = true, mastery_scale = 3, crit_damage_bonus = 0.433 }   # [db2]; crit bonus as on VT [obs]
+# Tormented Spirits [simc]: threshold RNG mean 13%, doubled on a crit, so the chance grows with crit
+on_cast = [
+  { type = "trigger", ability = "apparition_spawn", chance = 0.13 },
+  { type = "trigger", ability = "nzoth_check" },
+]
+on_crit = [{ type = "trigger", ability = "apparition_spawn", chance = 0.13 }]
+[abilities.dot]
+name = "shadow_word_pain"
+sp_coeff = 0.1246        # [db2]
+# 2 s x 0.87 hasted [db2]: Quickened Pulse 1266845 #0 is -20% tick time on SW:P, raised to -13% by the spec
+# aura 137033 #24 (+7 to it); SimC parses both as passives [simc parse_all_class_passives/_talents].
+tick_time = 1.74
+duration = 16            # [db2]
+school = "shadow"
+mastery = true
+mastery_scale = 3
+on_tick = [
+  # [obs] 28.44 starts and 0.02 refreshes: no proc is lost to a buff that is already up (8% of 355.6 ticks), so a
+  # roll happens only while it is down. APPROX: 0.0873 gives 28.4 starts per 300 s (8% of all ticks would be 0.08; ticks inside the ~1.14 s windows roll nothing)
+  { type = "if", if = "!buff.shadowy_insight.up", then = [{ type = "buff", buff = "shadowy_insight", chance = 0.0873 }] },
+  # Tormented Spirits [simc]: threshold RNG mean 13%, doubled on a crit (the extra roll is in on_crit)
+  { type = "trigger", ability = "apparition_spawn", chance = 0.13 },
+]
+on_crit = [{ type = "trigger", ability = "apparition_spawn", chance = 0.13 }]
+crit_damage_bonus = 0.433   # [obs] SW:P/VT crit/noncrit 2.50 vs 2.067 elsewhere; Instilled Doubt [db2 1242862 #1] is +20% of it
+
+# ---- Vampiric Touch (applied by Tentacle Slam; the hard cast is a rare fallback)
+[[abilities]]
+name = "vampiric_touch"
+spell_id = 34914
+cast_time = 1.5          # [db2]
+gain = { insanity = 4, nzoth = 4 }   # [db2], [simc]
+on_cast = [{ type = "trigger", ability = "nzoth_check" }]
+[abilities.dot]
+name = "vampiric_touch"
+sp_coeff = 0.6666667     # [db2]
+tick_time = 3            # [db2] hasted; Screams of the Void speeds it up (see the buff)
+crit_damage_bonus = 0.433   # [obs] as SW:P
+duration = 21            # [db2]
+school = "shadow"
+mastery = true
+mastery_scale = 3
+
+# ---- Tentacle Slam
+[[abilities]]
+name = "tentacle_slam"
+spell_id = 1227280
+cooldown = 15            # [db2] unhasted recharge
+charges = 2              # [db2]
+gain = { insanity = 6 }  # [db2 1227280 #1]
+on_cast = [{ type = "trigger", ability = "tentacle_slam_damage", delay = 0.5 }]   # [simc] travel
+
+[[abilities]]
+name = "tentacle_slam_damage"
+spell_id = 1227621
+triggered_only = true
+gcd = 0
+gain = { nzoth = 10 }    # [simc] 6 on impact + 4 for the VT application
+damage = { sp_coeff = 0.687926, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_start = [{ type = "apply_dot", dot = "vampiric_touch" }]   # no Insanity from this VT [simc]
+on_cast = [
+  { type = "trigger", ability = "shadow_word_madness_tentacle" },   # Maddening Tentacles [db2 1279353]
+  # Void Apparitions [db2 1264107 #0]: a random idol. SimC deals a shuffled deck of 17:
+  # Y'Shaarj 3, Horrific Vision 4, Vision of N'Zoth 1, Thing from Beyond 2, C'Thun 7.
+  # Modelled as a uniform draw with replacement.
+  { type = "choose", choices = [
+    { effects = [{ type = "trigger", ability = "idol_yshaarj" }] },
+    { effects = [{ type = "trigger", ability = "idol_yshaarj" }] },
+    { effects = [{ type = "trigger", ability = "idol_yshaarj" }] },
+    { effects = [{ type = "trigger", ability = "horrific_vision" }] },
+    { effects = [{ type = "trigger", ability = "horrific_vision" }] },
+    { effects = [{ type = "trigger", ability = "horrific_vision" }] },
+    { effects = [{ type = "trigger", ability = "horrific_vision" }] },
+    { effects = [{ type = "trigger", ability = "vision_of_nzoth" }] },
+    { effects = [{ type = "trigger", ability = "idol_thing" }] },
+    { effects = [{ type = "trigger", ability = "idol_thing" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+    { effects = [{ type = "trigger", ability = "idol_cthun" }] },
+  ] },
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+# ---- Shadow Word: Madness (the Devouring Plague slot)
+[[abilities]]
+name = "shadow_word_madness"
+spell_id = 335467
+cost = { insanity = 45 } # [db2] 50 - 5 Mind's Eye
+gain = { nzoth = 12 }    # [simc]
+damage = { sp_coeff = 2.61625, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_cast = [
+  { type = "trigger", ability = "apparition_spawn" },
+  { type = "buff", buff = "screams_of_the_void" },
+  # Ancient Madness [simc]: each hard cast in Voidform extends it 1.5 s, at most 5 times
+  { type = "if", if = "buff.voidform.up&buff.ancient_madness_extension.stack<5", then = [
+    { type = "extend_buff", buff = "voidform", seconds = 1.5 },
+    { type = "buff", buff = "ancient_madness_extension" },
+  ] },
+  { type = "if", if = "buff.entropic_rift.up", then = [{ type = "buff", buff = "collapsing_void" }] },   # [simc]
+  { type = "trigger", ability = "nzoth_check" },
+]
+[abilities.dot]
+name = "shadow_word_madness"
+sp_coeff = 2.61625       # [db2]
+tick_time = 2            # [db2] hasted
+duration = 6             # [db2]
+refresh = "rolling"      # [simc trigger_dot: rolling periodic, pandemic duration]
+rolling_pandemic = true
+school = "shadow"
+mastery = true
+mastery_scale = 3
+
+[[abilities]]
+name = "shadow_word_madness_tentacle"   # Maddening Tentacles: 25% direct hit and 25% DoT, no cost [db2 1279353]
+source = "shadow_word_madness"
+triggered_only = true
+gcd = 0
+gain = { nzoth = 12 }
+damage = { sp_coeff = 2.61625, school = "shadow", mastery = true, mastery_scale = 3, mult = 0.25 }
+on_cast = [
+  { type = "apply_dot", dot = "shadow_word_madness", strength = 0.25 },
+  { type = "trigger", ability = "apparition_spawn" },
+  { type = "buff", buff = "screams_of_the_void" },
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+# ---- Void Torrent and the Entropic Rift
+[[abilities]]
+name = "void_torrent"
+spell_id = 263165
+gcd = 0                  # [simc] use_off_gcd
+cooldown = 30            # [db2]
+# [obs] the channel lasts 3.0 s unhasted (buff 289577: 2.98 s) with 5.63 hits per cast: a tick at once, 0.64 s
+# ticks (5 whole ticks, last at 2.56 s) and a short final tick at 3.0 s.
+# APPROX: the 63% tail chance is fitted to the 5.63 hits. DB2 gives Void Torrent a 1 s tick and no tick-time
+# modifier (Quickened Pulse's masks cover SW:P and the Entropic Rift spells, not 263165), so the 0.64 s is not
+# derived either. 5.63 fits hasted 1 s ticks in a fixed 3 s channel with a partial last tick (5 ticks below
+# 1.333 haste, 6 above), but SimC hastes channel durations, which the 2.98 s buff contradicts. Unresolved.
+# finish_delay: the 0.44 s to the 3.0 s channel end plus SimC's channel_lag after a channel that runs to its
+# end, 0.25 s [simc sim.cpp channel_lag; player_t::schedule_ready].
+channel = { ticks = 5, finish_delay = 0.69, on_finish = [
+  { type = "trigger", ability = "void_torrent_tail", chance = 0.63, delay = 0.44 },
+  # at the end of the channel (3.0 s, after the 0.44 s wait) the rift and Voidheart go back to full duration [simc]
+  { type = "trigger", ability = "void_torrent_end", delay = 0.44 },
+] }
+on_cast = [
+  { type = "trigger", ability = "entropic_rift_spawn" },   # before the channel starts [simc]
+  { type = "apply_dot", dot = "void_torrent_insanity" },
+]
+[abilities.dot]
+name = "void_torrent"
+sp_coeff = 2.37685       # [db2]
+tick_time = 0.64         # [db2] 1 s x 0.8 x 0.8 (Quickened Pulse, 2 mods); not hasted [obs: 3.0 s channel]
+hasted = false
+duration = 3
+tick_on_apply = true
+school = "shadow"
+mastery = true
+mastery_scale = 3
+on_tick = [
+  { type = "gain", resource = "nzoth", amount = 2 },   # [simc]
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "void_torrent_end"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "cancel_dot", dot = "void_torrent_insanity" },   # the 4th Insanity tick (2.925 s) still lands
+  { type = "buff", buff = "entropic_rift" },
+  { type = "buff", buff = "voidheart", duration = 60 },
+  { type = "apply_dot", dot = "entropic_rift_ticks" },
+]
+
+[[abilities]]
+name = "void_torrent_tail"     # the short final tick at 3.0 s (0.44 of 0.64 s) [obs]
+source = "void_torrent"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 2.37685, school = "shadow", mastery = true, mastery_scale = 3, mult = 0.69 }
+on_cast = [
+  { type = "gain", resource = "nzoth", amount = 2 },   # [simc]
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "void_torrent_insanity_clock"   # 6 Insanity per unhasted 0.975 s tick while channelling [simc 289577]
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "void_torrent_insanity"
+tick_time = 0.975
+duration = 6
+hasted = false
+whole_ticks = true
+tick_on_apply = true
+on_tick = [{ type = "gain", resource = "insanity", amount = 6 }]
+
+[[abilities]]
+name = "entropic_rift_spawn"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "entropic_rift" },
+  { type = "buff", buff = "voidheart", duration = 60 },   # lasts with the rift [simc]
+  { type = "apply_dot", dot = "entropic_rift_ticks" },
+]
+
+[[abilities]]
+name = "entropic_rift_clock"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "entropic_rift_ticks"
+# 1 s hasted [db2 459314] x 0.87: Quickened Pulse #0 (-20%, +7 from 137033 #24). Its #1 (-20% by label) is
+# deregistered in SimC as a double count [simc sc_priest.cpp init_spells].
+tick_time = 0.87
+duration = 8             # [db2 459314]
+refresh = "reset"
+on_tick = [{ type = "if", if = "buff.rift_armed.up", then = [
+  { type = "trigger", ability = "entropic_rift", chance = 0.95 },   # [simc] 5% of ticks miss
+], else = [{ type = "buff", buff = "rift_armed" }] }]
+
+[[abilities]]
+name = "entropic_rift"
+spell_id = 447448
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.6, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+
+[[abilities]]
+name = "collapsing_void"
+spell_id = 448405
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 4.4, school = "shadow", mastery = true, mastery_scale = 3, scale = "1+0.2*buff.collapsing_void.stack" }   # [simc]
+
+# ---- Shadow Word: Death (execute only)
+[[abilities]]
+name = "shadow_word_death"
+spell_id = 32379
+cooldown = 10            # [db2]
+gain = { insanity = 4, nzoth = 4 }   # [db2 137033 #6], [simc]
+damage = { sp_coeff = 0.85, school = "shadow", mastery = true, mastery_scale = 3, mult = 2.5 }   # [db2] x2.5 below 20% [simc]
+on_cast = [
+  { type = "trigger", ability = "shadowfiend_summon", chance = 0.4 },   # [db2 34433 #2]
+  { type = "trigger", ability = "nzoth_check" },
+]
+
+[[abilities]]
+name = "shadowfiend_summon"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "summon", pet = "shadowfiend" }]
+
+# ---- Apparitions
+# Every trigger event adds an Idol of Yogg-Saron stack; at 20 a Thing from Beyond spawns
+# (and triggers an apparition itself). 30% of apparitions are Void Apparitions [obs]
+# (DB2 1264104 says 15%).
+# The Thing from Beyond spawned at 20 Yogg stacks has no target [simc spawn_thing_from_beyond()
+# from the buff callback], so its apparition has no parent target: it fires no Shadeburst, and its
+# own Yogg stack lands on the full buff just before the buff is cancelled (lost) [simc].
+[[abilities]]
+name = "apparition_spawn"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "gain", resource = "yogg", amount = 1 },
+  { type = "if", if = "yogg>=20", then = [
+    { type = "gain", resource = "yogg", amount_expr = "-yogg" },
+    { type = "summon", pet = "thing_from_beyond" },
+    { type = "trigger", ability = "apparition_orphan" },
+  ] },
+  { type = "choose", choices = [
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },   # [db2] 12 yd/s over 40 yd
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [{ type = "trigger", ability = "shadowy_apparition", delay = 3.33 }] },
+    { effects = [
+      { type = "trigger", ability = "void_apparition", delay = 3.33 },
+      { type = "trigger", ability = "void_bolt", delay = 1.6 },   # [simc] 40 yd at 25 yd/s
+    ] },
+    { effects = [
+      { type = "trigger", ability = "void_apparition", delay = 3.33 },
+      { type = "trigger", ability = "void_bolt", delay = 1.6 },
+    ] },
+    { effects = [
+      { type = "trigger", ability = "void_apparition", delay = 3.33 },
+      { type = "trigger", ability = "void_bolt", delay = 1.6 },
+    ] },
+  ] },
+]
+
+[[abilities]]
+name = "apparition_orphan"         # the Yogg Thing from Beyond's apparition: no Yogg stack, no Shadeburst [simc]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "choose", choices = [
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "shadowy_apparition_orphan", delay = 3.33 }] },
+  { effects = [{ type = "trigger", ability = "void_apparition_orphan", delay = 3.33 }, { type = "trigger", ability = "void_bolt", delay = 1.6 }] },
+  { effects = [{ type = "trigger", ability = "void_apparition_orphan", delay = 3.33 }, { type = "trigger", ability = "void_bolt", delay = 1.6 }] },
+  { effects = [{ type = "trigger", ability = "void_apparition_orphan", delay = 3.33 }, { type = "trigger", ability = "void_bolt", delay = 1.6 }] },
+] }]
+
+[[abilities]]
+name = "shadowy_apparition_orphan"
+spell_id = 413231
+source = "shadowy_apparition"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.8505, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_cast = [{ type = "trigger", ability = "apparition_impact_orphan" }]
+
+[[abilities]]
+name = "void_apparition_orphan"
+spell_id = 1264176
+source = "void_apparition"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.97807, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2 1264104 #1] 0.8505 x 1.15
+on_cast = [{ type = "trigger", ability = "apparition_impact_orphan" }]
+
+[[abilities]]
+name = "apparition_impact_orphan"  # apparition_impact without Shadeburst (no parent target) [simc]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "extend_dot", dot = "shadow_word_pain", seconds = 1 },   # Haunting Shadows [db2 1279355 #1]
+  { type = "extend_dot", dot = "vampiric_touch", seconds = 1 },
+  { type = "gain", resource = "insanity", amount = 1, chance = 0.8 },   # Auspicious Spirits [db2 155271]; threshold RNG mean 0.8 [simc]
+]
+
+[[abilities]]
+name = "shadowy_apparition"
+spell_id = 413231
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.8505, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+on_cast = [{ type = "trigger", ability = "apparition_impact" }]
+
+[[abilities]]
+name = "void_apparition"
+spell_id = 1264176
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.97807, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2 1264104 #1] 0.8505 x 1.15
+on_cast = [{ type = "trigger", ability = "apparition_impact" }]
+
+[[abilities]]
+name = "apparition_impact"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "shadeburst" },
+  { type = "extend_dot", dot = "shadow_word_pain", seconds = 1 },   # Haunting Shadows [db2 1279355 #1]
+  { type = "extend_dot", dot = "vampiric_touch", seconds = 1 },
+  { type = "gain", resource = "insanity", amount = 1, chance = 0.8 },   # Auspicious Spirits [db2 155271]; threshold RNG mean 0.8 [simc]
+]
+
+[[abilities]]
+name = "shadeburst"
+spell_id = 1231479
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.33, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2 73510]
+
+[[abilities]]
+name = "void_bolt"
+spell_id = 1264177
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.5, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+
+# ---- Idol of N'Zoth thresholds and idol draws
+[[abilities]]
+name = "nzoth_check"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "nzoth>=100", then = [
+  { type = "gain", resource = "nzoth", amount_expr = "-100" },
+  { type = "gain", resource = "nzoth_hv", amount_expr = "-nzoth_hv" },
+  { type = "trigger", ability = "vision_of_nzoth" },
+], else = [{ type = "if", if = "nzoth>=50&nzoth_hv<1", then = [
+  { type = "gain", resource = "nzoth_hv", amount = 1 },
+  { type = "trigger", ability = "horrific_vision" },
+] }] }]
+
+[[abilities]]
+name = "horrific_vision"
+spell_id = 1243105
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.82, school = "shadow", mastery = true, mastery_scale = 3 }   # [simc]
+on_cast = [
+  { type = "trigger", ability = "insanity_half", count = "4", interval = 0.75, delay = 0.75 },   # [db2 1243113] 0.5 per 0.75 s
+  { type = "trigger", ability = "apparition_spawn" },    # Void Apparitions [simc]
+]
+
+[[abilities]]
+name = "vision_of_nzoth"
+spell_id = 1243106
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 6.89, school = "shadow", mastery = true, mastery_scale = 3 }   # [simc]
+on_cast = [
+  { type = "trigger", ability = "insanity_half", count = "12", interval = 0.25, delay = 0.25 },  # [db2 1243114] 0.5 per 0.25 s
+  { type = "trigger", ability = "apparition_spawn" },
+]
+
+[[abilities]]
+name = "insanity_half"
+triggered_only = true
+gcd = 0
+gain = { insanity = 0.5 }
+
+[[abilities]]
+name = "idol_yshaarj"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "summon", pet = "shadowfiend" },
+  { type = "buff", buff = "idol_of_yshaarj" },
+  { type = "trigger", ability = "apparition_spawn" },
+]
+
+[[abilities]]
+name = "idol_thing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "summon", pet = "thing_from_beyond" },
+  { type = "trigger", ability = "apparition_spawn" },
+]
+
+[[abilities]]
+name = "idol_cthun"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "summon", pet = "void_tendril" },
+  { type = "trigger", ability = "apparition_spawn" },
+]
+
+# ---- Shadow Weaving extra hit from pets (the pets themselves get no mastery) [simc]
+# APPROX: SimC adds damage x (shadow-weaving multiplier - 1) per pet hit, no crit.
+# Modelled as an owner hit with the pet hit's coefficient and a mastery-sized scale.
+[[abilities]]
+name = "shadow_weaving_fiend"
+source = "shadow_weaving"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.408, school = "shadow", crit_bonus = -1.0, scale = "3*mastery" }
+
+[[abilities]]
+name = "shadow_weaving_wraith"
+source = "shadow_weaving"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.5, school = "shadow", crit_bonus = -1.0, scale = "3*mastery" }
+
+# ---- Gear: Rune of Unleashed Fire (omnium rune; copied from the destruction spec)
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663] 8 s
+sp_coeff = 0.12
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "reset"
+
+# ================================================================== pets
+[[pets]]
+name = "thing_from_beyond"
+duration = 20            # [db2 373277]
+owner_coeff = { sp_from_sp = 1.0 }   # [simc]
+[[pets.abilities]]
+name = "void_spike"
+spell_id = 373279
+# APPROX: 2.0 s hasted in [simc]; the reference's 174.3 Void Spikes from ~12 spawns of 20 s imply ~1.4 s at this haste
+# (2.0 s gives 150). Subservient Shadows' +20% duration [db2 1228516 #1] is not applied to pets in SimC (Void Flay,
+# fiend melee and the thing_from_beyond buff's 21.4 s average all fit the base durations).
+cast_time = 1.68
+gcd = 0                  # back to back
+damage = { sp_coeff = 0.938961, school = "shadow", mastery = true, mastery_scale = 3 }   # [db2]
+
+[[pets]]
+name = "voidwraith"
+duration = 5             # [db2 451235]
+owner_coeff = { sp_from_sp = 0.5 }   # [simc] pet power 0.5 x owner SP
+[[pets.abilities]]
+name = "void_flay"
+spell_id = 451435
+gcd = 1.5                # [simc] instant cast on the GCD, hasted
+gain = { insanity = 1 }  # Power Leech [db2 262485]
+damage = { sp_coeff = 1.0, school = "shadow", scale = "1+0.5*target.health.pct/100" }   # [simc]
+on_cast = [{ type = "trigger", ability = "shadow_weaving_wraith" }]
+
+[[pets]]
+name = "shadowfiend"
+duration = 5             # [db2 1280172]
+owner_coeff = { sp_from_sp = 1.0 }   # APPROX: SimC uses 0.408 x owner SP as attack power
+melee = { ability = "melee", speed = 1.5 }   # [simc] hasted
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gain = { insanity = 1 }  # Power Leech [db2 262485]
+damage = { sp_coeff = 0.408, school = "shadow" }   # APPROX: stands in for fiend_melee_t
+on_cast = [{ type = "trigger", ability = "shadow_weaving_fiend" }]
+
+[[pets]]
+name = "void_tendril"    # Idol of C'Thun's tendril; its Mind Flay row is lost from the reference (~0.8%) [obs]
+duration = 10.001        # [db2 377355] + 1 ms so the last tick lands [simc set_pet_defaults]
+inherit_haste = false    # [simc] 2 s ticks unhasted
+owner_coeff = { sp_from_sp = 1.0 }
+[[pets.abilities]]
+name = "mind_flay"
+spell_id = 193473
+cast_time = 2.0          # one tick per cast
+cast_hasted = false
+gcd = 0
+gain = { insanity = 1 }  # [db2 377358]
+damage = { sp_coeff = 0.6436, school = "shadow", mastery = true, mastery_scale = 3 }   # [simc]
+
+# ================================================================== rotation
+# Paraphrase of the SimC Voidweaver single-target APL [simc].
+# dots_up = VT and SW:P ticking.
+[[rotation]]
+action = "power_infusion"
+if = "buff.voidform.up&!buff.power_infusion.up"
+[[rotation]]
+action = "voidform"
+if = "dot.vampiric_touch.ticking&dot.shadow_word_pain.ticking&!buff.voidform.up&!buff.void_volley.up&!buff.crushing_void.up"
+[[rotation]]
+action = "tentacle_slam"
+if = "!dot.vampiric_touch.ticking"
+[[rotation]]
+action = "vampiric_touch"
+if = "!dot.vampiric_touch.ticking"
+[[rotation]]
+action = "shadow_word_madness"
+if = "dot.shadow_word_madness.remains<=gcd|100-insanity<=35&(cooldown.voidform.remains>25|100-insanity<=5)|buff.entropic_rift.up&cooldown.voidform.remains>=75|buff.voidform.up|fight_remains<10"
+[[rotation]]
+action = "tentacle_slam"
+if = "dot.vampiric_touch.remains<6.3|cooldown.tentacle_slam.full_recharge_time<=2*gcd"   # refreshable = remains < 30% of 21 s
+[[rotation]]
+action = "void_torrent"
+if = "dot.vampiric_touch.ticking&dot.shadow_word_pain.ticking"
+[[rotation]]
+action = "shadow_word_pain"
+if = "dot.shadow_word_pain.remains<4.8&dot.vampiric_touch.ticking"   # refreshable = remains < 30% of 16 s
+[[rotation]]
+action = "void_volley"
+if = "cooldown.voidform.remains<=0"
+[[rotation]]
+action = "crushing_void_volley"
+if = "cooldown.voidform.remains<=0"
+[[rotation]]
+action = "mind_blast_insight"
+[[rotation]]
+action = "mind_blast"
+[[rotation]]
+action = "tentacle_slam"
+[[rotation]]
+action = "shadow_word_death"
+if = "target.health.pct<20"
+[[rotation]]
+action = "void_volley"
+[[rotation]]
+action = "crushing_void_volley"
+[[rotation]]
+action = "mind_flay"

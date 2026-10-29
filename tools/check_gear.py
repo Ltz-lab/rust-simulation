@@ -31,6 +31,7 @@ SPEC_BY_PROFILE = {
     "subtlety": "subtlety_deathstalker",
     "balance": "balance_elunes_chosen",
     "arms": "arms_slayer",
+    "shadow": "shadow_voidweaver",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
