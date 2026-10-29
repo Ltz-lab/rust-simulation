@@ -1,6 +1,6 @@
 # Havoc Demon Hunter (Fel-Scarred)
 
-`specs/havoc_fel_scarred.toml` — **draft**. Coefficients, costs, cooldowns,
+`specs/havoc_fel_scarred.toml` — first draft, calibrated. Coefficients, costs, cooldowns,
 durations and talent values come from DB2 (`tools/spelldb.py`), SimC's demon
 hunter module (`sc_demon_hunter.cpp`) and its default APL where a mechanic is
 scripted, and the rest from SimC's log. Every mechanic is generic engine data
@@ -16,18 +16,18 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 159,675 |
-| azsim | 156,691 (±70) |
-| difference | **-1.87%** |
+| azsim | 160,287 (±70) |
+| difference | **+0.38%** |
 
 Stat probes (+500 rating / +200 agility, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
-| crit | +10.40% | +8.24% | -2.15 |
-| haste | +7.72% | +6.45% | -1.27 |
-| mastery | +9.70% | +10.46% | +0.75 |
+| crit | +10.40% | +8.18% | -2.22 |
+| haste | +7.72% | +6.41% | -1.31 |
+| mastery | +9.70% | +10.22% | +0.52 |
 | versatility | +8.42% | +8.50% | +0.08 |
-| agility | +6.40% | +6.25% | -0.16 |
+| agility | +6.40% | +6.26% | -0.14 |
 
 ## What is modelled
 
@@ -63,21 +63,23 @@ Stat probes (+500 rating / +200 agility, same calibration):
   crit buff on average after Blade Dance/Death Sweep).
 - The APL's single-target priority, including the demonsurge-empowerment
   ordering and the Metamorphosis/The Hunt cooldown conditions.
+- The default gear's embellishments: Venomfang and Rune of Unleashed Fire.
 
 ## Known gaps
 
-- **Gear embellishments** are not modelled: Venomfang (1.5% of the reference)
-  and Rune of Unleashed Fire (1.0%) belong in the gear layer.
 - **Empowered Eye Beam windows are missed**: The Hunt's 12s empowerment often
   expires before the next Eye Beam, so azsim gets 20 of the reference's 39
-  empowered ticks.
-- **Meta windows**: Annihilation and Death Sweep hit counts match, but Chaos
-  Strike (30 vs 45) and Blade Dance (8 vs 11) are short, so more of the fight
-  is spent in Metamorphosis than in the reference.
+  empowered ticks (-2.1% of the fight).
+- **Meta windows**: Annihilation and Death Sweep hit counts match (112/49 vs
+  113/44), but Chaos Strike (30 vs 45) and Blade Dance (8 vs 11) are short, so
+  more of the fight is spent in Metamorphosis than in the reference.
 - **No miss chance**: auto attacks (161 vs 140 hits) and Demon Blades (322 vs
   276) land every swing; their per-hit damage is calibrated but their share of
-  the total is ~15% high.
+  the total is ~15% high, which the short spender counts roughly offset.
 - **Critical Chaos's crit-scaled fury refund** is not modelled, so crit rating
-  is worth ~2 points less than in the reference. Immolation Aura ticks are
-  unhasted (as in the reference's log), which costs some haste scaling.
+  is worth ~2 points less than in the reference; Immolation Aura ticks are
+  unhasted (as in the reference's log), which costs ~1 point of haste.
 - Immolation Aura's Undying Embers re-proc (25% on expiry) is not modelled.
+- Relentless Onslaught always uses the Annihilation values (the Chaos Strike
+  version differs by ~13%), and Blade Dance/Death Sweep report their three
+  light hits as one source (`hits = 3`) instead of three rows.

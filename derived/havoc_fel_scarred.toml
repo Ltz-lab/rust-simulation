@@ -74,6 +74,12 @@ derived = 1.459268
 [sources."metamorphosis_impact"]
 derived = 1.416765
 
+[sources."rune_of_unleashed_fire"]
+derived = 1.000000
+
+[sources."rune_of_unleashed_fire_lingering"]
+derived = 1.000000
+
 [sources."the_hunt_damage"]
 derived = 1.770956
 
@@ -82,6 +88,12 @@ derived = 1.770956
 
 [sources."vengeful_retreat_damage"]
 derived = 1.310000
+
+[sources."venomfang"]
+derived = 1.000000
+
+[sources."venomfang_burst"]
+derived = 1.000000
 
 [buffs."empowered_eye_beam".ability_pct]
 "abyssal_gaze_empowered_tick" = 100.0000

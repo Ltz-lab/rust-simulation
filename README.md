@@ -40,6 +40,7 @@ profiles (core kit, 300s Patchwerk):
 | [Shadow Priest (Voidweaver)](docs/shadow-priest.md) | 143,444 | 142,586 | -0.60% | haste -0.29 pts | — |
 | [Feral Druid (Wildstalker)](docs/feral-druid.md) | 169,230 | 169,363 | +0.08% | haste +0.17 pts | — |
 | [Devourer Demon Hunter (Void-Scarred)](docs/devourer-demon-hunter.md) | 164,261 | 164,308 | +0.03% | haste -1.13 pts | — |
+| [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 160,287 | +0.38% | crit -2.22 pts | ~10× |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an

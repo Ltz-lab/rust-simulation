@@ -126,6 +126,16 @@ derived = 1.416765
 mult = 1.093415
 crit_bonus = -0.283505
 
+[sources."rune_of_unleashed_fire"]
+derived = 1.000000
+mult = 0.646205
+crit_bonus = +0.000000
+
+[sources."rune_of_unleashed_fire_lingering"]
+derived = 1.000000
+mult = 0.655598
+crit_bonus = +0.000000
+
 [sources."the_hunt_damage"]
 derived = 1.770956
 mult = 1.474180
@@ -140,6 +150,16 @@ crit_bonus = -0.038190
 derived = 1.310000
 mult = 1.048056
 crit_bonus = -0.034380
+
+[sources."venomfang"]
+derived = 1.000000
+mult = 0.721239
+crit_bonus = -0.020421
+
+[sources."venomfang_burst"]
+derived = 1.000000
+mult = 0.661337
+crit_bonus = -0.024124
 
 [buffs."empowered_eye_beam".ability_pct]
 "abyssal_gaze_empowered_tick" = 100.0000
