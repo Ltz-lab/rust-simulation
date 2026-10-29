@@ -15,7 +15,7 @@ crit_bonus = +0.125926
 [sources."expel_harm_damage"]
 derived = 1.482624
 mult = 2.262045
-crit_bonus = -0.275258
+crit_bonus = +0.000000
 
 [sources."fists_of_fury"]
 derived = 1.075360
@@ -58,7 +58,7 @@ mult = 1.156972
 crit_bonus = +0.132136
 
 [sources."melee_main_hand"]
-mult = 13.874262
+mult = 1.401441
 crit_bonus = +0.278177
 
 [sources."rising_sun_kick_damage"]
@@ -68,7 +68,7 @@ crit_bonus = -0.003276
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.235520
-mult = 1.450738
+mult = 0.768784
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
@@ -98,12 +98,12 @@ crit_bonus = -0.000946
 
 [sources."touch_of_death"]
 derived = 1.144000
-mult = 215.956152
-crit_bonus = -0.274200
+mult = 1.186148
+crit_bonus = +0.000000
 
 [sources."touch_of_karma"]
 derived = 1.000000
-mult = 15.444966
+mult = 1.108254
 crit_bonus = +0.000000
 
 [sources."whirling_dragon_punch_aoe"]

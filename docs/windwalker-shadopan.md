@@ -62,11 +62,11 @@ Blackout Kick, which the simplified priority list can't fully reproduce.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +8.50% | +8.18% | -0.32 pts |
+| +500 crit | +8.50% | +7.97% | -0.53 pts |
 | +500 haste | +7.12% | +10.63% | +3.51 pts |
 | +500 mastery | +8.08% | +8.30% | +0.22 pts |
 | +500 vers | +8.67% | +8.79% | +0.12 pts |
-| +200 agility | +5.86% | +6.10% | +0.24 pts |
+| +200 agility | +5.86% | +5.97% | +0.11 pts |
 
 Mastery and crit are right because the spec flags the same sources Combo
 Strikes applies to (`mastery = true` on the kicks, Fists of Fury, Spinning
@@ -129,7 +129,9 @@ kick resets and cooldown acceleration, `prev_gcd` for Combo Strikes, and
 - **Haste** (+3.5 pts) as described above: the rotation has spare GCD time
   that the reference doesn't.
 - **Touch of Karma** counts 25.9 ticks against 20.7 (the redirected damage is
-  modelled as a flat 6-tick DoT, not from damage taken).
+  modelled as a 6-tick DoT at a fixed 16.26 AP a tick, not from damage taken).
+  Touch of Death and both Rune of Unleashed Fire sources are flat damage, as
+  the probes show (they don't move with agility).
 - **Zenith** is modelled by its chi discount, kick reset and Zenith Stomp;
   Tigereye Brew's stacking crit and the +damage% aura are left in the
   calibration residual, so its 4.7 casts a fight are slightly low (5.3).
