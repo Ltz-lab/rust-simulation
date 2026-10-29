@@ -2413,7 +2413,10 @@ impl<'a> State<'a> {
             let energy = self.pet_energy(p, s);
             if energy + 1e-9 < a.pet_cost {
                 if pet.energy_regen > 0.0 {
-                    next = next.min(now + (a.pet_cost - energy) / pet.energy_regen);
+                    // a wait shorter than the event clock's microsecond would wake on
+                    // the same timestamp forever; wake one tick later instead
+                    let wait = (a.pet_cost - energy) / pet.energy_regen;
+                    next = next.min(now + if wait > 1e-6 { wait } else { 1e-6 });
                 }
                 continue;
             }

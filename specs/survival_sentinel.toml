@@ -1,0 +1,561 @@
+# Survival Hunter — Sentinel, Midnight Season 2, core kit
+# (no trinkets / consumables / set bonuses / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Hunter_Survival.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables via tools/spelldb.py
+#   [obs]  SimC's report/log for this profile (stands in for a combat log)
+#   [simc] read from SimC's source (sc_hunter.cpp) or its default APL
+#
+# Survival is a melee pet spec. Focus (125) regenerates 5 a (hasted) second;
+# Kill Command (2 charges, 5s hasted) is free and pays 20 focus plus 2 Tip of
+# the Spear stacks, Raptor Strike (30) and Wildfire Bomb (10) spend it. Every
+# non-Kill Command hit that consumes a Tip stack does +24% and provokes the
+# pet's Strike as One; Raptor Strike alternates with Raptor Swipe (the
+# "Raptor Swipe!" upgrade is guaranteed here) and each one stacks Mongoose
+# Fury (+10% Raptor Strike damage, 8s). Sentinel: consuming a Tip rolls for
+# Sentinel's Mark (+90% damage taken with Arcane Talons, 16s); Wildfire Bomb
+# consumes it to summon four Lunar Storm missiles, and every Mark takes 6s
+# off Wildfire Bomb (Moon's Blessing). Takedown (90s) buffs you and the pet
+# +20% and turns into Moonlight Chakram for 15s.
+
+name = "Survival Hunter (Sentinel, core kit)"
+
+# SimC's precombat list casts Wildfire Bomb with a single target
+precombat = ["wildfire_bomb"]
+
+[player]
+attack_power = 2000          # [obs] 2742 buffed, split with the weapon's share
+weapon_attack_power = 742    # [obs] the weapon's share of ability damage
+crit = 0.3302                # [obs] 33.02% buffed
+haste = 0.2569               # [obs] 25.69% buffed
+versatility = 0.0498         # [obs] 4.98% buffed
+mastery = 0.3182             # [obs] Mastery: Spirit Bond, you and the pet [db2 459722]; each hit takes 1.766x
+                             # this as its mastery bonus (+500 rating lifts every hit 10.4%) [obs]
+crit_multiplier = 2.121      # [obs] crit/non-crit of auto attacks
+weapon = { min = 8100, max = 8900, speed = 3.6 }   # [db2] two-hander; the roll is fitted [obs]
+
+[fight]
+duration = 300
+
+[resources.focus]
+max = 125                    # [obs] the log's bar reads /125
+start = 125                  # [obs] full at the pull
+regen = 5                    # [obs] 5 focus a Focus Regen tick, one per hasted second
+regen_hasted = true
+
+[auto_attack]
+replace_with = "auto_attack_mh"
+# Skyfury raid buff: 20% to repeat the swing [obs: 102 swings, 122 hits]
+on_hit = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.20 }]
+
+# Random gear procs, as Poisson rates [obs]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 7.2             # [obs] 36 procs a fight
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.1            # [obs] 50.5 a fight
+
+[[procs]]
+ability = "void_eruption"
+per_minute = 5.8             # [obs] 29 a fight
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.3             # [obs] 21.6 a fight
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "razor_edge"          # [db2 1253053] 2/2: Raptor Strike, Raptor Swipe and Kill Command +20% crit chance
+duration = 1e9
+flat = true
+ability_crit_pct = { raptor_strike = 20, raptor_swipe = 20, duck_kill_command = 20 }
+
+[[buffs]]
+name = "bombardier"          # [db2 1311963 #3] Wildfire Bomb crit chance x1.15 -> +4.95 points at 33.02% [obs]
+duration = 1e9
+flat = true
+ability_crit_pct = { wildfire_bomb_damage = 4.95 }
+
+[[buffs]]
+name = "tip_of_the_spear"    # [db2 260286: 10s, 3 stacks] +24% direct, one stack per consumer [db2 260285+1272154+1253830]
+duration = 10
+max_stacks = 3
+flat = true
+ability_pct = { raptor_strike = 24, raptor_swipe = 24, wildfire_bomb_damage = 24, takedown_damage = 24 }
+
+[[buffs]]
+name = "tip_of_the_spear_boomstick"   # [db2 471536: 5s] Boomstick's own Tip buff, +24% [db2 260285+1272154+1253830]
+duration = 5
+flat = true
+ability_pct = { boomstick_damage = 24 }
+
+[[buffs]]
+name = "tip_of_the_spear_chakram"     # [db2 1280140: 8s] Moonlight Chakram's Tip buff, +24%
+duration = 8
+flat = true
+ability_pct = { moonlight_chakram_damage = 24 }
+
+[[buffs]]
+name = "mongoose_fury"       # [db2 259388: 8s, 20 stacks] +10% Raptor Strike damage a stack
+duration = 8
+max_stacks = 20
+ability_pct = { raptor_strike = 10, raptor_swipe = 10 }
+
+[[buffs]]
+name = "wallop"              # [db2 1252741: +50% direct damage, spent by the next Raptor Strike]
+duration = 1e9
+flat = true
+ability_pct = { raptor_strike = 50, raptor_swipe = 50 }
+
+[[buffs]]
+name = "takedown"            # [db2 1250646: 8s] you +20% direct and periodic, the pet +20% [db2 #1 #2 #3]
+duration = 8
+flat = true
+ability_pct = { raptor_strike = 20, raptor_swipe = 20, wildfire_bomb_damage = 20, wildfire_bomb_bleed = 20, boomstick_damage = 20, takedown_damage = 20, moonlight_chakram_damage = 20, sanctified_armaments = 20, lunar_storm = 20, twilight_requiem = 20 }
+pet_pct = { duck = 20 }
+
+[[buffs]]
+name = "sentinels_mark"      # [db2 1253601 #2: 16s] +40% damage taken, +50 more from Arcane Talons [db2 1253846 #2] = +90 [obs log value=0.9]
+duration = 16
+flat = true
+damage_pct = 90
+
+[[buffs]]
+name = "moonlight_chakram"   # [db2 1264946: 15s] Takedown becomes Moonlight Chakram [simc takedown_t::execute]
+duration = 15
+
+[[buffs]]
+name = "raptor_swipe"        # [db2 1273155] Raptor Strike becomes Raptor Swipe [simc raptor_strike_t::execute]
+duration = 1e9
+flat = true
+
+# ---------------------------------------------------------------- helpers
+
+[[abilities]]
+name = "summon_pet"
+gcd = 0                     # [simc] precombat summon_pet
+on_cast = [{ type = "summon", pet = "duck" }]
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { weapon_mult = 1.0, ap_coeff = 0.15, school = "physical", mastery = true }   # weapon damage + a swing of AP [simc melee_t]
+
+# Consuming a Tip stack: the pet strikes as one, and Sentinel's Mark rolls [simc hunter_action_t::impact]
+[[abilities]]
+name = "tip_consumed"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "duck_strike_as_one" },
+  { type = "trigger", ability = "mark_roll" },
+]
+
+# 10% to mark, 20% while Takedown is up [db2 1253599 #1; Lunar Calling 1253852 #2 = 10]
+[[abilities]]
+name = "mark_roll"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.takedown.up", then = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.20 }], else = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.10 }] },
+]
+
+# Raptor Strike and Raptor Swipe roll twice: SimC's log marks 24 of 113 strikes
+# from 162 Tip consumptions, twice the rate of Wildfire Bomb's rolls [obs]
+[[abilities]]
+name = "mark_roll2"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.takedown.up", then = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.20 }], else = [{ type = "trigger", ability = "sentinels_mark_apply", chance = 0.10 }] },
+]
+
+# Applying the mark also takes 6s off Wildfire Bomb [db2 1253825 #3, simc trigger_eagles_mark]
+[[abilities]]
+name = "sentinels_mark_apply"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "sentinels_mark" },
+  { type = "reduce_cooldown", ability = "wildfire_bomb", seconds = 6 },
+]
+
+# ---------------------------------------------------------------- Kill Command
+
+[[abilities]]
+name = "kill_command"
+spell_id = 259489
+charges = 2                  # [db2]
+cooldown = 5                 # [db2] recharge
+cooldown_hasted = true       # [obs] 3.98s between recharges at 25.7% haste
+gain = { focus = 20 }        # [obs] 20 a cast in the log ([db2 259489 #1] says 15, plus a flat modifier)
+on_cast = [
+  { type = "trigger", ability = "duck_kill_command" },
+  { type = "buff", buff = "tip_of_the_spear", stacks = 2 },   # 1 + Primal Surge 1 [db2 1272154 #1, simc kill_command_t::execute]
+  { type = "reduce_cooldown", ability = "wildfire_bomb", seconds = 1 },   # Wildfire Infusion [db2 460198 #1 = 1000ms]
+]
+
+# ---------------------------------------------------------------- Raptor Strike
+
+[[abilities]]
+name = "raptor_strike"
+spell_id = 186270
+cost = { focus = 30 }        # [db2]
+damage = { ap_coeff = 3.9325, school = "physical", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.815, feed = [{ dot = "sanctified_armaments", pct = 15 }] }   # [db2]; [obs] crits x2.936; 15% banked [db2 1253831 #2]
+on_cast = [
+  { type = "buff", buff = "mongoose_fury" },   # [simc raptor_strike_base_t::execute]
+  { type = "trigger", ability = "wallop_roll" },
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "trigger", ability = "tip_consumed" },
+    { type = "trigger", ability = "mark_roll2" },
+  ] },
+  { type = "consume", buff = "wallop", all = true },
+  { type = "buff", buff = "raptor_swipe" },
+]
+
+# Raptor Swipe replaces the next Raptor Strike [simc raptor_strike_t::swipe_t]
+[[abilities]]
+name = "raptor_swipe"
+spell_id = 1262293
+requires_buff = "raptor_swipe"
+cost = { focus = 30 }        # [db2]
+damage = { ap_coeff = 2.8, school = "physical", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.817, feed = [{ dot = "sanctified_armaments", pct = 15 }] }   # [db2]; [obs] crits x2.938
+on_cast = [
+  { type = "buff", buff = "mongoose_fury" },
+  { type = "trigger", ability = "wallop_roll" },
+  # the upgrade strikes as one a second time while a Tip stack is up [simc swipe_t::execute]
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [{ type = "trigger", ability = "duck_strike_as_one" }] },
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "trigger", ability = "tip_consumed" },
+    { type = "trigger", ability = "mark_roll2" },
+  ] },
+  { type = "consume", buff = "wallop", all = true },
+  { type = "consume", buff = "raptor_swipe", all = true },
+]
+
+# Mongoose Fury gain: 20% to grant Wallop [db2 1252738 #1, simc mongoose_fury stack callback]
+[[abilities]]
+name = "wallop_roll"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "wallop", chance = 0.20 }]
+
+# ---------------------------------------------------------------- Wildfire Bomb
+
+[[abilities]]
+name = "wildfire_bomb"
+spell_id = 259495
+charges = 2                  # Guerrilla Tactics [db2 264332 #0: +1 charge]
+cooldown = 18                # [db2 259495]
+cooldown_hasted = true       # [obs] 14.2s between recharges at 25.7% haste
+cost = { focus = 10 }        # [db2]
+source = "wildfire_bomb_damage"
+damage = { ap_coeff = 1.9, school = "fire", mastery = true }   # [db2 265157]
+on_start = [{ type = "buff", buff = "shrapnel_bomb" }]
+on_cast = [
+  { type = "gain", resource = "focus", amount = 15 },   # Shrapnel Bomb, 5 a tick for 3s [db2 1292687]
+  # a Wildfire Bomb on a marked target consumes the mark for Lunar Storm [simc bomb_damage_t::impact]
+  { type = "if", if = "buff.sentinels_mark.up", then = [
+    { type = "consume", buff = "sentinels_mark", all = true },
+    { type = "trigger", ability = "lunar_storm", count = "4", interval = 0.15, delay = 0.15 },
+  ] },
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "trigger", ability = "tip_consumed" },
+  ] },
+]
+[abilities.dot]
+name = "wildfire_bomb_bleed"
+ap_coeff = 0.252             # [db2 1253171] Shrapnel Bomb's bleed
+tick_time = 1.0              # [db2] unhasted
+duration = 6.0               # [db2]
+hasted = false
+whole_ticks = true
+school = "physical"
+mastery = true
+mastery_scale = 1.766
+# ---------------------------------------------------------------- Boomstick
+
+[[abilities]]
+name = "boomstick"
+spell_id = 1261193
+cooldown = 45                # [db2] 60s, Quick Reload -15s [db2 1272136]
+cost = { focus = 50 }        # [db2]
+on_start = [
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "buff", buff = "tip_of_the_spear_boomstick" },
+    { type = "trigger", ability = "duck_strike_as_one" },
+    { type = "trigger", ability = "mark_roll" },   # a roll, not a forced mark [simc boomstick_t::execute]
+  ] },
+]
+channel = { ticks = 4 }      # tick zero + 3 ticks over the hasted 3s [db2 1261193 #1, simc boomstick_t]
+[abilities.dot]
+name = "boomstick_damage"
+ap_coeff = 6.075             # [db2 1261215]
+tick_time = 1.0              # [db2]
+duration = 3.0               # [db2]
+tick_on_apply = true
+whole_ticks = true
+school = "physical"
+mastery = true
+mastery_scale = 1.766
+on_tick = [{ type = "buff", buff = "mongoose_fury" }]   # Mongoose Rounds, 1 stack a tick [db2 1253945 #1]
+
+# ---------------------------------------------------------------- Takedown
+
+[[abilities]]
+name = "takedown"
+spell_id = 1250646
+cooldown = 90                # [db2]
+gain = { focus = 50 }        # [db2 1258571 #1 effect 30]
+source = "takedown_damage"
+damage = { ap_coeff = 12, school = "physical", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.187 }   # [db2 1253859]; [obs] crits x2.308
+on_start = [
+  { type = "buff", buff = "tip_of_the_spear", stacks = 3 },   # Twin Fangs [db2 1272139 #1]
+  { type = "buff", buff = "takedown" },
+  { type = "trigger", ability = "sentinels_mark_apply" },     # Lunar Calling: forced mark [simc takedown_t::execute]
+]
+on_cast = [
+  { type = "trigger", ability = "duck_takedown" },            # [db2 1253862]
+  { type = "buff", buff = "moonlight_chakram" },
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "trigger", ability = "tip_consumed" },
+  ] },
+]
+
+# ---------------------------------------------------------------- Moonlight Chakram
+
+[[abilities]]
+name = "moonlight_chakram"
+spell_id = 1264949
+requires_buff = "moonlight_chakram"
+on_start = [
+  { type = "if", if = "buff.tip_of_the_spear.up", then = [
+    { type = "consume", buff = "tip_of_the_spear" },
+    { type = "buff", buff = "tip_of_the_spear_chakram" },
+    { type = "trigger", ability = "tip_consumed" },
+  ] },
+]
+on_cast = [
+  # the chakram and six bounces, 640ms apart single target [simc moonlight_chakram_t::impact]
+  { type = "trigger", ability = "moonlight_chakram_damage", count = "7", interval = 0.64 },
+  { type = "trigger", ability = "twilight_requiem", delay = 3.84 },   # [simc] last bounce
+  { type = "consume", buff = "moonlight_chakram", all = true },
+  { type = "consume", buff = "tip_of_the_spear_chakram", all = true },
+]
+
+[[abilities]]
+name = "moonlight_chakram_damage"
+spell_id = 1266081
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.844, school = "physical", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.232 }   # [db2]; [obs] crits x2.353
+
+[[abilities]]
+name = "twilight_requiem"
+spell_id = 1266096
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.0, school = "arcane", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.261 }   # [db2]; [obs] crits x2.382
+
+# ---------------------------------------------------------------- Sentinel: Lunar Storm
+
+[[abilities]]
+name = "lunar_storm"
+spell_id = 1253733
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.0, school = "arcane", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.238 }   # [db2]; [obs] crits x2.359
+
+# ---------------------------------------------------------------- Sanctified Armaments
+# 15% of each Raptor Strike / Raptor Swipe hit rolls into a 6s arcane DoT [db2 1253831 #2, 1253836]
+
+[[abilities]]
+name = "sanctified_armaments_holder"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "sanctified_armaments"
+banked = true
+tick_time = 1.0              # [db2 1253836]
+duration = 6.0               # [db2]
+hasted = false
+mastery = true               # Spirit Bond reaches the residual too [simc composite_ta_multiplier]
+school = "arcane"
+
+# ---------------------------------------------------------------- gear procs [obs]
+# Group/gear embellishment and rite procs, as Poisson rates. Their per-hit
+# damage is fitted by calibration like any other source.
+
+[[abilities]]
+name = "venomfang_proc"      # [db2 1306635: a 6s nature bleed, then 1306639 bursts after 6s]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "venomfang_burst", delay = 6.0 }]   # [db2 1306635 #2: 6000ms]
+[abilities.dot]
+name = "venomfang"
+ap_coeff = 0.55
+tick_time = 1.0
+duration = 6.0
+hasted = false
+school = "nature"
+
+[[abilities]]
+name = "venomfang_burst"     # [db2 1306639]
+triggered_only = true
+gcd = 0
+damage = { amount = 2000, school = "nature", no_procs = true }
+
+[[abilities]]
+name = "rune_of_unleashed_fire_lingering"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+ap_coeff = 0.14
+tick_time = 1.0
+duration = 6.0
+hasted = false
+school = "arcane"
+
+[[abilities]]
+name = "rune_of_unleashed_fire"   # [db2 1286970] and its Rune of Lingering bleed [db2 1287663]
+triggered_only = true
+gcd = 0
+damage = { amount = 6000, school = "fire", no_procs = true }
+on_cast = [{ type = "trigger", ability = "rune_of_unleashed_fire_lingering" }]
+
+[[abilities]]
+name = "void_eruption"
+triggered_only = true
+gcd = 0
+damage = { amount = 6000, school = "shadow", no_procs = true }
+
+[[abilities]]
+name = "acidbrood_scourge"
+triggered_only = true
+gcd = 0
+damage = { amount = 7600, school = "nature", no_procs = true }
+
+# ---------------------------------------------------------------- the pet
+# SimC's MID2 profile summons a "duck" (a plain Ferocity pet): 2s melee, Claw
+# on a 3s cooldown for 25 focus, and 1.25x the hunter's focus regeneration
+# [simc hunter_main_pet_t]. Its Kill Command, Takedown, Strike as One and
+# Sic 'Em are fired by the hunter's own actions.
+
+[[pets]]
+name = "duck"
+owner_coeff = { ap_from_ap = 2.1 }   # [obs] pet claw 0.75 AP reads 4350 a hit at 2742 hunter AP
+energy = 100                 # [obs] /100 in the log
+energy_regen = 7.85          # [obs] 1.25 x the hunter's hasted 5/s
+melee = { ability = "melee", speed = 2.0 }   # [simc] hunter_t options: pet_attack_speed 2s
+
+[[pets.abilities]]
+name = "melee"
+damage = { ap_coeff = 1.45, school = "physical", mastery = true }   # [obs] 1844 a hit
+
+[[pets.abilities]]
+name = "claw"
+spell_id = 16827
+cooldown = 3                 # [db2]
+cost = { energy = 25 }       # [obs] 25 focus a cast
+damage = { ap_coeff = 0.75, school = "physical", mastery = true }   # [db2]
+
+[[pets.rotation]]
+action = "claw"
+
+[[pets.abilities]]
+name = "kill_command"
+spell_id = 259277
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 3.0, school = "physical", mastery = true, mastery_scale = 1.766, crit_damage_bonus = 0.219 }   # [db2]; [obs] crits x2.34
+
+[[pets.abilities]]
+name = "takedown"
+spell_id = 1253862
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 6.0, school = "physical", mastery = true }   # [db2]
+
+[[pets.abilities]]
+name = "strike_as_one"
+spell_id = 1251779
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.8, school = "physical", mastery = true }   # [db2]
+# a crit makes the pet bleed the target [db2 1253137, simc strike_as_one_t::impact]
+on_crit = [{ type = "trigger", ability = "sic_em" }]
+
+[[pets.abilities]]
+name = "sic_em"
+spell_id = 1253138
+triggered_only = true
+gcd = 0
+[pets.abilities.dot]
+name = "sic_em"
+ap_coeff = 0.08              # [db2 1253138]
+mastery = true
+mastery_scale = 1.766
+tick_time = 1.0
+duration = 5.0
+whole_ticks = true
+school = "physical"
+
+# ---------------------------------------------------------------- the rotation
+# SimC's single-target Sentinel list (actions.sentst)
+
+[[rotation]]
+action = "summon_pet"
+if = "pet.duck.active=0"
+
+[[rotation]]
+action = "kill_command"
+if = "buff.tip_of_the_spear.stack=0&cooldown.takedown.remains>0"
+
+[[rotation]]
+action = "boomstick"
+
+[[rotation]]
+action = "wildfire_bomb"
+if = "buff.sentinels_mark.up|cooldown.wildfire_bomb.charges_fractional>1.75"
+
+[[rotation]]
+action = "takedown"
+if = "buff.tip_of_the_spear.stack=0"
+
+[[rotation]]
+action = "moonlight_chakram"
+
+[[rotation]]
+action = "raptor_swipe"
+
+[[rotation]]
+action = "raptor_strike"
+
+[[rotation]]
+action = "summon_pet"
+if = "pet.duck.active=0"
+
+[[rotation]]
+action = "kill_command"
+if = "cooldown.takedown.remains>0"
+
+[[rotation]]
+action = "wildfire_bomb"
+
+[[rotation]]
+action = "takedown"
+
+[[buffs]]
+name = "shrapnel_bomb"       # [db2 1292687: 3s] only the focus, paid as a lump sum on cast
+duration = 3
