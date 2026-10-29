@@ -2806,7 +2806,7 @@ action = "wait"
         let c = compile(&text);
         let mut st = state(&c);
         cast(&mut st, "summon_imp");
-        advance(&mut st, 10.1);
+        advance(&mut st, 14.1);
         assert_eq!(st.out.casts[src(&c, "imp_firebolt")], 3);
         assert_eq!(active(&st, "imp"), 1.0);
         assert_eq!(st.out.casts[src(&c, "imp_fades")], 0);
