@@ -39,6 +39,37 @@ versatility = 0.0798       # [obs] buffed snapshot
 crit_multiplier = 2.0808   # [obs] crit/non-crit in the log (2.0 x 1.0404 physical crit damage)
 weapon = { min = 0, max = 0, speed = 1.0 }   # [simc] cat form beast weapon, 1.0s
 
+# Gear -> stats (docs/gear.md): SimC's MID2 sample Feral profile without
+# trinkets (core kit). Every item level and rating matches SimC
+# (tools/check_gear.py) and the buffed stats land on the [player] snapshot.
+[gear]
+primary = "agility"
+base_primary = 622            # [obs] level-90 night elf druid base agility (SimC: 2339 initial = 1717 from gear + 622)
+primary_mult = 1.05           # [obs] leather specialization: buffed 2455 / initial 2339 (+200 agility probe: +210 buffed)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2455 agility -> 2577 attack power
+crit_bonus = 0.10             # [obs] 26.89% at 777 rating = 16.89% from rating + 10%
+haste_mult = 1.0706           # [obs] 26.57% at 802 rating (18.23%): x1.0706, multiplicative with rating haste
+mastery_points = 10           # [obs] 8 base + 2 Skyfury, in mastery points
+mastery_coeff = 2.0           # [db2 77493] Mastery: Razor Claws, % per mastery point
+versatility_bonus = 0.06      # [db2 1126] Mark of the Wild, doubled by Gift of the Wild
+weapon_ap_per_dps = 7.13756   # [obs] weapon_attack_power 1112 at 155.80 main-hand DPS
+spec_id = 103                 # [db2] ChrSpecialization
+
+# The gear stat procs (Rune of Burning Haste, Arcanoweave Insight, Might of
+# the Void, Venomcursed) are not modelled: [player] holds the plain buffed
+# snapshot, so there is no [gear.procs] on top.
+
+# Raid-night kit with gear lines: SimC's default level-90 Feral consumables
+# plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
+#   primary 50     Harandar Celebration [obs: +53 agility]
+#   primary 25.1   Void-Touched augment rune [db2 1264426; obs +27 agility]
+#   mastery 165    Flask of the Magisters (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+
 [fight]
 duration = 300
 variance = 0.2
@@ -137,6 +168,20 @@ name = "sabertooth"        # [db2 391722] Ferocious Bite: bleeds +6% per combo p
 duration = 6
 max_stacks = 5
 ability_pct = { rip = 6, rake = 6, bloodseeker_vines = 6, lunar_inspiration = 6, feral_frenzy = 6, unseen_slash = 6 }
+
+[[buffs]]
+name = "full_kit"          # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1000000000
+
+[[buffs]]
+name = "bloodlust"         # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "liquid_luster"     # potion: Lustrous Gleam stacks (3 average over the 30s) [db2 1295147]
+duration = 30
+versatility_pct = 12.27    # [db2 1295132] 220.82 rating a stack x 3 stacks / 54 rating a point
 
 # ---------------------------------------------------------------- builders
 
@@ -547,6 +592,22 @@ school = "physical"
 mastery = true
 refresh = "reset"         # [obs] every Unseen Slash restarts the bleed (137 ticks over 77 casts)
 
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "potion"
+gcd = 0
+cooldown = 300             # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "liquid_luster" }]
+
 # ---------------------------------------------------------------- gear procs
 
 [[abilities]]
@@ -589,6 +650,10 @@ if = "cooldown.berserk.remains<=1|cooldown.berserk.remains>10"
 [[rotation]]
 action = "berserk"
 if = "buff.tigers_fury.up"
+
+[[rotation]]
+action = "potion"          # [simc APL: potion,if=buff.bs_inc.up|fight_remains<32|...]
+if = "buff.berserk.up|fight_remains<32"
 
 [[rotation]]
 action = "feral_frenzy"

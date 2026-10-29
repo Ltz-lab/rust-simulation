@@ -65,6 +65,24 @@ Stat probes (held out, same calibration):
 Reference and azsim priority orders agree: haste > crit > vers > mastery >
 agility.
 
+## Gear
+
+`[gear]` turns /simc gear lines into these stats; against SimC without
+trinkets (`tools/check_gear.py`), all 13 items' item levels and every rating
+match, and so do attack power (2,577), crit (26.89%), haste (26.57%),
+mastery (74.74%) and versatility (7.98%). DPS from `--gear` is 169,396
+against 169,379 from the hand-entered stats (+0.01%, same seed; SimC
+169,196). Weapon attack power comes from the main hand's DPS (1,112 at
+155.8), fitted to the agility probe as for Subtlety rather than SimC's plain
+6 x DPS.
+
+`[gear.kit]` (gear lines only) adds the sample profile's raid-night
+consumables as flat stats — Harandar Celebration, Void-Touched augment rune,
+Flask of the Magisters and Thalassian Phoenix Oil — plus Bloodlust and the
+Liquid Luster potion. The potion's Lustrous Gleam stacks (220.82 versatility
+rating each, ~3 average over its 30s) are folded into one versatility buff.
+`--set gear.kit.enabled=0` switches it off for core-kit comparisons.
+
 ## Known gaps
 
 - **Overflowing Power** (Berserk lets combo points go over the cap, restored
@@ -85,7 +103,11 @@ agility.
   the Void and the Venomcursed ring are not modelled, so the in-fight haste
   from Savage Fury and Frantic Momentum is more than SimC applies to its
   auto-attacks in practice: `cat_melee` 491 against 462 and Shred 112 against
-  103. There is no `[gear]` block yet, so `--gear` is not supported.
+  103. `[gear]` carries the plain buffed snapshot, so those procs stay in the
+  calibration residual there too.
+- **Liquid Luster** (the sample profile's potion) is one flat versatility
+  buff, 12.27% for 30s: the stacking Gleam ramp (up to 5 stacks, 15s) is
+  averaged rather than stacked.
 - **Convoke the Spirits** is a 32-slot weighted approximation of SimC's cast
   pool (7 Bite, 12 Shred, 6 Wrath, 2 Moonfire-or-Wrath, 4 heals, a 40%
   Feral Frenzy). Rake from convoke (0.3 hits) is not modelled.
