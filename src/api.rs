@@ -132,6 +132,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/windwalker_shadopan.toml"),
         include_str!("../calibration/windwalker_shadopan.toml"),
     ),
+    (
+        "beast_mastery_pack_leader",
+        include_str!("../specs/beast_mastery_pack_leader.toml"),
+        include_str!("../calibration/beast_mastery_pack_leader.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.

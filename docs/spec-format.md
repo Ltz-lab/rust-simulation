@@ -204,6 +204,10 @@ if = "self.energy>=20"
   rotation: off its own cooldown, affordable, `requires_buff` up, condition
   true. A cast takes its (hasted) cast time, then the instance waits out the
   ability's GCD (hasted, at least 0.75s; `gcd = 0` for back-to-back casts).
+  An action that is a hair short of affordable, or whose per-instance
+  cooldown ends inside the current microsecond, is retried at least one
+  microsecond later: the event clock is whole microseconds, so a zero-length
+  wait would spin at one timestamp.
   Without regeneration, an instance whose energy can't pay for any action leaves
   right away and runs `on_expire`; with regeneration it waits for energy,
   waking a microsecond past the moment it can pay (the event clock's

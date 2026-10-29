@@ -50,6 +50,7 @@ profiles (core kit, 300s Patchwerk):
 | [Windwalker Monk (Shado-Pan)](docs/windwalker-shadopan.md) | 169,265 | 167,124 | -1.26% | crit -0.70 pts | — |
 | [Fury Warrior (Slayer)](docs/fury-warrior.md) | 167,734 | 161,427 | -3.76% (known gap) | crit +1.19 pts | ~8× |
 | [Outlaw Rogue (Trickster)](docs/outlaw-rogue.md) | 162,375 | 158,651 | -2.29% (known gap) | haste +1.45 pts | — |
+| [Beast Mastery Hunter (Pack Leader)](docs/beast-mastery.md) | 181,956 | 179,109 | -1.56% | crit -1.69 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -94,6 +95,7 @@ cargo build --release
   [Outlaw Rogue](docs/outlaw-rogue.md) (results, validation, known gaps)
   [Unholy Death Knight](docs/unholy.md)
   [Outlaw Rogue](docs/outlaw-rogue.md)
+  [Beast Mastery Hunter](docs/beast-mastery.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer

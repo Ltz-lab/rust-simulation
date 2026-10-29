@@ -1,0 +1,683 @@
+# Beast Mastery Hunter — Pack Leader, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Hunter_Beast_Mastery.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (SpellEffect etc.) via tools/spelldb.py
+#   [obs]  observed behaviour in the reference fight (SimC's report as a
+#          stand-in for a combat log)
+#   [simc] read from SimC's source (sc_hunter.cpp) or its default APL
+# Damage coefficients are straight from SpellEffect. Residual damage
+# multipliers (talents, auras, pet damage multipliers) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# The rotation is a focus economy. Kill Command (2 charges, 30 focus) sends
+# every pet in for a hit; Barbed Shot (2 charges) puts a rolling bleed on the
+# target and pays focus per tick; Cobra Shot (35 focus) dumps focus and takes
+# a second off Kill Command. Bestial Wrath every 30s buffs both hunter and
+# pets, applies Bloodshed from every pet and triggers the Pack Leader cycle:
+# every ~19s the next Kill Command empowers Wyvern, Boar or Bear in turn.
+# Kill Command also has a chance to summon a Dire Beast, and every eighth
+# Dire Beast or Bear summons Fenryr or Hati.
+
+name = "Beast Mastery Hunter (Pack Leader, core kit)"
+
+# [simc] APL precombat: summon the main pet and animal companion; start the
+# howl cooldown that runs for the whole fight.
+precombat = ["summon_pets", "start_howl"]
+
+[player]
+# [obs] buffed snapshot (core kit). attack_power is the total the formulas
+# use: 2662 from agility/AP buffs + 982 weapon attack power (weapon DPS 163.7
+# x 6 [db2]); pet power is 60% of it [simc stable_pet_t owner_coeff 0.6].
+attack_power = 3644
+crit = 0.295            # [obs] buffed attack crit
+haste = 0.295           # [obs] fight-average attack haste incl. gear procs (auto 130/300s)
+mastery = 0.7447174     # [obs] buffed mastery %; Master of Beasts scales pets
+versatility = 0.0498148 # [obs] buffed damage versatility
+spell_power = 523        # [obs] buffed; only the item procs below use it
+crit_multiplier = 2.0   # [simc] base; per-source crit bonuses from [obs]
+# [db2] Caustic Repose Greatbow: 3.0s swing, 397-537 damage x1.05 AP buff
+weapon = { min = 417, max = 564, speed = 3.0 }
+
+[auto_attack]
+replace_with = "auto_shot"
+wakes = false   # [simc] Auto Shot does not wake the APL
+
+[fight]
+duration = 300  # [obs] reference setup
+variance = 0.2  # [simc] reference settings
+
+[resources.focus]
+max = 100       # [db2]
+start = 100     # [obs] full out of combat
+regen = 8.75    # [simc] base_focus_regen_per_second
+regen_hasted = true  # [simc] regen caches haste
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "bestial_wrath"       # [db2 19574: 15s, +20% damage] (pet aura 186254)
+duration = 15
+damage_pct = 20
+pets = true
+
+[[buffs]]
+name = "howl_cooldown"       # [db2 471877: 30s]; expiring grants the next beast
+duration = 30
+on_expire = [{ type = "trigger", ability = "howl_grant" }]
+
+[[buffs]]
+name = "wyvern_ready"        # [db2 471878: 30s] next Kill Command summons Wyvern
+duration = 30
+ability_pct = { duck_kill_command = 50, animal_companion_kill_command = 50, natures_ally_pet_kill_command = 50, dire_beast_kill_command = 50, bear_kill_command = 50, fenryr_kill_command = 50, hati_kill_command = 50 }  # [db2 472358] Pack Mentality
+
+[[buffs]]
+name = "boar_ready"          # [db2 472324: 30s]
+duration = 30
+ability_pct = { duck_kill_command = 50, animal_companion_kill_command = 50, natures_ally_pet_kill_command = 50, dire_beast_kill_command = 50, bear_kill_command = 50, fenryr_kill_command = 50, hati_kill_command = 50 }
+
+[[buffs]]
+name = "bear_ready"          # [db2 472325: 30s]
+duration = 30
+ability_pct = { duck_kill_command = 50, animal_companion_kill_command = 50, natures_ally_pet_kill_command = 50, dire_beast_kill_command = 50, bear_kill_command = 50, fenryr_kill_command = 50, hati_kill_command = 50 }
+
+[[buffs]]
+name = "howl_cycle"          # round-robin wyvern -> boar -> bear
+duration = 1e9
+max_stacks = 3
+flat = true
+
+[[buffs]]
+name = "wyverns_cry"         # [db2 471881: 12s, 20 stacks, +1% damage per stack]
+duration = 12
+max_stacks = 20
+damage_pct = 1
+pets = true
+refresh_duration = false     # pet melee adds stacks without refreshing [simc]
+
+[[buffs]]
+name = "natures_ally"        # [db2 1276720: 8s, +30% Kill Command]
+duration = 8
+ability_pct = { duck_kill_command = 30, animal_companion_kill_command = 30, natures_ally_pet_kill_command = 30, dire_beast_kill_command = 30, bear_kill_command = 30, fenryr_kill_command = 30, hati_kill_command = 30 }
+
+[[buffs]]
+name = "stampede_incoming"   # [simc] next beast-consuming Kill Command stamps
+duration = 20
+
+[[buffs]]
+name = "bloody_frenzy"       # [db2 1265063: 10s] Barbed Shot bleeds faster
+duration = 10
+
+[[buffs]]
+name = "hogstrider"          # [db2 472640: 60s] next Cobra Shot +100%
+duration = 60
+max_stacks = 4
+flat = true
+ability_pct = { cobra_shot = 100 }
+
+[[buffs]]
+name = "huntmasters_call"    # [db2 459731: 8 stacks -> Fenryr or Hati]
+duration = 1e9
+max_stacks = 8
+flat = true
+
+[[buffs]]
+name = "sharpened_fangs"     # [db2 1264775: +15% pet damage]
+duration = 1e9
+pet_pct = { duck = 15, animal_companion = 15, natures_ally_pet = 15, dire_beast = 15, bear = 15, fenryr = 15, hati = 15 }
+
+# ---------------------------------------------------------------- gear procs
+# Time-averaged damage procs of the sample gear; rates from [obs].
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 9.98            # [obs] 49.88 procs a fight
+
+[[procs]]
+ability = "void_eruption"
+per_minute = 5.81            # [obs] 29.06 a fight
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.3             # [obs] 21.5 a fight
+
+# [db2 1264781] Lethal Barbs: Auto Shot procs 15 focus, real PPM 20
+[[procs]]
+ability = "lethal_barbs"
+on_hit = true
+per_minute = 20
+sources = ["auto_shot"]
+
+# ---------------------------------------------------------------- abilities
+
+[[abilities]]
+name = "summon_pets"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "summon", pet = "duck" },
+  { type = "summon", pet = "animal_companion" },
+  { type = "buff", buff = "sharpened_fangs" },
+]
+
+[[abilities]]
+name = "start_howl"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "howl_cooldown" }]
+
+# A Kill Command that consumes a beast restarts the howl cooldown only when it
+# is not already running [simc consume_howl_of_the_pack_leader].
+[[abilities]]
+name = "restart_howl"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.howl_cooldown.up", then = [], else = [{ type = "buff", buff = "howl_cooldown" }] }]
+
+[[abilities]]
+name = "howl_grant"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.howl_cycle.stack = 0", then = [ { type = "buff", buff = "wyvern_ready" }, { type = "buff", buff = "howl_cycle", set = "1" }, ], else = [{ type = "if", if = "buff.howl_cycle.stack = 1", then = [ { type = "buff", buff = "boar_ready" }, { type = "buff", buff = "howl_cycle", set = "2" }, ], else = [ { type = "buff", buff = "bear_ready" }, { type = "buff", buff = "howl_cycle", set = "0" }, ] }] }]
+
+# Auto Shot: 7.2x weapon damage + 3/6 of attack power x 7.2 [simc].
+[[abilities]]
+name = "auto_shot"
+gcd = 0
+damage = { weapon_mult = 7.2, ap_coeff = 2.631, school = "physical", crit_bonus = 0.035 }
+
+[[auto_attack.on_hit]]
+# [db2 468695] Snakeskin Quiver: 15% chance for a free Cobra Shot
+type = "trigger"
+ability = "cobra_shot_snakeskin_quiver"
+chance = 0.15
+
+[[abilities]]
+name = "cobra_shot_snakeskin_quiver"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 3.904, school = "physical", crit_bonus = 0.337 }  # [db2 193455]
+
+[[abilities]]
+name = "kill_command"
+gcd = 1.5
+cooldown = 7.5          # [db2 34026] against Alpha Predator's extra charge
+cooldown_hasted = true  # [simc] dynamic cooldown
+charges = 2             # [db2 269737] Alpha Predator: +1 charge
+cost = { focus = 30 }   # [db2]
+on_cast = [
+  { type = "for_each_pet", pet = "duck", each = [{ type = "trigger", ability = "duck_kill_command" }] },
+  { type = "for_each_pet", pet = "animal_companion", each = [{ type = "trigger", ability = "animal_companion_kill_command" }] },
+  { type = "for_each_pet", pet = "natures_ally_pet", each = [{ type = "trigger", ability = "natures_ally_pet_kill_command" }] },
+  { type = "for_each_pet", pet = "dire_beast", each = [{ type = "trigger", ability = "dire_beast_kill_command" }] },
+  { type = "for_each_pet", pet = "bear", each = [{ type = "trigger", ability = "bear_kill_command" }] },
+  { type = "for_each_pet", pet = "fenryr", each = [{ type = "trigger", ability = "fenryr_kill_command" }] },
+  { type = "for_each_pet", pet = "hati", each = [{ type = "trigger", ability = "hati_kill_command" }] },
+  # Dire Command [db2 378743: 20% chance to summon a Dire Beast]
+  { type = "trigger", ability = "dire_command", chance = 0.2 },
+  # Dire Summons [db2 472352]: -1s howl cooldown
+  { type = "extend_buff", buff = "howl_cooldown", seconds = -1 },
+  # Consume whatever beast is ready. Each consumed beast reduces Barbed Shot's
+  # cooldown by 4s (Pack Mentality) and restarts the howl cooldown.
+  { type = "if", if = "buff.wyvern_ready.up", then = [ { type = "consume", buff = "wyvern_ready" }, { type = "buff", buff = "wyverns_cry", stacks = 10 }, { type = "reduce_cooldown", ability = "barbed_shot", seconds = 4 }, { type = "if", if = "buff.stampede_incoming.up", then = [ { type = "consume", buff = "stampede_incoming" }, { type = "trigger", ability = "stampede_tick" } ] }, { type = "trigger", ability = "restart_howl" } ] },
+  { type = "if", if = "buff.boar_ready.up", then = [ { type = "consume", buff = "boar_ready" }, { type = "trigger", ability = "boar_charge" }, { type = "buff", buff = "hogstrider" }, { type = "reduce_cooldown", ability = "barbed_shot", seconds = 4 }, { type = "if", if = "buff.stampede_incoming.up", then = [ { type = "consume", buff = "stampede_incoming" }, { type = "trigger", ability = "stampede_tick" } ] }, { type = "trigger", ability = "restart_howl" } ] },
+  { type = "if", if = "buff.bear_ready.up", then = [ { type = "consume", buff = "bear_ready" }, { type = "trigger", ability = "bear_spawn" }, { type = "reduce_cooldown", ability = "barbed_shot", seconds = 4 }, { type = "if", if = "buff.stampede_incoming.up", then = [ { type = "consume", buff = "stampede_incoming" }, { type = "trigger", ability = "stampede_tick" } ] }, { type = "trigger", ability = "restart_howl" } ] },
+]
+
+[[abilities]]
+name = "barbed_shot"
+gcd = 1.5
+cooldown = 18           # [db2 217200: 2 charges]
+cooldown_hasted = true  # [simc]
+charges = 2
+on_cast = [
+  { type = "trigger", ability = "dire_beast_spawn", chance = 0.04 },  # [simc] Dire Beast talent
+  { type = "reduce_cooldown", ability = "kill_command", seconds = 3 },  # [db2 393933] War Orders
+  { type = "for_each_pet", pet = "duck", each = [{ type = "trigger", ability = "duck_stomp" }] },
+  { type = "for_each_pet", pet = "animal_companion", each = [{ type = "trigger", ability = "animal_companion_stomp" }] },
+  { type = "for_each_pet", pet = "natures_ally_pet", each = [{ type = "trigger", ability = "natures_ally_pet_stomp" }] },
+  { type = "buff", buff = "natures_ally" },          # [simc] trigger_natures_ally_3
+  { type = "gain", resource = "focus", amount = 25 }, # [db2 1282660] Pack Tactics
+]
+[abilities.dot]
+name = "barbed_shot"
+ap_coeff = 0.857        # [db2 217200] per 2s tick
+tick_time = 1.706       # [obs] 233 ticks / 300s; folds Bloody Frenzy + Jagged Wounds
+duration = 8            # [db2]
+hasted = true
+tick_on_apply = true    # [simc] tick_zero
+refresh = "rolling"     # [simc] rolling periodic
+school = "physical"
+mastery = true          # [simc] Master of Beasts affects Barbed Shot
+crit_bonus = 0.135      # [obs] 43.0% crit at 29.5% base
+on_tick = [{ type = "gain", resource = "focus", amount = 5 }]  # [db2 246152]
+
+[[abilities]]
+name = "cobra_shot"
+gcd = 1.5
+cost = { focus = 35 }   # [db2 193455]
+damage = { ap_coeff = 3.904, school = "physical", crit_bonus = 0.337 }
+on_crit = [{ type = "gain", resource = "focus", amount = 5 }]  # [simc] Serpentine Strikes
+on_cast = [
+  { type = "reduce_cooldown", ability = "kill_command", seconds = 1 },   # [db2 193455 effect#3]
+  { type = "reduce_cooldown", ability = "barbed_shot", seconds = 2 },    # [db2 469880] Barbed Scales
+  { type = "extend_buff", buff = "howl_cooldown", seconds = -1 },        # [simc] Dire Summons
+  { type = "buff", buff = "natures_ally" },
+  { type = "consume", buff = "hogstrider" },                             # [simc]
+]
+
+[[abilities]]
+name = "bestial_wrath"
+gcd = 1.5
+cooldown = 30           # [db2 19574: 90s, The Beast Within 231548 -60s]
+on_cast = [
+  { type = "buff", buff = "bestial_wrath" },
+  { type = "buff", buff = "stampede_incoming" },   # [simc] Stampede!
+  { type = "buff", buff = "bloody_frenzy" },       # [db2 407412]
+  { type = "trigger", ability = "howl_grant" },    # [simc] trigger_howl_of_the_pack_leader
+  { type = "summon", pet = "natures_ally_pet", duration = 15 },  # [db2 1282474]
+  # Scent of Blood [db2 193532]: all Barbed Shot charges
+  { type = "reset_cooldown", ability = "barbed_shot" },
+  { type = "reset_cooldown", ability = "barbed_shot" },
+  { type = "for_each_pet", pet = "duck", each = [ { type = "trigger", ability = "duck_bestial_wrath" }, { type = "trigger", ability = "duck_bloodshed" }, { type = "trigger", ability = "duck_thundering_hooves" }, ] },
+  { type = "for_each_pet", pet = "animal_companion", each = [ { type = "trigger", ability = "animal_companion_bestial_wrath" }, { type = "trigger", ability = "animal_companion_bloodshed" }, { type = "trigger", ability = "animal_companion_thundering_hooves" }, ] },
+  { type = "for_each_pet", pet = "natures_ally_pet", each = [ { type = "trigger", ability = "natures_ally_pet_bestial_wrath" }, { type = "trigger", ability = "natures_ally_pet_bloodshed" } ] },  # [obs] NA pet gets no Thundering Hooves
+]
+
+[[abilities]]
+name = "dire_command"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "dire_beast_spawn" }]
+
+[[abilities]]
+name = "dire_beast_spawn"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "summon", pet = "dire_beast", duration = 11 },  # [db2 219199 8s + Dire Frenzy 2s, whole swings]
+  { type = "trigger", ability = "huntmasters_proc" },
+]
+
+[[abilities]]
+name = "bear_spawn"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "summon", pet = "bear", duration = 14.2 },      # [obs] ~12.3 swings per summon at raid haste
+  # Ursine Fury [db2 472476]: two Dire Beasts per bear
+  { type = "trigger", ability = "dire_beast_spawn", count = "2" },
+  { type = "trigger", ability = "huntmasters_proc" },
+]
+
+[[abilities]]
+name = "huntmasters_proc"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "huntmasters_call" },
+  { type = "if", if = "buff.huntmasters_call.stack>= 8", then = [ { type = "buff", buff = "huntmasters_call", set = "0" }, { type = "choose", choices = [ { effects = [{ type = "summon", pet = "fenryr", duration = 10 }] }, { effects = [{ type = "summon", pet = "hati", duration = 10 }] }, ] }, ] },
+]
+
+[[abilities]]
+name = "boar_charge"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 12.0, school = "physical", crit_bonus = 0.034 }   # [db2 471936]
+on_cast = [{ type = "trigger", ability = "boar_charge_cleave" }]         # [db2 471938]
+
+[[abilities]]
+name = "boar_charge_cleave"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 14.4, school = "physical", crit_bonus = 0.034 }   # [db2 471938]
+
+[[abilities]]
+name = "stampede_tick"
+gcd = 0
+triggered_only = true
+# [db2 201594] 1.5 AP per hit, 3 hits per tick, 3 ticks (tick zero + 2s ticks)
+damage = { ap_coeff = 1.5, hits = 9, school = "physical", crit_bonus = 0.036 }
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "lethal_barbs"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "gain", resource = "focus", amount = 5 }]  # [db2 1264781]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+gcd = 0
+triggered_only = true
+damage = { amount = 5818, school = "fire", crit_bonus = -1.0 }  # [obs] never crits
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+gcd = 0
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+sp_coeff = 0.695        # [obs] 382 per non-crit tick
+tick_time = 1.22        # [obs] 246 ticks over the fight
+duration = 8.0          # [db2 1287663]
+hasted = false
+school = "fire"
+crit_bonus = -1.0
+refresh = "extend"      # [obs] stacking debuff keeps ticking
+
+[[abilities]]
+name = "void_eruption"
+gcd = 0
+triggered_only = true
+damage = { amount = 5474, school = "shadow", crit_bonus = 0.035 }  # [db2 1310209]
+
+[[abilities]]
+name = "acidbrood_scourge"
+gcd = 0
+triggered_only = true
+damage = { amount = 7299, school = "nature", crit_bonus = 0.034 }  # [db2 1310088]
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of the SimC default single-target APL.
+
+# At two charges Barbed Shot stops recharging: spend one rather than cap.
+[[rotation]]
+action = "barbed_shot"
+if = "cooldown.barbed_shot.charges>=2"
+
+# Dump Barbed Shot charges right before Bestial Wrath resets them (Scent of Blood).
+[[rotation]]
+action = "barbed_shot"
+if = "cooldown.bestial_wrath.remains<1.2"
+
+[[rotation]]
+action = "bestial_wrath"
+
+[[rotation]]
+action = "kill_command"
+if = "pet.natures_ally_pet.active>0"
+
+[[rotation]]
+action = "kill_command"
+
+[[rotation]]
+action = "barbed_shot"
+
+[[rotation]]
+action = "cobra_shot"
+if = "focus>=35"
+
+# ---------------------------------------------------------------- pets
+
+[[pets]]
+name = "duck"                # the main pet (SimC's default summon name)
+duration = 0
+max_active = 1
+owner_coeff = { ap_from_ap = 0.6 }   # [simc stable_pet_t]
+energy = 100
+energy_regen = 13.8          # [obs] 8.75 x 1.25 x 1.26 haste
+melee = { ability = "melee", speed = 1.4286 }   # [simc] 2s / Frenzy 1.4
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.035 }
+on_cast = [{ type = "if", if = "buff.wyverns_cry.up", then = [{ type = "buff", buff = "wyverns_cry", stacks = 1 }] }]
+
+[[pets.abilities]]
+name = "claw"
+gcd = 1.0
+cooldown = 3.0               # [obs] ~3.15s between Claws; the cooldown is not hasted
+cooldown_hasted = false
+cost = { energy = 25 }       # [db2 16827] base; Wild Hunt doubles it above 50 focus
+damage = { ap_coeff = 0.75, school = "physical", mastery = true, crit_bonus = 0.035 }  # [db2 16827]
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.472, school = "physical", mastery = true, crit_bonus = 0.035 }  # [db2 83381]
+
+[[pets.abilities]]
+name = "bestial_wrath"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 8.0, school = "physical", mastery = true, crit_bonus = 0.035 }  # [db2 344572]
+
+[[pets.abilities]]
+name = "stomp"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.44, school = "physical", mastery = true, crit_bonus = 0.035 }  # [db2 201754]
+
+[[pets.abilities]]
+name = "thundering_hooves"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.88, school = "physical", mastery = true, crit_bonus = 0.035 }  # [db2 459693: 2x stomp
+
+[[pets.abilities]]
+name = "bloodshed"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "dire_beast_spawn", chance = 0.04 }]  # [simc] Dire Beast talent
+[pets.abilities.dot]
+name = "bloodshed"
+ap_coeff = 1.2          # [db2 321538: 1.2 per 1s tick]
+tick_time = 1.0
+duration = 12           # [db2]
+hasted = false          # [obs] 12 ticks per application
+whole_ticks = true
+school = "physical"
+mastery = true
+crit_bonus = -1.0       # [obs] Bloodshed ticks never crit
+
+[[pets.rotation]]
+action = "claw"
+
+[[pets]]
+name = "animal_companion"
+duration = 0
+max_active = 1
+owner_coeff = { ap_from_ap = 0.6 }
+melee = { ability = "melee", speed = 1.4286 }
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.472, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "bestial_wrath"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 8.0, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "stomp"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.44, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "thundering_hooves"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.88, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "bloodshed"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "dire_beast_spawn", chance = 0.04 }]
+[pets.abilities.dot]
+name = "bloodshed"
+ap_coeff = 1.2
+tick_time = 1.0
+duration = 12
+hasted = false
+whole_ticks = true
+school = "physical"
+mastery = true
+crit_bonus = -1.0
+
+[[pets]]
+name = "natures_ally_pet"
+duration = 15
+max_active = 1
+owner_coeff = { ap_from_ap = 0.6 }
+melee = { ability = "melee", speed = 1.4286 }
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.472, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "bestial_wrath"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 8.0, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "stomp"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 1.44, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "thundering_hooves"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 2.88, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "bloodshed"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "dire_beast_spawn", chance = 0.04 }]
+[pets.abilities.dot]
+name = "bloodshed"
+ap_coeff = 1.2
+tick_time = 1.0
+duration = 12
+hasted = false
+whole_ticks = true
+school = "physical"
+mastery = true
+crit_bonus = -1.0
+
+[[pets]]
+name = "dire_beast"
+duration = 10
+owner_coeff = { ap_from_ap = 1.0 }   # [simc] dire_critter_t
+melee = { ability = "melee", speed = 2.0 }
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.036 }
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9, school = "physical", mastery = true, crit_bonus = 0.036 }  # [db2 1232922] Wildspeaker
+
+[[pets]]
+name = "fenryr"
+duration = 10
+owner_coeff = { ap_from_ap = 2.0 }   # [simc] fenryr_t
+melee = { ability = "melee", speed = 1.5 }   # [obs] ~8.3 swings per summon
+on_summon = [{ type = "trigger", ability = "ravenous_leap" }]
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.036 }
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9, school = "physical", mastery = true, crit_bonus = 0.036 }
+
+[[pets.abilities]]
+name = "ravenous_leap"
+gcd = 0
+triggered_only = true
+[pets.abilities.dot]
+name = "ravenous_leap"
+ap_coeff = 1.0          # [db2 459753: 1.0 per 1s tick
+tick_time = 1.0
+duration = 8
+hasted = false          # [obs] 7.9 ticks per summon
+whole_ticks = true
+school = "physical"
+mastery = true
+crit_bonus = -1.0
+
+[[pets]]
+name = "hati"
+duration = 10
+owner_coeff = { ap_from_ap = 2.0 }
+melee = { ability = "melee", speed = 1.5 }
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.3333, school = "physical", mastery = true, crit_bonus = 0.036 }
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9, school = "physical", mastery = true, crit_bonus = 0.036 }
+
+[[pets]]
+name = "bear"
+duration = 12
+owner_coeff = { ap_from_ap = 0.6 }   # [simc] bear_t
+melee = { ability = "melee", speed = 1.5 }      # [db2] 1.5s bear swing
+on_summon = [{ type = "trigger", ability = "rend_flesh" }]
+
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 2.3333, school = "physical", mastery = true, crit_bonus = 0.035 }  # [simc] 7x auto attack
+
+[[pets.abilities]]
+name = "kill_command"
+gcd = 0
+triggered_only = true
+damage = { ap_coeff = 0.9, school = "physical", mastery = true, crit_bonus = 0.035 }
+
+[[pets.abilities]]
+name = "rend_flesh"
+gcd = 0
+triggered_only = true
+[pets.abilities.dot]
+name = "rend_flesh"
+ap_coeff = 0.4          # [db2 471999: 0.4 per 1s tick]
+tick_time = 1.0
+duration = 10
+hasted = true
+school = "physical"
+mastery = true
+crit_bonus = 0.035
