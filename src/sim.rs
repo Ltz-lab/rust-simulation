@@ -1150,6 +1150,8 @@ struct State<'a> {
     channel_gen: u32,
     channel_tick_time: f64,
     channel_ticks: u32,
+    /// The running channel suppresses auto attacks (`interrupt_auto_attack`).
+    channel_stops_auto: bool,
     prev_gcd: Option<usize>,
     q: BinaryHeap<Queued>,
     seq: u64,
@@ -1279,6 +1281,7 @@ impl<'a> State<'a> {
             channel_gen: 0,
             channel_tick_time: 0.0,
             channel_ticks: 0,
+            channel_stops_auto: false,
             prev_gcd: None,
             q: BinaryHeap::new(),
             seq: 0,
@@ -2557,6 +2560,12 @@ impl<'a> State<'a> {
                 if g != self.swing_gen[1] {
                     return true;
                 }
+                // a swing that lands mid-channel is lost and the timer re-arms
+                if self.channel_stops_auto {
+                    let speed = self.swing_time(c.spec.player.off_hand.as_ref().unwrap().speed);
+                    self.schedule_swing(1, self.now + speed);
+                    return true;
+                }
                 match (c.auto_oh_replace, c.oh_src) {
                     (Some(i), _) => self.execute(i, true),
                     (None, Some(src)) => {
@@ -2578,6 +2587,12 @@ impl<'a> State<'a> {
             }
             Ev::Auto(g) => {
                 if g != self.swing_gen[0] {
+                    return true;
+                }
+                // a swing that lands mid-channel is lost and the timer re-arms
+                if self.channel_stops_auto {
+                    let speed = self.swing_time(c.spec.player.weapon.as_ref().unwrap().speed);
+                    self.schedule_swing(0, self.now + speed);
                     return true;
                 }
                 match c.auto_replace {
@@ -2654,6 +2669,7 @@ impl<'a> State<'a> {
                 if stop {
                     self.cancel_dot(di);
                     self.channel_gen += 1;
+                    self.channel_stops_auto = false;
                     self.cast_end = self.now + if tick + 1 >= self.channel_ticks { ch.finish_delay } else { 0.0 };
                     for e in &a.channel_finish { self.apply(e); }
                     self.push(self.gcd_ready.max(self.cast_end), Ev::Ready);
@@ -2755,6 +2771,7 @@ impl<'a> State<'a> {
                             self.dot_stk[di] = 1;
                             self.dot_exp[di] = self.end;
                             self.channel_gen += 1;
+                            self.channel_stops_auto = ch.interrupt_auto_attack;
                             self.cast_end = self.end;
                             self.channel_tick_time = self.tick_len(di);
                             self.channel_ticks = match &c.abilities[i].channel_ticks {
@@ -2763,7 +2780,6 @@ impl<'a> State<'a> {
                             };
                             let first = if c.dots[di].def.tick_on_apply { self.now } else { self.now + self.channel_tick_time };
                             self.push(first, Ev::ChannelTick(i as u32, self.channel_gen, 0));
-                            let _ = ch;
                         } else if ct > 0.0 {
                             // the GCD runs from the start of the cast; the spell resolves at its end
                             if d.gcd > 0.0 {

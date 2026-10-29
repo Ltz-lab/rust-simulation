@@ -18,51 +18,52 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 163,198 |
-| azsim | 163,181 (±131) |
-| difference | **-0.01%** |
+| azsim | 163,103 (±127) |
+| difference | **-0.06%** |
 
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| raptor_swipe | 27,674 | 27,724 | +0.2% | 56.3 | 56.4 |
-| raptor_strike | 23,208 | 23,230 | +0.1% | 56.8 | 56.9 |
-| wildfire_bomb_damage | 21,760 | 21,833 | +0.3% | 43.7 | 44.0 |
-| duck_strike_as_one | 14,748 | 14,589 | -1.1% | 216.5 | 214.3 |
-| lunar_storm | 10,795 | 10,199 | -5.5% | 133.2 | 126.0 |
-| auto_attack_mh | 10,212 | 10,715 | +4.9% | 122.7 | 128.8 |
-| duck_kill_command | 9,953 | 9,877 | -0.8% | 76.5 | 76.0 |
-| wildfire_bomb_bleed | 8,224 | 8,509 | +3.5% | 220.8 | 228.6 |
-| moonlight_chakram_damage | 7,849 | 7,894 | +0.6% | 25.4 | 25.6 |
-| sanctified_armaments | 7,494 | 7,517 | +0.3% | 282.1 | 283.1 |
-| boomstick_damage | 6,777 | 6,765 | -0.2% | 27.6 | 27.6 |
-| duck_sic_em | 2,886 | 2,583 | -10.5% | 303.6 | 272.0 |
+| raptor_swipe | 27,674 | 27,820 | +0.5% | 56.3 | 56.6 |
+| raptor_strike | 23,208 | 23,303 | +0.4% | 56.8 | 57.1 |
+| wildfire_bomb_damage | 21,760 | 21,694 | -0.3% | 43.7 | 43.7 |
+| duck_strike_as_one | 14,748 | 14,629 | -0.8% | 216.5 | 214.9 |
+| lunar_storm | 10,795 | 10,684 | -1.0% | 133.2 | 131.9 |
+| auto_attack_mh | 10,212 | 10,215 | +0.0% | 122.7 | 122.7 |
+| duck_kill_command | 9,953 | 9,881 | -0.7% | 76.5 | 76.0 |
+| wildfire_bomb_bleed | 8,224 | 8,362 | +1.7% | 220.8 | 224.6 |
+| moonlight_chakram_damage | 7,849 | 7,918 | +0.9% | 25.4 | 25.6 |
+| sanctified_armaments | 7,494 | 7,525 | +0.4% | 282.1 | 283.5 |
+| boomstick_damage | 6,777 | 6,733 | -0.6% | 27.6 | 27.5 |
+| duck_sic_em | 2,886 | 2,587 | -10.3% | 303.6 | 272.4 |
 | duck_claw | 1,895 | 1,943 | +2.5% | 95.3 | 97.8 |
 | takedown_damage | 1,788 | 1,797 | +0.5% | 3.7 | 3.7 |
 | duck_melee | 1,630 | 1,624 | -0.3% | 193.1 | 192.6 |
 | duck_takedown | 1,547 | 1,556 | +0.6% | 3.7 | 3.7 |
 | venomfang | 1,100 | 1,176 | +6.9% | 158.6 | 169.7 |
-| rune_of_unleashed_fire | 1,033 | 1,033 | -0.1% | 50.6 | 50.6 |
-| void_eruption | 764 | 760 | -0.5% | 29.0 | 28.9 |
-| acidbrood_scourge | 759 | 753 | -0.9% | 21.6 | 21.5 |
+| rune_of_unleashed_fire | 1,033 | 1,033 | -0.0% | 50.6 | 50.6 |
+| void_eruption | 764 | 761 | -0.5% | 29.0 | 28.9 |
+| acidbrood_scourge | 759 | 752 | -0.9% | 21.6 | 21.5 |
 | venomfang_burst | 476 | 473 | -0.6% | 35.4 | 35.2 |
-| twilight_requiem | 325 | 327 | +0.5% | 3.6 | 3.6 |
+| twilight_requiem | 325 | 328 | +0.9% | 3.6 | 3.6 |
 | rune_of_unleashed_fire_lingering | 311 | 309 | -0.7% | 243.7 | 242.0 |
 
 ## Held-out validation: stat sensitivity
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +11.34% | +10.04% | -1.30 pts |
-| +500 haste | +9.24% | +7.89% | -1.35 pts |
-| +500 mastery | +10.30% | +9.02% | -1.28 pts |
+| +500 crit | +11.34% | +10.04% | -1.29 pts |
+| +500 haste | +9.24% | +7.98% | -1.26 pts |
+| +500 mastery | +10.30% | +9.03% | -1.27 pts |
 | +500 vers | +8.76% | +8.82% | +0.06 pts |
-| +200 agility | +6.12% | +7.81% | +1.69 pts |
+| +200 agility | +6.12% | +7.83% | +1.71 pts |
 
 The engine reproduces the reference's stat priority order except agility,
-which it values a little too highly: auto attacks and the pet are fully
-attack-power-driven here, where SimC's melee swings carry a large fixed
-weapon-damage share (the probe lifts attack power 8.5% for a 6.1% DPS gain).
+which it values a little too highly (pure attack power here, where SimC's
+melee abilities carry a fixed weapon-damage share: the probe lifts attack
+power 8.5% for a 6.1% DPS gain), and haste, which reads 1.3 points low, so
+versatility edges above it.
 
 ## What is modelled
 
@@ -90,7 +91,8 @@ weapon-damage share (the probe lifts attack power 8.5% for a 6.1% DPS gain).
   fire explosion and Shrapnel Bomb's 6-tick physical bleed, and 5 focus a
   second for 3s back.
 - **Boomstick** — 45s (60s less Quick Reload), a hasted 4-tick channel that
-  stacks Mongoose Fury (Mongoose Rounds).
+  stacks Mongoose Fury (Mongoose Rounds) and suppresses the swings that come
+  due while it runs (`interrupt_auto_attack`).
 - **Takedown** — 90s, 12 AP plus the pet's 6 AP, +20% direct, periodic and pet
   damage for 8s.
 - **The pet** — 2s melee, Claw (3s, 25 focus, 100 max, 7.85 focus a second),
@@ -104,13 +106,10 @@ weapon-damage share (the probe lifts attack power 8.5% for a 6.1% DPS gain).
 
 ## Known gaps
 
-- **Lunar Storm is 5% light.** Marks are applied at the reference's rate
-  (about 38 a fight) but a few more are refreshed before a Wildfire Bomb can
-  spend them (31.5 marks spent against 33.3).
-- **Sic 'Em is 10% light** (272 ticks against 304): the bleed's rolling
-  refresh does not keep as much uptime as SimC's.
-- **Auto attacks run 5% hot**: SimC's Boomstick channel suppresses swings
-  (`interrupt_auto_attack`), which this engine does not model.
+- **Sic 'Em is 10% light** (272 ticks against 304): the bleed's pandemic
+  refresh does not keep as much uptime as SimC's rolling periodic.
+- **Lunar Storm is 1% light**: a few marks are refreshed before a Wildfire
+  Bomb can spend them.
 - **Venomfang ticks 7% hot**; its asynchronous aura ticks slightly faster
   than the reference's.
 - **Agility reads 1.7 points high**: ability damage here is pure attack

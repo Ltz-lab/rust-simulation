@@ -323,6 +323,10 @@ pub struct ChannelDef {
     /// Re-evaluated after each tick, once the global cooldown is over.
     #[serde(default)]
     pub interrupt_if: Option<String>,
+    /// Auto attacks that come due while channeling are suppressed and re-armed
+    /// a swing later (SimC's `interrupt_auto_attack`, e.g. Boomstick).
+    #[serde(default)]
+    pub interrupt_auto_attack: bool,
     /// Runs on both natural completion and interruption.
     #[serde(default)]
     pub on_finish: Vec<Effect>,

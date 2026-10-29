@@ -239,7 +239,10 @@ streams, shared by all instances, and pet effects' chance rolls get
 ## Channels and resource expressions
 
 A player ability can use `channel = { ticks = 7, finish_delay = 0.25,
-interrupt_if = "mana.pct>=95", on_finish = [...] }` with an attached DoT.
+interrupt_if = "mana.pct>=95", interrupt_auto_attack = true, on_finish = [...] }`
+with an attached DoT. With `interrupt_auto_attack`, swings that come due while
+the channel runs deal no damage and re-arm a swing later (SimC's
+`interrupt_auto_attack`, e.g. Boomstick).
 Its tick interval, haste scaling and tick-on-apply behavior come from the DoT;
 the channel occupies the player until its last tick or until the interrupt
 condition holds after a tick once the GCD has elapsed. `on_finish` runs for

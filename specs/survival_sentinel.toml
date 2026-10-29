@@ -299,7 +299,7 @@ on_start = [
     { type = "trigger", ability = "mark_roll" },   # a roll, not a forced mark [simc boomstick_t::execute]
   ] },
 ]
-channel = { ticks = 4 }      # tick zero + 3 ticks over the hasted 3s [db2 1261193 #1, simc boomstick_t]
+channel = { ticks = 4, interrupt_auto_attack = true }      # tick zero + 3 ticks over the hasted 3s [db2 1261193 #1, simc boomstick_t]
 [abilities.dot]
 name = "boomstick_damage"
 ap_coeff = 6.075             # [db2 1261215]
@@ -537,7 +537,7 @@ action = "boomstick"
 
 [[rotation]]
 action = "wildfire_bomb"
-if = "buff.sentinels_mark.up|cooldown.wildfire_bomb.charges_fractional>1.75"
+if = "buff.sentinels_mark.up|cooldown.wildfire_bomb.full_recharge_time<4"   # [simc] sentst
 
 [[rotation]]
 action = "takedown"
