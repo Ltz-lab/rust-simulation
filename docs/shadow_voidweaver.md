@@ -13,20 +13,20 @@ counts are ~12% short of the reference and a few mechanics are approximated
 
 | run | DPS | reference |
 |---|---:|---:|
-| core kit, `-n 500`, no calibration | 50,694 | — |
-| core kit, `-n 500`, `--calib calibration/shadow_voidweaver.toml` | 126,298 | 143,444 (−12%) |
+| core kit, `-n 500`, no calibration | 50,486 | — |
+| core kit, `-n 500`, `--calib calibration/shadow_voidweaver.toml` | 126,554 | 143,444 (−12%) |
 
 Per-hit damage is calibrated (`tools/calibrate.py --derived
 derived/shadow_voidweaver.toml`): every modelled source matches its observed
 per-hit damage within 0.04%. The −12% is hit counts (Shadow Word: Madness
-45.5 casts vs 67.9, and the apparition/shadeburst chain that follows it).
+46.0 casts vs 67.9, and the apparition/shadeburst chain that follows it).
 
 Stat probes (`tools/validate_stats.py`, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
 | +500 crit | +10.39% | +9.24% | −1.15 |
-| +500 haste | +9.72% | +9.19% | −0.53 |
+| +500 haste | +9.72% | +9.21% | −0.51 |
 | +500 mastery | +8.26% | +7.66% | −0.60 |
 | +500 versatility | +8.81% | +8.80% | −0.01 |
 | +200 intellect | +6.44% | +6.58% | +0.14 |
@@ -68,8 +68,11 @@ Stat priority order matches.
 - **Insanity generation is ~2,080 per fight vs SimC's ~3,000**, mostly the
   Idol of C'Thun void tendrils (their Mind Flays generate ~59) and the
   interactions around apparitions. This is why Shadow Word: Madness is cast
-  45.5× instead of 67.9×, and everything downstream (apparitions 103 vs 138,
-  void apparitions 41 vs 59, shadeburst 144 vs 188) is low.
+  46.0× instead of 67.9×, and everything downstream (apparitions 104 vs 138,
+  void apparitions 41 vs 59, shadeburst 145 vs 188) is low. The rotation is
+  also GCD-bound: it does not fit the reference's cast counts for Mind Blast
+  (22.5 vs 32.2) and Void Blast (21.5 vs 28.7) even though both cooldowns are
+  idle ~half the fight.
 - **Idol of N'Zoth** is fired as two fixed-rate procs (horrific_vision
   4.8/min, vision_of_nzoth 3.96/min) rather than by the 50/100-stack debuff.
 - **Effective DoT cadence**: Shadow Word: Pain and Vampiric Touch use
@@ -83,6 +86,4 @@ Stat priority order matches.
   Voidform expiry), Mind Devourer / Shadowy Insight (not taken or not
   modelled), Shadow Weaving (the mastery bonus damage from Shadowfiend and
   Voidwraith hits, 80.8 hits per fight), trinkets, tier sets and gear.
-- **Casts of Mind Blast / Void Blast are low** (22.5 + 21.5 vs 32.2 + 28.7):
-  the engine's GCD budget with the modelled priority cannot fit as many.
 - No `[gear]` section, no `src/api.rs` registration, no README row.
