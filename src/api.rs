@@ -110,7 +110,7 @@ const SPECS: &[(&str, &str, &str)] = &[
     (
         "unholy_rider",
         include_str!("../specs/unholy_rider.toml"),
-        include_str!("../calibration/unholy.toml"),
+        include_str!("../calibration/unholy_rider.toml"),
     ),
 ];
 

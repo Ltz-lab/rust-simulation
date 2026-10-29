@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Nineteen specs so far, all Midnight Season 2, compared against SimC's sample
+Twenty specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -82,7 +82,8 @@ cargo build --release
   [Survival Hunter](docs/survival-hunter.md),
   [Assassination Rogue](docs/assassination-rogue.md),
   [Frost Death Knight](docs/frost-deathknight.md),
-  [Marksmanship Hunter](docs/marksmanship-hunter.md) (results, validation, known gaps)
+  [Marksmanship Hunter](docs/marksmanship-hunter.md),
+  [Unholy Death Knight](docs/unholy.md) (results, validation, known gaps)
   [Unholy Death Knight](docs/unholy.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written

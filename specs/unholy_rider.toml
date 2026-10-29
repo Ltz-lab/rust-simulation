@@ -9,7 +9,7 @@
 #          (reference/unholy_core_observations.json)
 #   [simc] read from SimC's class module or the default APL
 # Per-hit residual multipliers (talents, auras, the level-damage scaling SimC
-# applies) live in calibration/unholy.toml, fitted by tools/calibrate.py.
+# applies) live in calibration/unholy_rider.toml, fitted by tools/calibrate.py.
 #
 # Midnight unholy: Festering Strike grants Lesser Ghoul stacks that Scourge
 # Strike and Soul Reaper spend to summon lesser ghouls; Scourge Strike also

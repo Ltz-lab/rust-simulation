@@ -1,7 +1,7 @@
 # Unholy Death Knight (Rider of the Apocalypse)
 
 Midnight Season 2, core kit: `specs/unholy_rider.toml`, calibrated by
-`calibration/unholy.toml`, derived modifiers in `derived/unholy.toml`. The
+`calibration/unholy_rider.toml`, derived modifiers in `derived/unholy_rider.toml`. The
 reference is `reference/unholy_core_observations.json`, built by
 `tools/make_reference.sh` from
 `profiles/MID2/MID2_Death_Knight_Unholy.simc` (talents, default APL, hero
