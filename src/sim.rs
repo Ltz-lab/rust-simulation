@@ -104,8 +104,7 @@ struct CAbility {
     on_free: Vec<CEffect>,
     /// Result row this ability's casts and damage are reported under.
     src: usize,
-    /// (banked dot, pct, per_mastery) shares of each hit fed into DoTs.
-    feeds: Vec<(usize, f64, f64)>,
+    feeds: Vec<CFeed>,
     /// (buff, fraction per stack) crit chance that applies to this ability only.
     crit_mods: Vec<(usize, f64)>,
     dot: Option<usize>,
@@ -154,6 +153,8 @@ struct CDot {
     def: DotDef,
     duration: Option<Expr>,
     tick_time: Option<Expr>,
+    feeds: Vec<CFeed>,
+    no_procs: bool,
     on_tick: Vec<CEffect>,
     on_crit: Vec<CEffect>,
     on_expire: Vec<CEffect>,
@@ -164,6 +165,31 @@ struct CDot {
     pet: Option<usize>,
 }
 
+#[derive(Debug, Clone)]
+struct CFeed {
+    dot: usize,
+    pct: f64,
+    per_mastery: f64,
+    crit_only: bool,
+    condition: Option<Expr>,
+}
+
+fn compile_feeds(feeds: &[FeedDef], n: &Names) -> Result<Vec<CFeed>, String> {
+    feeds.iter().map(|f| Ok(CFeed {
+        dot: n.dot(&f.dot)?,
+        pct: f.pct / 100.0,
+        per_mastery: f.per_mastery,
+        crit_only: f.crit_only,
+        condition: f.condition.as_ref().map(|s| expr::parse(s, n)).transpose()?,
+    })).collect()
+}
+
+fn mastery_factor(enabled: bool, scale: f64, power: u32, mastery: f64) -> f64 {
+    if !enabled { return 1.0; }
+    let factor = 1.0 + scale * mastery;
+    if power == 1 { factor } else { factor.powi(power as i32) }
+}
+
 /// A proc rolled on the player's direct hits (see `ProcDef::on_hit`).
 #[derive(Debug, Clone)]
 struct HitProc {
@@ -172,6 +198,9 @@ struct HitProc {
     hasted: bool,
     chance: f64,
     icd: f64,
+    on_hit: bool,
+    on_tick: bool,
+    sources: Vec<usize>,
 }
 
 /// SimC's real PPM: the time counted per attempt is capped at this.
@@ -547,6 +576,8 @@ impl Compiled {
                         duration: d.duration_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         tick_time: d.tick_time_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         on_expire: effects(&d.on_expire, &format!("{}/on_expire", d.name)).map_err(ctx)?,
+                        feeds: compile_feeds(&d.feed, &n).map_err(ctx)?,
+                        no_procs: a.no_procs,
                         on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
                         on_crit: effects(&d.on_crit, &format!("{}/on_crit", d.name)).map_err(ctx)?,
                         // banked damage already carries the hit's buffs: only buffs naming the DoT apply
@@ -607,13 +638,7 @@ impl Compiled {
                 on_noncrit: effects(&a.on_noncrit, &format!("{}/on_noncrit", a.name)).map_err(ctx)?,
                 on_free: effects(&a.on_free, &format!("{}/on_free", a.name)).map_err(ctx)?,
                 src: ab_src[ai],
-                feeds: a
-                    .damage
-                    .iter()
-                    .flat_map(|d| &d.feed)
-                    .map(|f| Ok((n.dot(&f.dot)?, f.pct / 100.0, f.per_mastery)))
-                    .collect::<Result<_, String>>()
-                    .map_err(ctx)?,
+                feeds: compile_feeds(a.damage.as_ref().map_or(&[], |d| d.feed.as_slice()), &n).map_err(ctx)?,
                 crit_mods: crit_mods(&spec.buffs, &a.name, a.source.as_deref().unwrap_or(&a.name)),
                 dot: dot_idx,
                 stored_from: a
@@ -655,15 +680,22 @@ impl Compiled {
         let procs = spec
             .procs
             .iter()
-            .filter(|p| !p.on_hit)
+            .filter(|p| !p.on_hit && !p.on_tick)
             .map(|p| Ok((get(&ab, "ability", &p.ability)?, p.per_minute, p.hasted)))
             .collect::<Result<_, String>>()?;
         let hit_procs = spec
             .procs
             .iter()
-            .filter(|p| p.on_hit)
+            .filter(|p| p.on_hit || p.on_tick)
             .map(|p| {
-                Ok(HitProc { ab: get(&ab, "ability", &p.ability)?, rppm: p.per_minute, hasted: p.hasted, chance: p.chance, icd: p.icd })
+                Ok(HitProc {
+                    ab: get(&ab, "ability", &p.ability)?, rppm: p.per_minute,
+                    hasted: p.hasted, chance: p.chance, icd: p.icd,
+                    on_hit: p.on_hit, on_tick: p.on_tick,
+                    sources: p.sources.iter().map(|s| src_names.iter().position(|n| n == s)
+                        .ok_or_else(|| format!("proc '{}': unknown source '{s}'", p.ability)))
+                        .collect::<Result<_, String>>()?,
+                })
             })
             .collect::<Result<_, String>>()?;
 
@@ -1557,7 +1589,11 @@ impl<'a> State<'a> {
                         self.stored[buff] = 0.0;
                     }
                     self.buff_stk[buff] = set.unwrap_or(cur + stacks).min(def.max_stacks);
-                    self.buff_exp[buff] = if !def.refresh_duration && cur > 0 { self.buff_exp[buff] } else if def.refresh_extend && cur > 0 { self.buff_exp[buff] + dur } else { self.now + dur };
+                    self.buff_exp[buff] = if !def.refresh_duration && cur > 0 {
+                        self.buff_exp[buff]
+                    } else if def.refresh_extend && cur > 0 {
+                        self.buff_exp[buff] + dur
+                    } else { self.now + dur };
                     self.watch_expiry(buff);
                 }
                 if self.log {
@@ -1924,6 +1960,14 @@ impl<'a> State<'a> {
         }
     }
 
+    fn feed_hit(&mut self, feeds: &[CFeed], crit: bool, damage: f64) {
+        for f in feeds {
+            if (!f.crit_only || crit) && f.condition.as_ref().is_none_or(|e| e.eval(self) != 0.0) {
+                self.feed(f.dot, damage * (f.pct + f.per_mastery * self.mastery()));
+            }
+        }
+    }
+
     /// One DoT tick; `frac` < 1 for the shortened final tick.
     fn dot_tick(&mut self, di: usize, frac: f64) {
         let c = self.c;
@@ -1939,14 +1983,18 @@ impl<'a> State<'a> {
             }
             self.record(d.src, part * m, false);
         } else if d.def.ap_coeff != 0.0 || d.def.sp_coeff != 0.0 {
-            let mastery = if d.def.mastery { 1.0 + d.def.mastery_scale * self.mastery() } else { 1.0 };
+            let mastery = mastery_factor(d.def.mastery, d.def.mastery_scale, d.def.mastery_power, self.mastery());
             let (ap, sp) = self.power(d.pet);
             let mut base = (d.def.ap_coeff * ap + d.def.sp_coeff * sp) * frac;
             let prev = std::mem::replace(&mut self.cur_pet, d.pet);
             if d.def.per_stack && d.def.max_stacks > 1 {
                 base *= self.dot_stk[di] as f64;
             }
-            let (crit, _) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_scaling, false);
+            let (crit, damage) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_scaling, false);
+            self.feed_hit(&d.feeds, crit, damage);
+            if d.pet.is_none() && !d.no_procs {
+                self.hit_procs(d.src, true);
+            }
             self.cur_pet = prev;
             if crit && d.def.extend_on_crit > 0.0 && self.dot_exp[di] > self.now {
                 self.dot_exp[di] += d.def.extend_on_crit;
@@ -2030,15 +2078,12 @@ impl<'a> State<'a> {
                 };
                 let base = match scale { Some(x) => base * x, None => base };
                 let raw = a.stored_from.is_some();
-                let mastery = if d.mastery && !raw { 1.0 + d.mastery_scale * self.mastery() } else { 1.0 };
+                let mastery = mastery_factor(d.mastery && !raw, d.mastery_scale, d.mastery_power, self.mastery());
                 let instance_mult = self.ctx.filter(|(p, _)| Some(*p) == a.pet).map_or(1.0, |(p, s)| self.pets[p][s].damage_mult);
                 let (crit, dmg) = self.hit(a.src, base, d.mult * mastery * instance_mult, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_scaling, raw);
-                for &(di, pct, per_mastery) in &a.feeds {
-                    let share = pct + per_mastery * self.mastery();
-                    self.feed(di, dmg * share);
-                }
+                self.feed_hit(&a.feeds, crit, dmg);
                 if a.pet.is_none() && !a.def.no_procs {
-                    self.hit_procs();
+                    self.hit_procs(a.src, false);
                 }
                 for e in if crit { &a.on_crit } else { &a.on_noncrit } {
                     self.apply(e);
@@ -2290,10 +2335,14 @@ impl<'a> State<'a> {
         }
     }
 
-    /// Roll every on-hit proc for a direct hit of the player's.
-    fn hit_procs(&mut self) {
+    /// Roll eligible procs for one direct or periodic hit of the owner's.
+    fn hit_procs(&mut self, src: usize, tick: bool) {
         let c = self.c;
         for (k, hp) in c.hit_procs.iter().enumerate() {
+            if (tick && !hp.on_tick) || (!tick && !hp.on_hit)
+                || (!hp.sources.is_empty() && !hp.sources.contains(&src)) {
+                continue;
+            }
             if self.now < self.hp_ready[k] || c.abilities[hp.ab].requires_buff.is_some_and(|b| !self.buff_up(b)) {
                 continue;
             }
@@ -2411,7 +2460,7 @@ impl<'a> State<'a> {
                         let base = self.weapon_roll(auto_src);
                         self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, false);
                         self.out.casts[auto_src] += 1;
-                        self.hit_procs();
+                        self.hit_procs(auto_src, false);
                     }
                 }
                 for e in &c.auto_on_hit {

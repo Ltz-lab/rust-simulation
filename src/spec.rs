@@ -122,6 +122,12 @@ pub struct ProcDef {
     /// is down (a proc that only runs during a buff).
     #[serde(default)]
     pub on_hit: bool,
+    /// Also (or exclusively) roll on the owner's periodic damage.
+    #[serde(default)]
+    pub on_tick: bool,
+    /// Restrict attempts to these damage source names (empty: every source).
+    #[serde(default)]
+    pub sources: Vec<String>,
     /// Flat chance per hit (on_hit procs without `per_minute`).
     #[serde(default)]
     pub chance: f64,
@@ -334,6 +340,9 @@ pub struct DamageDef {
     /// rolled uniformly between 50% and 100% of mastery).
     #[serde(default = "one")]
     pub mastery_scale: f64,
+    /// Independent factors of the same mastery bonus (e.g. a dual-school hit).
+    #[serde(default = "one_u32")]
+    pub mastery_power: u32,
     /// Damage is further increased by the player's crit chance.
     #[serde(default)]
     pub crit_scaling: bool,
@@ -370,6 +379,12 @@ pub struct FeedDef {
     pub pct: f64,
     #[serde(default)]
     pub per_mastery: f64,
+    /// Only critical hits contribute to the bank.
+    #[serde(default)]
+    pub crit_only: bool,
+    /// Optional condition checked when the hit lands.
+    #[serde(default, rename = "if")]
+    pub condition: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -404,6 +419,8 @@ pub struct DotDef {
     pub mastery: bool,
     #[serde(default = "one")]
     pub mastery_scale: f64,
+    #[serde(default = "one_u32")]
+    pub mastery_power: u32,
     #[serde(default)]
     pub crit_scaling: bool,
     #[serde(default = "one")]
@@ -437,6 +454,9 @@ pub struct DotDef {
     /// Effects when a tick crits.
     #[serde(default)]
     pub on_crit: Vec<Effect>,
+    /// Shares of periodic damage fed into rolling DoTs, just as on direct hits.
+    #[serde(default)]
+    pub feed: Vec<FeedDef>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

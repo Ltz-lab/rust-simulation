@@ -1,0 +1,590 @@
+# Balance Druid — Elune's Chosen, Midnight Season 2, single target.
+# Profile: Nokomanida, US Zul'jin (profiles/MID2_Druid_Balance.simc).
+# [db2] SpellEffect etc, build 12.1.5.70575; [simc] sc_druid.cpp/default APL;
+# [obs] generated core reference and its combat log. Calibration fits per hit only.
+name = "Balance Druid (Elune's Chosen, core kit)"
+precombat = ["wrath_precast", "wrath_precast", "starfire_precast", "shooting_stars_clock"]
+
+[player]
+# [obs] snapshot converted from caster to Moonkin Lycara's Teachings:
+# remove 6% haste, add 6 mastery points x0.75; plus mean temporary ratings.
+spell_power = 3223
+crit = 0.1940
+haste = 0.2408
+mastery = 0.3370
+versatility = 0.1469
+crit_multiplier = 2.0 # [simc] Night Elf, no dwarf racial
+
+[fight]
+duration = 300 # [simc] reference default
+variance = 0.2 # [simc]
+
+[resources.astral_power]
+max = 100 # [simc]
+start = 50 # [db2 202430] Nature's Balance; precombat AP resets at pull
+regen = 0.5 # [db2 202430] 1 AP every 2 seconds, unhasted
+
+# [db2 394065/simc] 1 hasted RPPM on Moonfire/Sunfire hits and ticks.
+[[procs]]
+ability = "summon_denizen"
+per_minute = 1
+hasted = true
+on_hit = true
+on_tick = true
+sources = ["moonfire", "sunfire"]
+
+# [obs] gear sources retained by the core reference (enchants/embellishments).
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.1
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.67
+[[procs]]
+ability = "void_eruption"
+per_minute = 6.31
+
+# [db2 279709, 202345] Starlord: 2 ranks, +4% haste/stack, no refresh.
+[[buffs]]
+name = "starlord"
+duration = 20
+max_stacks = 3
+haste_pct = 4
+refresh_duration = false
+
+# [db2 1263363] Ascendant Fires: next generator instant.
+[[buffs]]
+name = "ascendant_fires"
+duration = 15
+cast_time_pct = { starfire = 100, starfire_umbral = 100 }
+
+# [db2 1263382] First 3 spenders in an eclipse +20% damage.
+[[buffs]]
+name = "ascendant_stars"
+duration = 15
+max_stacks = 3
+flat = true
+ability_pct = { starsurge = 20 }
+
+# [db2 450346] Nature's Grace: next 2 generator casts 30% faster.
+[[buffs]]
+name = "dreamstate"
+duration = 1000000000
+max_stacks = 2
+flat = true
+cast_time_pct = { starfire = 30, starfire_umbral = 30 }
+
+# [simc] Umbral Embrace: 20% on generators, consumed only in eclipse.
+[[buffs]]
+name = "umbral_embrace"
+duration = 15
+
+# [db2 450360] Touch the Cosmos pays for the next spender.
+[[buffs]]
+name = "touch_the_cosmos"
+duration = 15
+
+# [db2 343648/343647] Solstice: triples Shooting Stars probability.
+[[buffs]]
+name = "solstice"
+duration = 6
+
+# [db2 102560] Incarnation with Astral Insight, 20 seconds, +10% haste.
+[[buffs]]
+name = "incarnation"
+duration = 20
+haste_pct = 10
+ability_pct = { starfire = 10, starfire_umbral = 10, starsurge = 10, moonfire = 10, sunfire = 10, shooting_stars_moonfire = 10, shooting_stars_sunfire = 10, fury_of_elune = 10, sundered_firmament = 10 }
+pets = true
+
+# [simc/db2 48518] Base Eclipse +18% (including talent modifier),
+# Starfire's extra +40% x1.12 Umbral Intensity = +44.8%.
+[[buffs]]
+name = "eclipse_lunar"
+duration = 15
+school_pct = { arcane = 18, astral = 18 }
+ability_pct = { starfire = 44.8, starfire_umbral = 44.8 }
+pets = true
+on_expire = [{ type = "buff", buff = "dreamstate", set = "2" }]
+
+[[buffs]]
+name = "eclipse_solar"
+duration = 15
+school_pct = { nature = 18, astral = 18 }
+pets = true
+
+# [db2 450558] Harmony: +2 additive Eclipse points per spender, cap +6.
+# Represented relative to Eclipse's initial 1.18 multiplier.
+[[buffs]]
+name = "harmony_lunar"
+duration = 15
+max_stacks = 3
+school_pct = { arcane = 1.694915254, astral = 1.694915254 }
+pets = true
+[[buffs]]
+name = "harmony_solar"
+duration = 20
+max_stacks = 3
+school_pct = { nature = 1.694915254, astral = 1.694915254 }
+pets = true
+
+# [db2 394050/394049, simc] 2% crit/stack, decays once/second.
+[[buffs]]
+name = "boat_arcane"
+duration = 10
+max_stacks = 10
+ability_crit_pct = { starfire = 2, starfire_umbral = 2, moonfire = 2, starsurge = 2, starsurge_cascade = 2, shooting_stars_moonfire = 2, shooting_stars_sunfire = 2, goldrinns_fang = 2, fey_missile = 2, fury_of_elune = 2, fury_of_elune_boundless = 2, sundered_firmament = 2, sundered_firmament_boundless = 2 }
+[[buffs]]
+name = "boat_nature"
+duration = 10
+max_stacks = 10
+ability_crit_pct = { sunfire = 2, starsurge = 2, starsurge_cascade = 2, shooting_stars_moonfire = 2, shooting_stars_sunfire = 2, goldrinns_fang = 2, fey_missile = 2, fury_of_elune = 2, fury_of_elune_boundless = 2, sundered_firmament = 2, sundered_firmament_boundless = 2 }
+
+# [db2 450214] Stellar Amplification: refreshed/extended by Starsurge.
+[[buffs]]
+name = "stellar_amplification"
+duration = 5
+refresh_extend = true
+ability_pct = { sunfire = 16, moonfire = 16, shooting_stars_moonfire = 16, shooting_stars_sunfire = 16 }
+
+# [simc] Opener marker, retained until the first Incarnation.
+[[buffs]]
+name = "opened"
+duration = 1000000000
+
+# Damage coefficients [db2]; cast/resource/proc mechanics [simc] as annotated above.
+
+[[abilities]]
+name = "boat_arcane_decay"
+triggered_only = true
+[abilities.dot]
+name = "boat_arcane_clock"
+tick_time = 1
+duration = 10
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "consume", buff = "boat_arcane" }]
+
+[[abilities]]
+name = "boat_nature_decay"
+triggered_only = true
+[abilities.dot]
+name = "boat_nature_clock"
+tick_time = 1
+duration = 10
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "consume", buff = "boat_nature" }]
+
+[[abilities]]
+name = "harmony"
+triggered_only = true
+on_cast = [
+ { type = "if", if = "buff.eclipse_lunar.up", then = [{ type = "buff", buff = "harmony_lunar", duration = 15 }] },
+ { type = "if", if = "buff.eclipse_solar.up", then = [{ type = "buff", buff = "harmony_solar", duration = 20 }] },
+]
+
+[[abilities]]
+name = "eclipse"
+spell_id = 1233272
+cooldown = 32
+charges = 2
+gcd = 0.5
+gcd_hasted = false
+on_cast = [
+ { type = "buff", buff = "eclipse_lunar" },
+ { type = "consume", buff = "starlord", all = true },
+ { type = "consume", buff = "harmony_lunar", all = true },
+ { type = "consume", buff = "harmony_solar", all = true },
+ { type = "buff", buff = "ascendant_fires" },
+ { type = "buff", buff = "ascendant_stars", set = "3" },
+ { type = "buff", buff = "boat_arcane", set = "10" },
+ { type = "trigger", ability = "boat_arcane_decay" },
+ { type = "trigger", ability = "lunar_bolts" },
+ { type = "buff", buff = "solstice" },
+ { type = "trigger", ability = "parting_skies" },
+]
+
+[[abilities]]
+name = "incarnation"
+spell_id = 102560
+cooldown = 120
+charges = 2
+gcd = 0
+on_cast = [
+ { type = "buff", buff = "incarnation" },
+ { type = "buff", buff = "opened" },
+ { type = "buff", buff = "eclipse_lunar", duration = 20 },
+ { type = "buff", buff = "eclipse_solar", duration = 20 },
+ { type = "buff", buff = "boat_nature", set = "10" },
+ { type = "trigger", ability = "boat_nature_decay" },
+ { type = "trigger", ability = "solar_bolt" },
+ { type = "consume", buff = "starlord", all = true },
+ { type = "consume", buff = "harmony_lunar", all = true },
+ { type = "consume", buff = "harmony_solar", all = true },
+ { type = "buff", buff = "ascendant_fires" },
+ { type = "buff", buff = "ascendant_stars", set = "3" },
+ { type = "buff", buff = "boat_arcane", set = "10" },
+ { type = "trigger", ability = "boat_arcane_decay" },
+ { type = "trigger", ability = "lunar_bolts" },
+ { type = "buff", buff = "solstice" },
+ { type = "trigger", ability = "parting_skies" },
+ { type = "trigger", ability = "parting_skies" },
+]
+
+[[abilities]]
+name = "lunar_bolts"
+triggered_only = true
+cooldown = 1
+on_cast = [
+ { type = "trigger", ability = "lunar_bolt", delay = 1.666 },
+ { type = "trigger", ability = "lunar_bolt", delay = 1.866 },
+ { type = "trigger", ability = "lunar_bolt", delay = 2.066 },
+]
+
+[[abilities]]
+name = "lunar_bolt"
+spell_id = 1261700
+triggered_only = true
+damage = { sp_coeff = 1.0, school = "arcane", mastery = true, crit_bonus = 10, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "solar_bolt"
+spell_id = 1261573
+triggered_only = true
+damage = { sp_coeff = 6.325, school = "nature", mastery = true, crit_bonus = 10, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "starfire"
+spell_id = 194153
+cast_time = 2.25
+gain = { astral_power = 12 }
+damage = { sp_coeff = 1.218, school = "arcane", mastery = true, mastery_power = 1, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+on_cast = [
+ { type = "if", if = "!buff.ascendant_fires.up", then = [{ type = "consume", buff = "dreamstate" }] },
+ { type = "consume", buff = "ascendant_fires" },
+ { type = "buff", buff = "umbral_embrace", chance = 0.2 },
+ { type = "buff", buff = "touch_the_cosmos", chance = 0.15 },
+ { type = "trigger", ability = "starsurge_cascade", chance = 0.3, delay = 0.01 },
+]
+
+[[abilities]]
+name = "starfire_umbral"
+spell_id = 194153
+cast_time = 2.25
+gain = { astral_power = 12 }
+damage = { sp_coeff = 1.218, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+on_cast = [
+ { type = "consume", buff = "umbral_embrace" },
+ { type = "if", if = "!buff.ascendant_fires.up", then = [{ type = "consume", buff = "dreamstate" }] },
+ { type = "consume", buff = "ascendant_fires" },
+ { type = "buff", buff = "umbral_embrace", chance = 0.2 },
+ { type = "buff", buff = "touch_the_cosmos", chance = 0.15 },
+ { type = "trigger", ability = "starsurge_cascade", chance = 0.3, delay = 0.01 },
+]
+
+[[abilities]]
+name = "wrath_precast"
+spell_id = 190984
+source = "wrath"
+triggered_only = true
+damage = { sp_coeff = 0.727, school = "nature", mastery = true }
+on_cast = [{ type = "buff", buff = "dreamstate", set = "2" }]
+
+[[abilities]]
+name = "starfire_precast"
+spell_id = 194153
+source = "starfire"
+triggered_only = true
+gain = { astral_power = 12 }
+damage = { sp_coeff = 1.218, school = "arcane", mastery = true }
+on_cast = [{ type = "buff", buff = "dreamstate", set = "1" }, { type = "buff", buff = "umbral_embrace", chance = 0.2 }]
+
+[[abilities]]
+name = "starsurge"
+spell_id = 78674
+cost = { astral_power = 36 } # [db2] Rattle the Stars -10%
+free_with = "touch_the_cosmos"
+damage = { sp_coeff = 3.676, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+on_cast = [
+ { type = "buff", buff = "starlord" },
+ { type = "consume", buff = "ascendant_stars" },
+ { type = "trigger", ability = "harmony" },
+ { type = "buff", buff = "stellar_amplification" },
+ { type = "trigger", ability = "goldrinns_fang", chance = 0.33 },
+]
+on_free = [{ type = "trigger", ability = "hail_of_stars" }]
+
+[[abilities]]
+name = "starsurge_cascade"
+spell_id = 1271222
+triggered_only = true
+damage = { sp_coeff = 1.838, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+on_cast = [{ type = "trigger", ability = "harmony" }, { type = "trigger", ability = "hail_of_stars" }]
+
+[[abilities]]
+name = "hail_of_stars"
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.solstice.up", then = [{ type = "extend_buff", buff = "solstice", seconds = 1 }], else = [{ type = "buff", buff = "solstice", duration = 1 }] }]
+
+[[abilities]]
+name = "goldrinns_fang"
+spell_id = 394047
+triggered_only = true
+damage = { sp_coeff = 1.927, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "moonfire"
+spell_id = 8921
+gain = { astral_power = 8 }
+damage = { sp_coeff = 0.212, school = "arcane", mastery = true, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+[abilities.dot]
+name = "moonfire"
+sp_coeff = 0.184
+tick_time = 1.5 # [obs/simc] Cosmic Rapidity: reference ticks at 1.5s / haste
+# [obs] 22s Moonfire, 18s Sunfire in the SimC log.
+duration = 22
+school = "arcane"
+mastery = true
+feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }]
+
+
+[[abilities]]
+name = "sunfire"
+spell_id = 93402
+gain = { astral_power = 6 }
+damage = { sp_coeff = 0.212, school = "nature", mastery = true, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+[abilities.dot]
+name = "sunfire"
+sp_coeff = 0.184
+tick_time = 1.5 # [obs/simc] Cosmic Rapidity: reference ticks at 1.5s / haste
+# [obs] 22s Moonfire, 18s Sunfire in the SimC log.
+duration = 18
+school = "nature"
+mastery = true
+feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }]
+
+
+[[abilities]]
+name = "shooting_stars_clock"
+triggered_only = true
+[abilities.dot]
+name = "shooting_stars_clock"
+tick_time = 1 # [simc/obs] half of the base 2s heartbeat
+duration = 1000000000
+hasted = false
+whole_ticks = true
+on_tick = [
+ { type = "if", if = "dot.moonfire.up", then = [{ type = "trigger", ability = "shooting_stars_moonfire", chance_expr = "0.17*(1+2*buff.solstice.up)", delay = 0.8 }] },
+ { type = "if", if = "dot.sunfire.up", then = [{ type = "trigger", ability = "shooting_stars_sunfire", chance_expr = "0.17*(1+2*buff.solstice.up)", delay = 0.8 }] },
+]
+
+[[abilities]]
+name = "shooting_stars_moonfire"
+spell_id = 202497
+triggered_only = true
+gain = { astral_power = 2 }
+damage = { sp_coeff = 0.68, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "shooting_stars_sunfire"
+spell_id = 202497
+triggered_only = true
+gain = { astral_power = 2 }
+damage = { sp_coeff = 0.68, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "fury_of_elune"
+spell_id = 202770
+cooldown = 60
+on_cast = [{ type = "trigger", ability = "fury_of_elune_ap" }, { type = "trigger", ability = "fury_of_elune_boundless", delay = 8 }]
+[abilities.dot]
+name = "fury_of_elune"
+sp_coeff = 0.1834
+tick_time = 0.5
+duration = 8
+school = "astral"
+mastery = true
+mastery_power = 2
+whole_ticks = true
+refresh = "reset"
+feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }]
+
+
+[[abilities]]
+name = "fury_of_elune_ap"
+triggered_only = true
+[abilities.dot]
+name = "fury_of_elune_ap"
+tick_time = 0.5
+duration = 8
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "astral_power", amount = 2.5 }]
+
+[[abilities]]
+name = "fury_of_elune_boundless"
+spell_id = 428682
+triggered_only = true
+gain = { astral_power = 6 }
+damage = { sp_coeff = 2.1632, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+[[abilities]]
+name = "sundered_firmament"
+spell_id = 394106
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "sundered_firmament_ap" }, { type = "trigger", ability = "sundered_firmament_boundless", delay = 8 }]
+[abilities.dot]
+name = "sundered_firmament"
+sp_coeff = 0.04585
+tick_time = 0.5
+duration = 8
+school = "astral"
+mastery = true
+mastery_power = 2
+whole_ticks = true
+refresh = "reset"
+feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }]
+
+
+[[abilities]]
+name = "sundered_firmament_ap"
+triggered_only = true
+[abilities.dot]
+name = "sundered_firmament_ap"
+tick_time = 0.5
+duration = 8
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "astral_power", amount = 0.6 }]
+
+[[abilities]]
+name = "sundered_firmament_boundless"
+spell_id = 428682
+triggered_only = true
+gain = { astral_power = 6 }
+damage = { sp_coeff = 2.1632, school = "astral", mastery = true, mastery_power = 2, feed = [{ dot = "astral_smolder", pct = 20, crit_only = true, if = "buff.eclipse_lunar.up|buff.eclipse_solar.up" }] }
+
+# [simc] Parting Skies advances once per Eclipse entry (both schools count in Incarnation).
+
+[[buffs]]
+name = "parting_skies"
+duration = 1000000000
+max_stacks = 2
+
+[[abilities]]
+name = "parting_skies"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "parting_skies" }, { type = "if", if = "buff.parting_skies.stack>=2", then = [{ type = "consume", buff = "parting_skies", all = true }, { type = "trigger", ability = "sundered_firmament" }] }]
+
+[[abilities]]
+name = "astral_smolder_holder"
+triggered_only = true
+[abilities.dot]
+name = "astral_smolder"
+banked = true
+tick_time = 2
+duration = 8
+hasted = false
+school = "astral"
+
+[[abilities]]
+name = "summon_denizen"
+triggered_only = true
+on_cast = [{ type = "summon", pet = "denizen" }]
+
+[[abilities]]
+name = "fey_missile"
+spell_id = 188046
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 0.408, school = "astral", mastery = true, mastery_power = 2 }
+
+# [db2 394076/188046; simc] 30s pet, 2s hasted cast + average 32/75s delay.
+[[pets]]
+name = "denizen"
+duration = 30
+[[pets.abilities]]
+name = "cast"
+cast_time = 2
+gcd = 0
+cooldown = 0.426666667
+on_cast = [{ type = "trigger", ability = "fey_missile" }]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1 }
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "acidbrood_scourge"
+spell_id = 1310088
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1, school = "nature" }
+
+[[abilities]]
+name = "void_eruption"
+spell_id = 1310209
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1, school = "shadow" }
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+sp_coeff = 0.12
+tick_time = 1
+duration = 8
+hasted = false
+school = "cosmic"
+crit_bonus = -1
+refresh = "pandemic"
+
+# [simc] Single-target Elune's Chosen APL, with the opener expressed as conditions.
+[[rotation]]
+action = "moonfire"
+if = "!dot.moonfire.up&time<1"
+[[rotation]]
+action = "sunfire"
+if = "!dot.sunfire.up&time<3"
+[[rotation]]
+action = "eclipse"
+if = "!buff.opened.up&!buff.eclipse_lunar.up"
+[[rotation]]
+action = "starfire_umbral"
+if = "!buff.opened.up&astral_power<80&buff.umbral_embrace.up&buff.eclipse_lunar.up"
+[[rotation]]
+action = "starfire"
+if = "!buff.opened.up&astral_power<80"
+[[rotation]]
+action = "fury_of_elune"
+[[rotation]]
+action = "incarnation"
+if = "(!buff.incarnation.up&!buff.eclipse_lunar.up&cooldown.fury_of_elune.remains>50)|!buff.opened.up|fight_remains<20"
+[[rotation]]
+action = "sunfire"
+if = "(dot.sunfire.remains<2|dot.sunfire.remains<5.4&!buff.eclipse_lunar.up)&fight_remains>10"
+[[rotation]]
+action = "moonfire"
+if = "(dot.moonfire.remains<2|dot.moonfire.remains<6.6&!buff.eclipse_lunar.up)&fight_remains>10"
+[[rotation]]
+action = "eclipse"
+if = "!buff.eclipse_lunar.up&(cooldown.eclipse.charges>=2|cooldown.fury_of_elune.remains>17|!cooldown.incarnation.ready|fight_remains<15)"
+[[rotation]]
+action = "starsurge"
+if = "buff.eclipse_lunar.up|astral_power>80|buff.touch_the_cosmos.up"
+[[rotation]]
+action = "starfire_umbral"
+if = "buff.umbral_embrace.up&buff.eclipse_lunar.up"
+[[rotation]]
+action = "starfire"
