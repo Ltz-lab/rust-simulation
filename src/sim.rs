@@ -67,8 +67,8 @@ enum CEffect {
     CancelDot { dot: usize },
     ExtendBuff { buff: usize, secs: f64 },
     If { cond: Expr, then: Vec<CEffect>, otherwise: Vec<CEffect> },
-    Summon { pet: usize, count: u32, dur: Option<f64> },
-    Dismiss { pet: usize, count: u32, each: Vec<CEffect> },
+    Summon { pet: usize, count: u32, dur: Option<f64>, energy: Option<f64>, damage_mult: f64 },
+    Dismiss { pet: usize, count: u32, pool: Vec<usize>, each: Vec<CEffect>, rid: usize },
     ExtendPet { pet: usize, secs: f64 },
     ForEachPet { pet: usize, each: Vec<CEffect> },
 }
@@ -135,11 +135,13 @@ struct CPet {
     inherit_crit: bool,
     crit: f64,
     energy: f64,
+    energy_regen: f64,
     /// Cheapest action's energy cost: an instance with less leaves (0: never).
     min_cost: f64,
     delay: f64,
     /// (ability, swing time, hasted)
     melee: Option<(usize, f64, bool)>,
+    pause_melee: bool,
     /// Priority list: (ability, condition).
     actions: Vec<(usize, Option<Expr>)>,
     n_abilities: usize,
@@ -412,12 +414,14 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             then: compile_effects(then, n, &format!("{site}/then"), rolls)?,
             otherwise: compile_effects(otherwise, n, &format!("{site}/else"), rolls)?,
         },
-        Effect::Summon { pet, count, duration } => {
-            CEffect::Summon { pet: get(n.pet, "pet", pet)?, count: *count, dur: *duration }
+        Effect::Summon { pet, count, duration, energy, damage_mult } => {
+            CEffect::Summon { pet: get(n.pet, "pet", pet)?, count: *count, dur: *duration, energy: *energy, damage_mult: *damage_mult }
         }
-        Effect::Dismiss { pet, count, each } => CEffect::Dismiss {
+        Effect::Dismiss { pet, count, pool, each } => CEffect::Dismiss {
             pet: get(n.pet, "pet", pet)?,
             count: *count,
+            pool: pool.iter().map(|p| get(n.pet, "pet", p)).collect::<Result<_, _>>()?,
+            rid: rid(),
             each: compile_effects(each, n, &format!("{site}/each"), rolls)?,
         },
         Effect::ForEachPet { pet, each } => CEffect::ForEachPet {
@@ -827,9 +831,11 @@ impl Compiled {
                 inherit_crit: p.inherit_crit,
                 crit: p.crit,
                 energy: p.energy.unwrap_or(0.0),
+                energy_regen: p.energy_regen,
                 min_cost: if min_cost < INF { min_cost } else { 0.0 },
                 delay: p.delay,
                 melee,
+                pause_melee: p.melee.as_ref().is_some_and(|m| m.pause_while_casting),
                 actions,
                 n_abilities: p.abilities.len(),
                 on_summon: effects_in(&p.on_summon, &format!("pet/{}/on_summon", p.name), &n).map_err(ctx)?,
@@ -972,7 +978,10 @@ struct PetInst {
     exp: f64,
     spawned: f64,
     energy: f64,
+    energy_at: f64,
+    damage_mult: f64,
     gcd_end: f64,
+    cast_end: f64,
     /// Ability being cast.
     casting: usize,
     /// Per pet ability: when its cooldown is ready.
@@ -1103,7 +1112,7 @@ impl State<'_> {
                 .filter(|&s| self.pet_active(p, s))
                 .map(|s| self.pets[p][s].exp - self.now)
                 .fold(0.0, f64::max),
-            Var::SelfEnergy => self.ctx.map_or(0.0, |(p, s)| self.pets[p][s].energy),
+            Var::SelfEnergy => self.ctx.map_or(0.0, |(p, s)| self.pet_energy(p, s)),
             Var::SelfRemains => match self.ctx {
                 Some((p, s)) if self.pet_active(p, s) => self.pets[p][s].exp - self.now,
                 _ => 0.0,
@@ -1548,7 +1557,7 @@ impl<'a> State<'a> {
                         self.stored[buff] = 0.0;
                     }
                     self.buff_stk[buff] = set.unwrap_or(cur + stacks).min(def.max_stacks);
-                    self.buff_exp[buff] = if def.refresh_extend && cur > 0 { self.buff_exp[buff] + dur } else { self.now + dur };
+                    self.buff_exp[buff] = if !def.refresh_duration && cur > 0 { self.buff_exp[buff] } else if def.refresh_extend && cur > 0 { self.buff_exp[buff] + dur } else { self.now + dur };
                     self.watch_expiry(buff);
                 }
                 if self.log {
@@ -1659,7 +1668,7 @@ impl<'a> State<'a> {
                 match self.c.buff_kind[buff] {
                     BuffKind::Overlap => self.ov_exp[buff].iter_mut().for_each(|t| *t += secs),
                     BuffKind::Shared => {
-                        self.buff_exp[buff] += secs;
+                        self.buff_exp[buff] = (self.buff_exp[buff] + secs).max(self.now);
                         self.watch_expiry(buff);
                     }
                     BuffKind::Health(..) => {}
@@ -1671,8 +1680,26 @@ impl<'a> State<'a> {
                     self.apply(e);
                 }
             }
-            CEffect::Summon { pet, count, dur } => self.summon(pet, count, dur),
-            CEffect::Dismiss { pet, count, ref each } => self.dismiss(pet, count, each),
+            CEffect::Summon { pet, count, dur, energy, damage_mult } => self.summon_with(pet, count, dur, energy, damage_mult),
+            CEffect::Dismiss { pet, count, ref pool, ref each, rid } => {
+                let mut targets = self.pet_var(&Var::PetActive(pet)) as u32;
+                let mut total = targets + pool.iter().filter(|&&p| p != pet)
+                    .map(|&p| self.pet_var(&Var::PetActive(p)) as u32).sum::<u32>();
+                let mut selected = 0;
+                if pool.is_empty() || count == 0 {
+                    selected = if count == 0 { targets } else { count.min(targets) };
+                } else {
+                    for _ in 0..count.min(total) {
+                        if self.roll(rid, targets as f64 / total as f64) {
+                            selected += 1;
+                            targets -= 1;
+                        }
+                        total -= 1;
+                    }
+                }
+                // dismiss(count=0) means all, so skip an empty sample.
+                if selected > 0 { self.dismiss(pet, selected, each); }
+            },
             CEffect::ForEachPet { pet, ref each } => {
                 // Snapshot identities: effects may dismiss/reuse slots or summon
                 // more instances. Only original, still-live instances react.
@@ -2004,7 +2031,8 @@ impl<'a> State<'a> {
                 let base = match scale { Some(x) => base * x, None => base };
                 let raw = a.stored_from.is_some();
                 let mastery = if d.mastery && !raw { 1.0 + d.mastery_scale * self.mastery() } else { 1.0 };
-                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_scaling, raw);
+                let instance_mult = self.ctx.filter(|(p, _)| Some(*p) == a.pet).map_or(1.0, |(p, s)| self.pets[p][s].damage_mult);
+                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery * instance_mult, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_scaling, raw);
                 for &(di, pct, per_mastery) in &a.feeds {
                     let share = pct + per_mastery * self.mastery();
                     self.feed(di, dmg * share);
@@ -2042,10 +2070,23 @@ impl<'a> State<'a> {
         i.alive && i.exp > self.now
     }
 
+    fn pet_energy(&self, p: usize, s: usize) -> f64 {
+        let i = &self.pets[p][s];
+        let rate = self.c.pets[p].energy_regen;
+        if rate == 0.0 { i.energy } else {
+            (i.energy + rate * (self.now - i.energy_at)).min(self.c.pets[p].energy)
+        }
+    }
+
     fn pet_haste(&self, p: usize) -> f64 { if self.c.pets[p].inherit_haste { self.haste_mult() } else { 1.0 } }
 
     #[inline(never)]
+    #[cfg(test)]
     fn summon(&mut self, p: usize, count: u32, dur: Option<f64>) {
+        self.summon_with(p, count, dur, None, 1.0);
+    }
+
+    fn summon_with(&mut self, p: usize, count: u32, dur: Option<f64>, energy: Option<f64>, damage_mult: f64) {
         let c = self.c;
         let pet = &c.pets[p];
         let dur = dur.unwrap_or(pet.duration);
@@ -2061,7 +2102,7 @@ impl<'a> State<'a> {
                 Some(s) => s,
                 None => {
                     self.pets[p].push(PetInst {
-                        alive: false, generation: 0, exp: 0.0, spawned: 0.0, energy: 0.0, gcd_end: 0.0, casting: 0,
+                        alive: false, generation: 0, exp: 0.0, spawned: 0.0, energy: 0.0, energy_at: 0.0, damage_mult: 1.0, gcd_end: 0.0, cast_end: 0.0, casting: 0,
                         cd: vec![0.0; pet.n_abilities],
                     });
                     self.pets[p].len() - 1
@@ -2073,8 +2114,11 @@ impl<'a> State<'a> {
             i.generation += 1;
             i.exp = if dur > 0.0 { now + dur } else { INF };
             i.spawned = now;
-            i.energy = pet.energy;
+            i.energy = energy.unwrap_or(pet.energy);
+            i.energy_at = now;
+            i.damage_mult = damage_mult;
             i.gcd_end = now;
+            i.cast_end = now;
             i.cd.fill(0.0);
             let (exp, g, k) = (i.exp, i.generation, pkey(p, s));
             if self.log {
@@ -2156,7 +2200,7 @@ impl<'a> State<'a> {
     /// Out of energy for every action: the instance leaves.
     fn pet_check_energy(&mut self, p: usize, s: usize) -> bool {
         let m = self.c.pets[p].min_cost;
-        if m > 0.0 && self.pets[p][s].alive && self.pets[p][s].energy + 1e-9 < m {
+        if m > 0.0 && self.c.pets[p].energy_regen == 0.0 && self.pets[p][s].alive && self.pets[p][s].energy + 1e-9 < m {
             self.pet_leave(p, s, true);
             return false;
         }
@@ -2168,9 +2212,11 @@ impl<'a> State<'a> {
         let a = &self.c.abilities[ab];
         let h = self.pet_haste(p);
         let now = self.now;
+        let energy = self.pet_energy(p, s);
         let i = &mut self.pets[p][s];
-        i.energy -= a.pet_cost;
-        if a.def.cooldown > 0.0 {
+        i.energy = energy - a.pet_cost;
+        i.energy_at = now;
+        if a.def.cooldown > 0.0 && !a.def.cooldown_on_start {
             i.cd[a.pet_slot] = now + if a.def.cooldown_hasted { a.def.cooldown / h } else { a.def.cooldown };
         }
         let prev = self.ctx.replace((p, s));
@@ -2196,7 +2242,11 @@ impl<'a> State<'a> {
                 next = next.min(ready);
                 continue;
             }
-            if i.energy + 1e-9 < a.pet_cost {
+            let energy = self.pet_energy(p, s);
+            if energy + 1e-9 < a.pet_cost {
+                if pet.energy_regen > 0.0 {
+                    next = next.min(now + (a.pet_cost - energy) / pet.energy_regen);
+                }
                 continue;
             }
             if a.requires_buff.is_some_and(|b| !self.buff_up(b)) || cond.as_ref().is_some_and(|e| e.eval(self) == 0.0) {
@@ -2215,6 +2265,10 @@ impl<'a> State<'a> {
                 let ct = if d.cast_hasted { d.cast_time / h } else { d.cast_time };
                 let gcd = if d.gcd <= 0.0 { 0.0 } else if d.gcd_hasted { (d.gcd / h).max(0.75) } else { d.gcd };
                 self.pets[p][s].gcd_end = now + gcd;
+                self.pets[p][s].cast_end = now + ct;
+                if d.cooldown_on_start && d.cooldown > 0.0 {
+                    self.pets[p][s].cd[c.abilities[ab].pet_slot] = now + if d.cooldown_hasted { d.cooldown / h } else { d.cooldown };
+                }
                 if ct > 0.0 {
                     self.pets[p][s].casting = ab;
                     self.push(now + ct, Ev::PetCast(k, g));
@@ -2451,6 +2505,11 @@ impl<'a> State<'a> {
             Ev::PetSwing(k, g) => {
                 if let Some((p, s)) = self.pet_current(k, g) {
                     let (ab, speed, hasted) = c.pets[p].melee.unwrap();
+                    if c.pets[p].pause_melee && self.pets[p][s].cast_end > self.now {
+                        let interval = if hasted { speed / self.pet_haste(p) } else { speed };
+                        self.push(self.pets[p][s].cast_end + interval, Ev::PetSwing(k, g));
+                        return true;
+                    }
                     self.pet_execute(p, s, ab);
                     if self.pet_current(k, g).is_some() {
                         let t = if hasted { speed / self.pet_haste(p) } else { speed };

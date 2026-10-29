@@ -58,6 +58,9 @@ pub struct PetDef {
     /// spends it; an instance that can't afford any action leaves.
     #[serde(default)]
     pub energy: Option<f64>,
+    /// Continuous, unhasted pet energy regeneration (capped at initial energy).
+    #[serde(default)]
+    pub energy_regen: f64,
     /// Seconds from summon to its first action and swing (travel, leap).
     #[serde(default)]
     pub delay: f64,
@@ -100,6 +103,9 @@ pub struct PetMelee {
     pub speed: f64,
     #[serde(default = "yes")]
     pub hasted: bool,
+    /// Casting interrupts swings; restart the timer when the cast finishes.
+    #[serde(default)]
+    pub pause_while_casting: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -223,6 +229,9 @@ pub struct AbilityDef {
     pub cooldown: f64,
     #[serde(default)]
     pub cooldown_hasted: bool,
+    /// Pet cooldown begins when its cast starts, rather than when it resolves.
+    #[serde(default)]
+    pub cooldown_on_start: bool,
     #[serde(default = "one_u32")]
     pub charges: u32,
     /// Cast time in seconds (0 = instant). The ability resolves when the cast
@@ -544,6 +553,11 @@ pub enum Effect {
         count: u32,
         #[serde(default)]
         duration: Option<f64>,
+        /// Per-instance overrides (e.g. an empowered summon).
+        #[serde(default)]
+        energy: Option<f64>,
+        #[serde(default = "one")]
+        damage_mult: f64,
     },
     /// Make up to `count` (0 = all) active instances of a pet leave, oldest
     /// first, applying `each` once per instance (`self.*` refers to it) and
@@ -552,6 +566,10 @@ pub enum Effect {
         pet: String,
         #[serde(default)]
         count: u32,
+        /// Other eligible pets in a random sample without replacement. Only
+        /// selections of `pet` are dismissed; omitted: select only `pet`.
+        #[serde(default)]
+        pool: Vec<String>,
         #[serde(default)]
         each: Vec<Effect>,
     },
@@ -658,6 +676,9 @@ pub struct BuffDef {
     /// restarting it.
     #[serde(default)]
     pub refresh_extend: bool,
+    /// Adding/setting stacks preserves an already active shared timer.
+    #[serde(default = "yes")]
+    pub refresh_duration: bool,
     /// Bonuses apply once while up, whatever the stack count (stacks only
     /// count uses, e.g. "your next 8 casts").
     #[serde(default)]

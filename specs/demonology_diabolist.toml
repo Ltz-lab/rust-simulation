@@ -1,0 +1,735 @@
+# Demonology Warlock — Diabolist, Midnight Season 2.
+# [db2]: build 12.1.5.70575, tools/spelldb.py; [simc]: warlock class module
+# and default APL; [obs]: reference/demo_core_observations.json / logged SimC fights.
+# Per-hit residuals live in calibration/. No cast/hit counts are calibrated.
+name = "Demonology Warlock (Diabolist, core kit)"
+# [simc] pre-pull Felguard and Demonbolt; Inner Demons first spawn approximated at 6s.
+precombat = ["summon_felguard", "demonbolt", "start_inner_demons", "oculi_clock"]
+
+[player]
+# [obs] snapshot plus averages from 24 logged fights (gear procs and Blood Fury):
+# +61.64 intellect, +195.87 crit, +93.32 haste, +201.47 mastery, +30.27 vers rating.
+spell_power = 3492
+crit = 0.38975
+haste = 0.21249
+mastery = 0.5341
+versatility = 0.078014
+crit_multiplier = 2.0 # [simc] pets with Demonic Brutality add 0.6 individually.
+
+[gear]
+primary = "intellect"
+base_primary = 619          # [obs] initial level-90 Orc estimate; checked against SimC below.
+primary_mult = 1.135575     # [simc] 1.05 armor x 1.05 Fel Intellect x 1.03 raid intellect.
+spell_power_per_primary = 1.0 # [simc]
+crit_bonus = 0.07           # [obs] snapshot less rating contribution (checked with --gear-stats).
+haste_mult = 1.02           # [simc] racial/passive; checked against snapshot.
+mastery_points = 15         # [obs] base 13 + 2 Skyfury.
+mastery_coeff = 1.5         # [db2] Master Demonologist 77219.
+versatility_bonus = 0.03    # [simc] Mark of the Wild.
+spec_id = 266              # [db2] ChrSpecialization.
+use_items = { buff = "pet.demonic_tyrant.active|fight_remains<25", other = "1" }
+use_after = "potion"
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs.
+
+[gear.procs]
+# [obs] same time averages as [player], in final-stat units.
+spell_power = 70
+crit = 0.0425761
+haste = 0.02164
+mastery = 0.065687
+versatility = 0.0056066
+
+[gear.kit]
+enabled = 1 # [simc] raid consumables; applied only with gear, disable for core reference.
+precombat = ["full_kit"]
+# [db2/obs] Royal Roast 50 primary, augment rune 25.1, flask 165 mastery, oil 16 crit/haste.
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
+primary_buffs = { lights_potential = 695 } # [db2] rank-2 Light's Potential.
+
+[fight]
+duration = 300 # [obs] reference setup
+variance = 0.2 # [obs] SimC default
+
+[resources.soul_shard]
+max = 5 # [db2]
+start = 3 # [simc] out of combat
+
+[resources.ritual_stage]
+max = 2 # [simc] Overlord -> Mother -> Pit Lord
+start = 1 # [simc] initial ritual can be any stage; representative Mother opener
+
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "demonic_core"
+duration = 20
+max_stacks = 4
+flat = true
+cast_time_pct = { demonbolt = 100 }
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "tyrants_oblation"
+duration = 20
+haste_pct = 8
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "abyssal_dominion"
+duration = 20
+pet_pct = { dreadstalker = 20, wild_imp = 20 }
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "dominion_of_argus"
+duration = 25 # [obs] expires 25s after Tyrant, irrespective of spender refreshes.
+refresh_duration = false
+max_stacks = 3
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "demonic_oculi"
+duration = 60
+max_stacks = 3
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "minds_eyes"
+duration = 10
+max_stacks = 3
+power_pct = 2
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "infernal_bolt"
+duration = 20
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "ruination"
+duration = 20
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "diabolic_ritual_overlord"
+duration = 20
+on_expire = [{ type = "buff", buff = "demonic_art_overlord" }, { type = "gain", resource = "ritual_stage", amount = 1 }]
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "demonic_art_overlord"
+duration = 60
+cast_time_pct = { hand_of_guldan = 50 }
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "diabolic_ritual_mother_of_chaos"
+duration = 20
+on_expire = [{ type = "buff", buff = "demonic_art_mother_of_chaos" }, { type = "gain", resource = "ritual_stage", amount = 1 }]
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "demonic_art_mother_of_chaos"
+duration = 60
+cast_time_pct = { hand_of_guldan = 50 }
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "diabolic_ritual_pit_lord"
+duration = 20
+on_expire = [{ type = "buff", buff = "demonic_art_pit_lord" }, { type = "gain", resource = "ritual_stage", amount = -2 }]
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "demonic_art_pit_lord"
+duration = 60
+cast_time_pct = { hand_of_guldan = 50 }
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "full_kit"
+duration = 10000
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "bloodlust"
+duration = 40
+haste_pct = 30
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "lights_potential"
+duration = 30
+power_pct = 20
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "wild_imp"
+duration = 40
+energy = 100
+owner_coeff = { sp_from_sp = 1.2 }
+on_expire = [{ type = "buff", buff = "demonic_core", chance = 0.1 }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "fel_firebolt"
+spell_id = 104318
+gcd = 0
+cast_time = 2
+cost = { energy = 20 }
+damage = { sp_coeff = 0.192178, school = "fire", mastery = true, crit_bonus = 0.15, crit_damage_bonus = 0.6 }
+on_cast = [{ type = "trigger", ability = "fel_firebolt_extra", chance = 0.1 }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "fel_firebolt_extra"
+source = "fel_firebolt"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.192178, school = "fire", mastery = true, mult = 2, crit_bonus = 0.15, crit_damage_bonus = 0.6 }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "dreadstalker"
+duration = 12
+delay = 0.25
+owner_coeff = { ap_from_sp = 1.06769 }
+melee = { ability = "melee", speed = 1.8181818181818181 }
+on_summon = [{ type = "trigger", ability = "dreadbite" }]
+on_expire = [{ type = "buff", buff = "demonic_core" }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.5485714285714286, school = "physical", mastery = true, crit_bonus = 0.15, crit_damage_bonus = 0.6 }
+on_cast = [{ type = "trigger", ability = "dreadbite", chance = 0.2 }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "dreadbite"
+spell_id = 271971
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.035, school = "shadow", mastery = true, crit_bonus = 0.15, crit_damage_bonus = 0.6 }
+on_cast = [{ type = "trigger", ability = "blighted_maw" }]
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "vilefiend"
+duration = 15
+delay = 0.3
+owner_coeff = { ap_from_sp = 0.6075, sp_from_sp = 2.619 }
+melee = { ability = "melee", speed = 2 }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "bile_spit"
+spell_id = 267997
+gcd = 1
+cast_time = 2
+cast_hasted = false
+cooldown = 60
+damage = { sp_coeff = 0.816, school = "nature", mastery = true, crit_damage_bonus = 0.6 }
+dot = { name = "bile_spit", sp_coeff = 0.24, tick_time = 2, duration = 10, hasted = false, school = "nature", mastery = true, crit_bonus = -1, whole_ticks = true }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "headbutt"
+spell_id = 267999
+gcd = 1
+cooldown = 5
+damage = { ap_coeff = 1.632, school = "physical", mastery = true, crit_damage_bonus = 0.6 }
+on_cast = [{ type = "trigger", ability = "gloom_slash" }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 1.1428571428571428, school = "physical", mastery = true, crit_damage_bonus = 0.6 }
+on_cast = [{ type = "trigger", ability = "gloom_slash" }]
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "gloom_slash"
+spell_id = 455491
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.317766, school = "shadow", mastery = true, crit_damage_bonus = 0.6 }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "felguard"
+duration = 0
+max_active = 1
+energy = 200
+energy_regen = 10
+owner_coeff = { ap_from_sp = 1.82412, sp_from_sp = 1.74228 }
+melee = { ability = "melee", speed = 2, pause_while_casting = true }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "felstorm"
+cooldown_on_start = true
+spell_id = 89751
+gcd = 0
+cast_time = 5
+cooldown = 30
+cost = { energy = 60 }
+damage = { ap_coeff = 0.33, hits = 6, school = "physical", mastery = true, crit_damage_bonus = 0.6 }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "legion_strike"
+spell_id = 30213
+gcd = 1
+cost = { energy = 60 }
+damage = { ap_coeff = 0.816, school = "physical", mastery = true, crit_damage_bonus = 0.6 }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "melee"
+gcd = 0
+damage = { ap_coeff = 0.8228571428571428, school = "physical", mastery = true, crit_damage_bonus = 0.6 }
+
+# [simc] prioritize Felstorm then spend above 100 energy.
+[[pets.rotation]]
+action = "felstorm"
+
+# [simc] energy threshold.
+[[pets.rotation]]
+action = "legion_strike"
+if = "self.energy>=100"
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "demonic_tyrant"
+duration = 20.38
+delay = 0.94
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "burning_cleave"
+spell_id = 1264093
+gcd = 2
+damage = { sp_coeff = 0.96, school = "shadowflame", mastery = true, crit_damage_bonus = 0.6, scale = "1+0.1*(pet.wild_imp.active+pet.dreadstalker.active+pet.vilefiend.active+pet.felguard.active)" }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "grimoire_imp_lord"
+duration = 20
+energy = 200
+energy_regen = 10
+owner_coeff = { sp_from_sp = 2.75 }
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "greater_felbolt"
+spell_id = 1277116
+gcd = 0.5
+cast_time = 1.75
+cost = { energy = 40 }
+damage = { sp_coeff = 1.5, school = "fire", mastery = true, mult = 2.25, crit_damage_bonus = 0.6 }
+
+# [simc] energy threshold, regen 10/s.
+[[pets.rotation]]
+action = "greater_felbolt"
+if = "self.energy>=125"
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "lady_sacrolash"
+duration = 10
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "shadow_nova"
+spell_id = 1282507
+gcd = 1.5
+cast_time = 2
+damage = { sp_coeff = 3.7422, school = "shadow", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "grand_warlock_alythess"
+duration = 10
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "blaze_missile"
+spell_id = 1282534
+gcd = 1.5
+cast_time = 2
+damage = { sp_coeff = 3.7422, school = "fire", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "antoran_jailer"
+duration = 10
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "soul_barrage_cast"
+spell_id = 1292391
+gcd = 1.5
+cast_time = 2
+damage = { sp_coeff = 2.2176, school = "chaos", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "antoran_inquisitor"
+duration = 10
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "mind_sear_channel"
+spell_id = 1280460
+gcd = 1
+gcd_hasted = false
+damage = { sp_coeff = 2.6334, school = "shadow", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "overlord"
+duration = 8
+delay = 0.8
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "wicked_cleave"
+spell_id = 432120
+gcd = 0
+cooldown = 60
+damage = { sp_coeff = 1, school = "shadowflame", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "mother_of_chaos"
+duration = 4
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "chaos_salvo"
+spell_id = 432596
+gcd = 0
+cast_time = 0.2
+damage = { sp_coeff = 0.543679, school = "fire", mastery = true }
+
+# [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
+[[pets]]
+name = "pit_lord"
+duration = 8
+energy = 100
+
+# [db2] damage coefficient / spell timing; [simc] pet action implementation.
+[[pets.abilities]]
+name = "felseeker"
+spell_id = 434404
+gcd = 0
+cast_time = 0.5
+cost = { energy = 25 }
+damage = { sp_coeff = 3.20679, school = "chaos", mastery = true }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "summon_felguard"
+gcd = 0
+on_cast = [{ type = "summon", pet = "felguard" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "start_inner_demons"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "inner_demons", delay = 6 }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "inner_demons"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "summon", pet = "wild_imp" }, { type = "trigger", ability = "inner_demons", delay = 12 }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "oculi_clock"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.demonic_oculi.stack=1", then = [{ type = "trigger", ability = "diabolic_gaze_1" }], else = [] }, { type = "if", if = "buff.demonic_oculi.stack=2", then = [{ type = "trigger", ability = "diabolic_gaze_2" }], else = [] }, { type = "if", if = "buff.demonic_oculi.stack=3", then = [{ type = "trigger", ability = "diabolic_gaze_3" }], else = [] }, { type = "trigger", ability = "oculi_clock", delay = 1 }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "diabolic_gaze_1"
+spell_id = 1269892
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 0.8, school = "chaos", mastery = false }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "diabolic_gaze_2"
+spell_id = 1269886
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.6, school = "chaos", mastery = false }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "diabolic_gaze_3"
+spell_id = 1269885
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 2.4, school = "chaos", mastery = false }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "eye_explosion"
+spell_id = 1269800
+triggered_only = true
+gcd = 0
+on_start = [{ type = "buff", buff = "minds_eyes", set = "buff.demonic_oculi.stack" }]
+damage = { sp_coeff = 2.3462, school = "fire", mastery = false, scale = "buff.demonic_oculi.stack" }
+on_cast = [{ type = "consume", buff = "demonic_oculi", all = true }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "blighted_maw"
+spell_id = 1276960
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1, school = "shadowstorm", mastery = true, crit_bonus = -1 }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "shadow_bolt"
+spell_id = 686
+cast_time = 1.5
+gain = { soul_shard = 1 }
+damage = { sp_coeff = 1.74096, school = "shadow", mastery = false }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "demonbolt"
+spell_id = 264178
+cast_time = 4.5
+gain = { soul_shard = 2 }
+damage = { sp_coeff = 7.99508, school = "shadowflame", mastery = false }
+on_cast = [{ type = "consume", buff = "demonic_core" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "call_dreadstalkers"
+spell_id = 104316
+cooldown = 20
+on_cast = [{ type = "summon", pet = "dreadstalker", count = 2 }, { type = "summon", pet = "vilefiend" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "grimoire_imp_lord"
+spell_id = 1276452
+cooldown = 120
+cost = { soul_shard = 1 }
+on_cast = [{ type = "summon", pet = "grimoire_imp_lord" }, { type = "trigger", ability = "ritual_one" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "summon_demonic_tyrant"
+spell_id = 265187
+cooldown = 60
+cast_time = 1.5
+on_cast = [{ type = "extend_pet", pet = "dreadstalker", seconds = 15 }, { type = "summon", pet = "demonic_tyrant" }, { type = "buff", buff = "tyrants_oblation" }, { type = "buff", buff = "abyssal_dominion" }, { type = "buff", buff = "dominion_of_argus", set = "1" }]
+
+# [db2 1250772] Gang Boss cost 15 instead of 20: six casts, approximated by 120 energy.
+# [simc] The other two have five casts. Damage multipliers: boss x2, empowered boss x3.
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "hand_of_guldan"
+spell_id = 105174
+source = "hand_of_guldan_impact"
+cast_time = 1.5
+cost = { soul_shard = 3 }
+damage = { sp_coeff = 1.503564, school = "shadowflame", mastery = false }
+on_cast = [{ type = "buff", buff = "demonic_oculi" }, { type = "summon", pet = "wild_imp", count = 2 }, { type = "summon", pet = "wild_imp", energy = 120, damage_mult = 2 }, { type = "if", if = "buff.demonic_art_overlord.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_overlord", all = true }, { type = "summon", pet = "overlord" }], else = [] }, { type = "if", if = "buff.demonic_art_mother_of_chaos.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_mother_of_chaos", all = true }, { type = "summon", pet = "mother_of_chaos" }, { type = "buff", buff = "infernal_bolt" }], else = [] }, { type = "if", if = "buff.demonic_art_pit_lord.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_pit_lord", all = true }, { type = "summon", pet = "pit_lord" }, { type = "buff", buff = "ruination" }], else = [] }, { type = "trigger", ability = "ritual_three" }, { type = "if", if = "buff.dominion_of_argus.up", then = [{ type = "gain", resource = "soul_shard", amount = 1 }, { type = "buff", buff = "dominion_of_argus" }, { type = "if", if = "buff.dominion_of_argus.stack=3", then = [{ type = "buff", buff = "dominion_of_argus", set = "1" }, { type = "trigger", ability = "argus_guardian" }], else = [] }], else = [] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "ruination"
+spell_id = 434635
+source = "ruination_impact"
+cast_time = 1.5
+requires_buff = "ruination"
+damage = { sp_coeff = 25.3791, school = "chaos", mastery = false }
+on_cast = [{ type = "consume", buff = "ruination", all = true }, { type = "trigger", ability = "ruination_hog", delay = 0.4 }, { type = "if", if = "buff.demonic_art_overlord.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_overlord", all = true }, { type = "summon", pet = "overlord" }], else = [] }, { type = "if", if = "buff.demonic_art_mother_of_chaos.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_mother_of_chaos", all = true }, { type = "summon", pet = "mother_of_chaos" }, { type = "buff", buff = "infernal_bolt" }], else = [] }, { type = "if", if = "buff.demonic_art_pit_lord.up", then = [{ type = "trigger", ability = "eye_explosion" }, { type = "consume", buff = "demonic_art_pit_lord", all = true }, { type = "summon", pet = "pit_lord" }, { type = "buff", buff = "ruination" }], else = [] }, { type = "if", if = "buff.dominion_of_argus.up", then = [{ type = "gain", resource = "soul_shard", amount = 1 }, { type = "buff", buff = "dominion_of_argus" }, { type = "if", if = "buff.dominion_of_argus.stack=3", then = [{ type = "buff", buff = "dominion_of_argus", set = "1" }, { type = "trigger", ability = "argus_guardian" }], else = [] }], else = [] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "ruination_hog"
+source = "hand_of_guldan_impact"
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.503564, school = "shadowflame", mastery = false }
+on_cast = [{ type = "summon", pet = "wild_imp", count = 2 }, { type = "summon", pet = "wild_imp", energy = 120, damage_mult = 2 }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "infernal_bolt"
+spell_id = 434506
+requires_buff = "infernal_bolt"
+cast_time = 1.5
+gain = { soul_shard = 3 }
+damage = { sp_coeff = 13.4735, school = "fire", mastery = false }
+on_cast = [{ type = "consume", buff = "infernal_bolt", all = true }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "implosion"
+cooldown = 15 # [db2 196277]
+spell_id = 196277
+on_cast = [{ type = "dismiss", pet = "wild_imp", count = 6, pool = ["felguard", "dreadstalker", "vilefiend", "grimoire_imp_lord", "demonic_tyrant"], each = [{ type = "trigger", ability = "implosion_aoe" }, { type = "buff", buff = "demonic_core", chance = 0.1 }] }, { type = "summon", pet = "wild_imp", count = 3, energy = 120, damage_mult = 3 }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "implosion_aoe"
+spell_id = 196278
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.36382, school = "shadowflame", mastery = false, scale = "self.energy/100" }
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "ritual_one"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "ritual_stage=0", then = [{ type = "if", if = "buff.diabolic_ritual_overlord.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_overlord", seconds = -1 }], else = [{ type = "buff", buff = "diabolic_ritual_overlord", duration = 19 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_overlord", seconds = -1 }], else = [] }], else = [] }, { type = "if", if = "ritual_stage=1", then = [{ type = "if", if = "buff.diabolic_ritual_mother_of_chaos.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_mother_of_chaos", seconds = -1 }], else = [{ type = "buff", buff = "diabolic_ritual_mother_of_chaos", duration = 19 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_mother_of_chaos", seconds = -1 }], else = [] }], else = [] }, { type = "if", if = "ritual_stage=2", then = [{ type = "if", if = "buff.diabolic_ritual_pit_lord.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_pit_lord", seconds = -1 }], else = [{ type = "buff", buff = "diabolic_ritual_pit_lord", duration = 19 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_pit_lord", seconds = -1 }], else = [] }], else = [] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "ritual_three"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "ritual_stage=0", then = [{ type = "if", if = "buff.diabolic_ritual_overlord.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_overlord", seconds = -3 }], else = [{ type = "buff", buff = "diabolic_ritual_overlord", duration = 17 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_overlord", seconds = -1 }], else = [] }], else = [] }, { type = "if", if = "ritual_stage=1", then = [{ type = "if", if = "buff.diabolic_ritual_mother_of_chaos.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_mother_of_chaos", seconds = -3 }], else = [{ type = "buff", buff = "diabolic_ritual_mother_of_chaos", duration = 17 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_mother_of_chaos", seconds = -1 }], else = [] }], else = [] }, { type = "if", if = "ritual_stage=2", then = [{ type = "if", if = "buff.diabolic_ritual_pit_lord.up", then = [{ type = "extend_buff", buff = "diabolic_ritual_pit_lord", seconds = -3 }], else = [{ type = "buff", buff = "diabolic_ritual_pit_lord", duration = 17 }] }, { type = "if", if = "pet.demonic_tyrant.active", then = [{ type = "extend_buff", buff = "diabolic_ritual_pit_lord", seconds = -1 }], else = [] }], else = [] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "argus_guardian"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "argus_jailer", chance = 0.25 }, { type = "if", if = "!buff.guardian_chosen.up", then = [{ type = "trigger", ability = "argus_inquisitor", chance = 0.3333333333333333 }], else = [] }, { type = "if", if = "!buff.guardian_chosen.up", then = [{ type = "trigger", ability = "argus_alythess", chance = 0.5 }], else = [] }, { type = "if", if = "!buff.guardian_chosen.up", then = [{ type = "trigger", ability = "argus_sacrolash" }], else = [] }, { type = "consume", buff = "guardian_chosen", all = true }]
+
+# [db2] spell durations/effects; [simc] warlock buff callbacks.
+[[buffs]]
+name = "guardian_chosen"
+duration = 1
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "argus_jailer"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "guardian_chosen" }, { type = "summon", pet = "antoran_jailer" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "argus_inquisitor"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "guardian_chosen" }, { type = "summon", pet = "antoran_inquisitor" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "argus_alythess"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "guardian_chosen" }, { type = "if", if = "pet.grand_warlock_alythess.active", then = [{ type = "summon", pet = "antoran_jailer" }], else = [{ type = "summon", pet = "grand_warlock_alythess" }] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "argus_sacrolash"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "guardian_chosen" }, { type = "if", if = "pet.lady_sacrolash.active", then = [{ type = "summon", pet = "antoran_inquisitor" }], else = [{ type = "summon", pet = "lady_sacrolash" }] }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "full_kit"
+gcd = 0
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "potion"
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
+# [obs] 48.19 procs in 300s; weapon enchant remains in core-kit reference.
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 9.64
+
+# [simc] warlock actions / default Demonology APL; coefficients [db2] SpellEffect.
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+gcd = 0
+damage = { amount = 6405, school = "fire", crit_bonus = -1 }
+dot = { name = "rune_of_unleashed_fire_lingering", sp_coeff = 0.117, tick_time = 1, duration = 8, hasted = false, school = "cosmic", crit_bonus = -1, whole_ticks = true, refresh = "reset" }
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "potion"
+if = "pet.demonic_tyrant.active|fight_remains<30"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "hand_of_guldan"
+if = "buff.dominion_of_argus.up&!buff.ruination.up"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "grimoire_imp_lord"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "call_dreadstalkers"
+if = "cooldown.summon_demonic_tyrant.remains>=20+gcd|cooldown.summon_demonic_tyrant.remains<=12-gcd"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "summon_demonic_tyrant"
+if = "soul_shard=5"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "implosion"
+if = "pet.wild_imp.active>=6"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "ruination"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "hand_of_guldan"
+if = "!buff.ruination.up&(soul_shard>=3&cooldown.summon_demonic_tyrant.remains>5|soul_shard=5)"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "infernal_bolt"
+if = "soul_shard<3"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "demonbolt"
+if = "soul_shard<4&buff.demonic_core.up"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "shadow_bolt"
+
+# [simc] default Diabolist APL (single target, To Hell and Back).
+[[rotation]]
+action = "infernal_bolt"
