@@ -4,123 +4,123 @@
 
 [sources."coil_of_devastation"]
 derived = 1.100000
-mult = 3.651301
+mult = 3.283186
 crit_bonus = +0.000000
 
 [sources."death_and_decay"]
 derived = 1.050000
-mult = 1.174624
-crit_bonus = +0.002491
+mult = 0.843922
+crit_bonus = +0.000495
 
 [sources."death_order"]
 derived = 1.000000
-mult = 1.270373
-crit_bonus = +0.001822
+mult = 28.582531
+crit_bonus = +0.001825
 
 [sources."dread_plague"]
 derived = 1.036035
-mult = 2.289142
+mult = 1.701225
 crit_bonus = +0.055108
 
 [sources."dread_plague_erupt"]
 derived = 1.000000
-mult = 3.089738
-crit_bonus = +0.053561
+mult = 2.228605
+crit_bonus = +0.053837
 
 [sources."festering_scythe"]
 derived = 0.858000
-mult = 2.347493
-crit_bonus = -0.000902
+mult = 1.759881
+crit_bonus = -0.004089
 
 [sources."festering_strike"]
 derived = 0.858000
-mult = 2.196177
-crit_bonus = +0.002121
+mult = 1.584080
+crit_bonus = +0.004016
 
 [sources."infected_claws"]
 derived = 0.986700
-mult = 0.973407
-crit_bonus = +0.055221
+mult = 0.735114
+crit_bonus = +0.055509
 
 [sources."necrotic_coil_shadow"]
 derived = 0.900900
-mult = 2.409702
-crit_bonus = +0.000852
+mult = 1.872933
+crit_bonus = +0.001070
 
 [sources."necrotic_coil_shadowstrike"]
 derived = 0.900900
-mult = 2.456612
-crit_bonus = -0.000183
+mult = 1.909032
+crit_bonus = -0.000280
 
 [sources."pestilence_runeforge"]
 derived = 1.584000
-mult = 2.527596
-crit_bonus = +0.053884
+mult = 3.140899
+crit_bonus = +0.053811
 
 [sources."putrefy_aoe"]
 derived = 1.123200
-mult = 3.086284
-crit_bonus = +0.003525
+mult = 2.283741
+crit_bonus = +0.003178
 
 [sources."putrefy_st"]
 derived = 1.123200
-mult = 3.086503
-crit_bonus = +0.004529
+mult = 2.303814
+crit_bonus = +0.004662
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.980619
+mult = 0.707314
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 1.004693
+mult = 0.724678
 crit_bonus = +0.000000
 
 [sources."ruptured_viscera"]
 derived = 1.000000
-mult = 0.965405
-crit_bonus = +0.005538
+mult = 0.736618
+crit_bonus = +0.005113
 
 [sources."scourge_strike"]
 derived = 1.233375
-mult = 2.361061
-crit_bonus = +0.003196
+mult = 1.801508
+crit_bonus = +0.003268
 
 [sources."soul_reaper"]
 derived = 1.209000
-mult = 2.181171
-crit_bonus = -0.000341
+mult = 1.627962
+crit_bonus = -0.000612
 
 [sources."trollbanes_icy_fury"]
 derived = 1.170000
-mult = 0.825127
-crit_bonus = +0.003785
+mult = 0.635202
+crit_bonus = +0.004336
 
 [sources."undeath"]
 derived = 1.048320
-mult = 0.985332
-crit_bonus = +0.003214
+mult = 0.737221
+crit_bonus = +0.002626
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.937827
-crit_bonus = +0.002879
+mult = 0.506005
+crit_bonus = +0.002263
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.982108
-crit_bonus = +0.003582
+mult = 0.708384
+crit_bonus = +0.002238
 
 [sources."virulent_plague"]
 derived = 1.036035
-mult = 2.281260
+mult = 1.695368
 crit_bonus = +0.054280
 
 [sources."virulent_plague_erupt"]
 derived = 1.000000
-mult = 3.082727
-crit_bonus = +0.052411
+mult = 2.223560
+crit_bonus = +0.052384
 
 [buffs."sudden_doom".ability_pct]
 "necrotic_coil_shadow" = 35.0000
