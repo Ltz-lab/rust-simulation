@@ -59,8 +59,8 @@ enum CEffect {
     Consume { buff: usize, all: bool },
     Reset { ab: usize, chance: f64, rid: usize },
     Reduce { ab: usize, secs: f64, chance: f64, rid: usize },
-    Gain { res: usize, amt: f64, chance: f64, rid: usize },
-    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, rid: usize },
+    Gain { res: usize, amt: f64, expr: Option<Expr>, chance: f64, rid: usize },
+    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, chance_expr: Option<Expr>, rid: usize },
     ExtendDot { dot: usize, secs: f64 },
     DotStack { dot: usize, add: i32, set: Option<Expr>, min: u32 },
     CancelDot { dot: usize },
@@ -86,6 +86,8 @@ enum BuffKind {
 struct CAbility {
     def: AbilityDef,
     cost: Vec<(usize, f64)>,
+    /// (resource, most spent in total) for abilities that spend "up to".
+    cost_max: Vec<(usize, f64)>,
     gain: Vec<(usize, f64)>,
     free_with: Option<usize>,
     requires_buff: Option<usize>,
@@ -166,12 +168,36 @@ const RPPM_MAX_INTERVAL: f64 = 3.5;
 /// Bad-luck protection looks back at most this long.
 const RPPM_MAX_BLP: f64 = 1000.0;
 
+/// A buff's echo: while it's up, hits are copied as another ability's damage.
+#[derive(Debug, Clone)]
+struct CEcho {
+    buff: usize,
+    ab: usize,
+    pct: f64,
+    school_pct: HashMap<String, f64>,
+    /// Per result row: is it copied (empty: all are).
+    sources: Vec<bool>,
+    pre_armor: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct Compiled {
     pub spec: Spec,
     res_names: Vec<String>,
     res_max: Vec<f64>,
     res_start: Vec<f64>,
+    res_regen: Vec<f64>,
+    res_regen_hasted: Vec<bool>,
+    /// Resources that regenerate.
+    regen_res: Vec<usize>,
+    echoes: Vec<CEcho>,
+    /// Per result row: school of the damage (for echoes), and whether it is an echo's own row.
+    src_school: Vec<String>,
+    echo_row: Vec<bool>,
+    auto_oh_replace: Option<usize>,
+    /// Result rows of the auto attack and the plain off-hand auto attack.
+    auto_src: usize,
+    oh_src: Option<usize>,
     abilities: Vec<CAbility>,
     buffs: Vec<BuffDef>,
     dots: Vec<CDot>,
@@ -185,7 +211,13 @@ pub struct Compiled {
     auto_on_hit: Vec<CEffect>,
     auto_mult: f64,
     auto_replace: Option<usize>,
+    auto_wakes: bool,
     haste_buffs: Vec<(usize, f64)>,
+    attack_speed_buffs: Vec<(usize, f64)>,
+    /// Per buff: does it change attack speed.
+    as_buff: Vec<bool>,
+    /// Per buff: share of haste added to its attack-speed bonus.
+    as_per_haste: Vec<f64>,
     gcd_buffs: Vec<(usize, f64)>,
     crit_buffs: Vec<(usize, f64)>,
     store_buffs: Vec<(usize, f64)>,
@@ -241,6 +273,7 @@ impl<'a> Resolver for Names<'a> {
             ["fight_remains"] | ["target", "time_to_die"] => Var::FightRemains,
             ["target", "health", "pct"] => Var::HealthPct,
             ["active_enemies"] => Var::Const(1.0),
+            ["spent", r] => Var::Spent(get(self.res, "resource", r)?),
             ["cooldown", a, f] => {
                 let i = self.ab(a)?;
                 match *f {
@@ -248,6 +281,7 @@ impl<'a> Resolver for Names<'a> {
                     "remains" => Var::CdRemains(i),
                     "charges" => Var::CdCharges(i),
                     "charges_fractional" => Var::CdChargesFrac(i),
+                    "duration" => Var::CdDuration(i),
                     _ => return Err(format!("unknown cooldown field '{f}'")),
                 }
             }
@@ -330,9 +364,13 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
         Effect::ReduceCooldown { ability, seconds, chance } => {
             CEffect::Reduce { ab: n.ab(ability)?, secs: *seconds, chance: *chance, rid: rid() }
         }
-        Effect::Gain { resource, amount, chance } => {
-            CEffect::Gain { res: get(n.res, "resource", resource)?, amt: *amount, chance: *chance, rid: rid() }
-        }
+        Effect::Gain { resource, amount, amount_expr, chance } => CEffect::Gain {
+            res: get(n.res, "resource", resource)?,
+            amt: *amount,
+            expr: amount_expr.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("gain amount '{e}': {err}"))).transpose()?,
+            chance: *chance,
+            rid: rid(),
+        },
         Effect::ExtendDot { dot: d, seconds } => CEffect::ExtendDot { dot: n.dot(d)?, secs: *seconds },
         Effect::DotStack { dot: d, stacks, set, min } => CEffect::DotStack {
             dot: n.dot(d)?,
@@ -358,11 +396,12 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             each: compile_effects(each, n, &format!("{site}/each"), rolls)?,
         },
         Effect::ExtendPet { pet, seconds } => CEffect::ExtendPet { pet: get(n.pet, "pet", pet)?, secs: *seconds },
-        Effect::Trigger { ability, chance, delay, mastery_chance } => CEffect::Trigger {
+        Effect::Trigger { ability, chance, delay, mastery_chance, chance_expr } => CEffect::Trigger {
             ab: n.ab(ability)?,
             chance: *chance,
             delay: *delay,
             mastery_chance: *mastery_chance,
+            chance_expr: chance_expr.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("trigger chance '{e}': {err}"))).transpose()?,
             rid: rid(),
         },
     })
@@ -452,6 +491,11 @@ impl Compiled {
             }
         }
         src_names.push("auto_attack".into());
+        let oh_plain = spec.player.off_hand.is_some()
+            && spec.auto_attack.as_ref().is_none_or(|a| a.off_hand_replace_with.is_none());
+        if oh_plain {
+            src_names.push("auto_attack_off_hand".into());
+        }
 
         let mut abilities = Vec::new();
         let mut dots = Vec::new();
@@ -496,6 +540,7 @@ impl Compiled {
                 }
             };
             abilities.push(CAbility {
+                cost_max: if pi.is_none() { rmap(&a.cost_max).map_err(ctx)? } else { vec![] },
                 pet: pi,
                 pet_slot: pi.map_or(0, |i| ai - all.iter().position(|x| x.1 == Some(i)).unwrap()),
                 pet_cost,
@@ -588,6 +633,50 @@ impl Compiled {
             ),
             None => (vec![], 1.0, None),
         };
+        let auto_oh_replace = spec
+            .auto_attack
+            .as_ref()
+            .and_then(|a| a.off_hand_replace_with.as_ref())
+            .map(|n| get(&ab, "ability", n))
+            .transpose()?;
+
+        // Echoes: the school of every result row, and which rows are echoes' own.
+        let mut echoes = Vec::new();
+        for (bi, b) in spec.buffs.iter().enumerate() {
+            if let Some(e) = &b.echo {
+                let ctx = |err: String| format!("buff '{}' echo: {err}", b.name);
+                let ai = get(&ab, "ability", &e.ability).map_err(ctx)?;
+                if all[ai].0.damage.is_none() {
+                    return Err(ctx(format!("'{}' has no damage", e.ability)));
+                }
+                let sources = e
+                    .sources
+                    .iter()
+                    .map(|n| src_names.iter().position(|x| x == n).ok_or_else(|| ctx(format!("no damage source '{n}'"))))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut mask = vec![sources.is_empty(); src_names.len()];
+                for i in sources {
+                    mask[i] = true;
+                }
+                echoes.push(CEcho { buff: bi, ab: ai, pct: e.pct / 100.0, school_pct: e.school_pct.iter().map(|(k, v)| (k.clone(), v / 100.0)).collect(), sources: mask, pre_armor: e.pre_armor });
+            }
+        }
+        let mut src_school = vec!["physical".to_string(); src_names.len()];
+        let mut echo_row = vec![false; src_names.len()];
+        if !echoes.is_empty() {
+            for (ai, (a, _)) in all.iter().enumerate() {
+                if let Some(d) = &a.damage {
+                    src_school[ab_src[ai]] = d.school.clone();
+                }
+                if let Some(d) = &a.dot {
+                    let i = src_names.iter().position(|x| *x == d.name).unwrap();
+                    src_school[i] = d.school.clone();
+                }
+            }
+            for e in &echoes {
+                echo_row[ab_src[e.ab]] = true;
+            }
+        }
         let haste_buffs = spec
             .buffs
             .iter()
@@ -719,6 +808,15 @@ impl Compiled {
         Ok(Compiled {
             res_max: res_names.iter().map(|n| spec.resources[n].max).collect(),
             res_start: res_names.iter().map(|n| spec.resources[n].start).collect(),
+            res_regen: res_names.iter().map(|n| spec.resources[n].regen).collect(),
+            res_regen_hasted: res_names.iter().map(|n| spec.resources[n].regen_hasted).collect(),
+            regen_res: (0..res_names.len()).filter(|&i| spec.resources[&res_names[i]].regen > 0.0).collect(),
+            echoes,
+            src_school,
+            echo_row,
+            auto_oh_replace,
+            auto_src: src_names.iter().rposition(|n| n == "auto_attack").unwrap(),
+            oh_src: src_names.iter().rposition(|n| n == "auto_attack_off_hand").filter(|_| oh_plain),
             res_names,
             auto_mods: buff_mods(&spec.buffs, "auto_attack", "auto_attack", "physical", None),
             buffs: spec.buffs.clone(),
@@ -733,7 +831,17 @@ impl Compiled {
             auto_on_hit,
             auto_mult,
             auto_replace,
+            auto_wakes: spec.auto_attack.as_ref().is_none_or(|a| a.wakes),
             haste_buffs,
+            attack_speed_buffs: spec
+                .buffs
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| b.attack_speed_pct != 0.0 || b.attack_speed_per_haste != 0.0)
+                .map(|(i, b)| (i, b.attack_speed_pct / 100.0))
+                .collect(),
+            as_buff: spec.buffs.iter().map(|b| b.attack_speed_pct != 0.0 || b.attack_speed_per_haste != 0.0).collect(),
+            as_per_haste: spec.buffs.iter().map(|b| b.attack_speed_per_haste).collect(),
             gcd_buffs,
             crit_buffs,
             store_buffs,
@@ -750,8 +858,10 @@ impl Compiled {
         })
     }
 
-    /// Damage sources in result order: abilities, then dots, then auto attack.
+    /// Damage sources in result order: abilities, then dots, then auto attack
+    /// (and the plain off-hand auto attack, if there is one).
     pub fn source_names(&self) -> &[String] { &self.names }
+
 
     // Stream layout: fight length, crit per source, damage range per source,
     // RPPM per proc, one per chance-roll site, then one per on-hit proc.
@@ -769,7 +879,9 @@ const FIGHT_STREAM: usize = 0;
 #[derive(Clone, Copy)]
 enum Ev {
     Ready,
-    Auto,
+    // swing generation: stale once the swing was resized
+    Auto(u32),
+    AutoOh(u32),
     DotTick(u32, u32),
     Trigger(u32),
     Proc(u32),
@@ -837,6 +949,10 @@ struct State<'a> {
     now: f64,
     end: f64,
     res: Vec<f64>,
+    /// Regenerating resources: `res` is their value as of this time.
+    res_t: Vec<f64>,
+    /// What the player's last cast paid, per resource.
+    spent: Vec<f64>,
     charges: Vec<u32>,
     recharge_at: Vec<f64>,
     cd_len: Vec<f64>,
@@ -862,6 +978,9 @@ struct State<'a> {
     cur_pet: Option<usize>,
     /// (pet, slot) that `self.*` refers to.
     ctx: Option<(usize, usize)>,
+    /// Main- and off-hand: when the next swing lands, and its generation.
+    swing_at: [f64; 2],
+    swing_gen: [u32; 2],
     gcd_ready: f64,
     /// The player is casting until this time.
     cast_end: f64,
@@ -878,7 +997,8 @@ impl<'a> Env for State<'a> {
     fn var(&self, v: &Var) -> f64 {
         let b = |x: bool| if x { 1.0 } else { 0.0 };
         match *v {
-            Var::Resource(i) => self.res[i],
+            Var::Resource(i) => self.res_now(i),
+            Var::Spent(i) => self.spent[i],
             Var::Gcd => self.gcd_len(1.5, true),
             Var::Time => self.now,
             Var::FightRemains => (self.end - self.now).max(0.0),
@@ -895,6 +1015,7 @@ impl<'a> Env for State<'a> {
                     n as f64 + 1.0 - ((self.recharge_at[i] - self.now) / self.cd_len[i]).clamp(0.0, 1.0)
                 }
             }
+            Var::CdDuration(i) => self.cd_length(i),
             Var::BuffUp(i) => b(self.buff_up(i)),
             Var::BuffRemains(i) => if self.buff_up(i) { (self.buff_exp[i] - self.now).max(0.0) } else { 0.0 },
             Var::BuffStack(i) => self.stacks(i),
@@ -941,6 +1062,8 @@ impl<'a> State<'a> {
             now: 0.0,
             end,
             res: c.res_start.clone(),
+            res_t: vec![0.0; c.res_start.len()],
+            spent: vec![0.0; c.res_start.len()],
             charges: c.abilities.iter().map(|a| a.def.charges).collect(),
             recharge_at: vec![INF; na],
             cd_len: vec![0.0; na],
@@ -959,6 +1082,8 @@ impl<'a> State<'a> {
             pets: vec![Vec::new(); c.pets.len()],
             cur_pet: None,
             ctx: None,
+            swing_at: [0.0; 2],
+            swing_gen: [0; 2],
             gcd_ready: 0.0,
             cast_end: 0.0,
             q: BinaryHeap::new(),
@@ -1024,6 +1149,131 @@ impl<'a> State<'a> {
             h *= 1.0 + p * self.mod_stacks(b);
         }
         h
+    }
+
+    /// Haste multiplier with the buffs as they stand, counting a buff only if
+    /// it is still up at time `t` (for times since the last settle).
+    fn haste_at(&self, t: f64) -> f64 {
+        let mut h = 1.0 + self.c.spec.player.haste;
+        for &(b, p) in &self.c.haste_buffs {
+            let k = match self.c.buff_kind[b] {
+                BuffKind::Shared => if self.buff_exp[b] > t { self.buff_stk[b] as f64 } else { 0.0 },
+                BuffKind::Overlap => self.ov_exp[b].iter().filter(|&&x| x > t).count() as f64,
+                BuffKind::Health(..) => self.stacks(b),
+            };
+            h *= 1.0 + p * if self.c.buffs[b].flat { k.min(1.0) } else { k };
+        }
+        h
+    }
+
+    /// Current value of a resource, with regeneration since it was last
+    /// settled, integrated piece by piece across haste buffs running out.
+    fn res_now(&self, r: usize) -> f64 {
+        let rate = self.c.res_regen[r];
+        if rate <= 0.0 {
+            return self.res[r];
+        }
+        let max = self.c.res_max[r];
+        let (mut v, mut a) = (self.res[r], self.res_t[r]);
+        if !self.c.res_regen_hasted[r] {
+            return (v + rate * (self.now - a)).min(max);
+        }
+        // next haste-buff expiry after `a` (and before now), one segment at a time
+        loop {
+            let mut b = self.now;
+            for &(x, _) in &self.c.haste_buffs {
+                match self.c.buff_kind[x] {
+                    BuffKind::Shared => {
+                        let t = self.buff_exp[x];
+                        if t > a && t < b {
+                            b = t;
+                        }
+                    }
+                    BuffKind::Overlap => {
+                        for &t in &self.ov_exp[x] {
+                            if t > a && t < b {
+                                b = t;
+                            }
+                        }
+                    }
+                    BuffKind::Health(..) => {}
+                }
+            }
+            v = (v + rate * self.haste_at(0.5 * (a + b)) * (b - a)).min(max);
+            if b >= self.now {
+                return v;
+            }
+            a = b;
+        }
+    }
+
+    /// Bring regenerating resources up to now. Runs before anything changes
+    /// a resource or a buff, so the elapsed time regenerates at the old rate.
+    fn settle(&mut self) {
+        for k in 0..self.c.regen_res.len() {
+            let r = self.c.regen_res[k];
+            self.res[r] = self.res_now(r);
+            self.res_t[r] = self.now;
+        }
+    }
+
+    /// Earliest time an ability blocked only by regenerating resources becomes affordable.
+    fn affordable_at(&self, i: usize) -> Option<f64> {
+        let a = &self.c.abilities[i];
+        if a.def.triggered_only
+            || (a.def.cooldown > 0.0 && self.charges_now(i) == 0)
+            || a.requires_buff.is_some_and(|b| !self.buff_up(b))
+            || a.free_with.is_some_and(|b| self.buff_up(b))
+        {
+            return None;
+        }
+        let mut t = self.now;
+        for &(r, amt) in &a.cost {
+            let have = self.res_now(r);
+            if have + 1e-9 >= amt {
+                continue;
+            }
+            let rate = self.c.res_regen[r] * if self.c.res_regen_hasted[r] { self.haste_mult() } else { 1.0 };
+            if rate <= 0.0 || amt > self.c.res_max[r] {
+                return None;
+            }
+            t = t.max(self.now + (amt - have) / rate);
+        }
+        Some(t)
+    }
+
+    /// Auto-attack swing time for a weapon speed.
+    fn swing_time(&self, speed: f64) -> f64 {
+        if self.c.attack_speed_buffs.is_empty() {
+            return speed / self.haste_mult();
+        }
+        speed / (self.haste_mult() * self.attack_speed_mult())
+    }
+
+    /// Product of the attack-speed buffs' bonuses.
+    fn attack_speed_mult(&self) -> f64 {
+        let h = self.haste_mult() - 1.0;
+        self.c.attack_speed_buffs.iter().map(|&(b, p)| 1.0 + (p + self.c.as_per_haste[b] * h) * self.mod_stacks(b)).product()
+    }
+
+    fn schedule_swing(&mut self, hand: usize, t: f64) {
+        self.swing_at[hand] = t;
+        let g = self.swing_gen[hand];
+        self.push(t, if hand == 0 { Ev::Auto(g) } else { Ev::AutoOh(g) });
+    }
+
+    /// Attack speed changed by `f` (old / new swing time): swings in
+    /// progress land sooner or later in proportion.
+    #[inline(never)]
+    fn resize_swings(&mut self, f: f64) {
+        for hand in 0..2 {
+            let has = if hand == 0 { self.c.spec.player.weapon.is_some() } else { self.c.spec.player.off_hand.is_some() };
+            let rem = self.swing_at[hand] - self.now;
+            if has && rem > 0.0 {
+                self.swing_gen[hand] += 1;
+                self.schedule_swing(hand, self.now + rem * f);
+            }
+        }
     }
 
     fn gcd_len(&self, base: f64, hasted: bool) -> f64 {
@@ -1114,7 +1364,7 @@ impl<'a> State<'a> {
         let free = a.free_with.is_some_and(|b| self.buff_up(b));
         if !free {
             for &(r, amt) in &a.cost {
-                if self.res[r] + 1e-9 < amt {
+                if self.res_now(r) + 1e-9 < amt {
                     return false;
                 }
             }
@@ -1123,6 +1373,7 @@ impl<'a> State<'a> {
     }
 
     fn gain(&mut self, r: usize, amt: f64) {
+        self.settle();
         let before = self.res[r];
         self.res[r] = (before + amt).min(self.c.res_max[r]);
         if let Some(&src) = self.cur.last() {
@@ -1137,7 +1388,7 @@ impl<'a> State<'a> {
 
     /// Schedule the natural-expiry check for a buff with `on_expire` effects.
     fn watch_expiry(&mut self, buff: usize) {
-        if !self.c.on_expire[buff].is_empty() || !self.c.rate_users[buff].is_empty() {
+        if !self.c.on_expire[buff].is_empty() || !self.c.rate_users[buff].is_empty() || self.c.as_buff[buff] {
             self.push(self.buff_exp[buff], Ev::BuffExpire(buff as u32));
         }
     }
@@ -1164,6 +1415,8 @@ impl<'a> State<'a> {
                 if !self.roll(rid, chance) {
                     return;
                 }
+                self.settle();
+                let as0 = if self.c.as_buff[buff] { self.attack_speed_mult() } else { 1.0 };
                 let set = set.as_ref().map(|e| e.eval(self).round().max(0.0) as u32);
                 if set == Some(0) {
                     self.apply(&CEffect::Consume { buff, all: true });
@@ -1171,7 +1424,10 @@ impl<'a> State<'a> {
                 }
                 let k0 = self.mod_stacks(buff);
                 let def = &self.c.buffs[buff];
-                let dur = dur.unwrap_or(def.duration);
+                let mut dur = dur.unwrap_or(def.duration);
+                if def.haste_duration != 0.0 {
+                    dur *= 1.0 + def.haste_duration * (self.haste_mult() - 1.0);
+                }
                 if self.c.buff_kind[buff] == BuffKind::Overlap {
                     let now = self.now;
                     let v = &mut self.ov_exp[buff];
@@ -1201,11 +1457,19 @@ impl<'a> State<'a> {
                     println!("{:8.3} buff {} -> {}", self.now, def.name, self.stacks(buff));
                 }
                 self.rescale_recharges(buff, k0, self.mod_stacks(buff));
+                if self.c.as_buff[buff] {
+                    let as1 = self.attack_speed_mult();
+                    if as1 != as0 {
+                        self.resize_swings(as0 / as1);
+                    }
+                }
             }
             CEffect::Consume { buff, all } => {
                 if !self.buff_up(buff) {
                     return;
                 }
+                self.settle();
+                let as0 = if self.c.as_buff[buff] { self.attack_speed_mult() } else { 1.0 };
                 let k0 = self.mod_stacks(buff);
                 if self.c.buff_kind[buff] == BuffKind::Overlap {
                     let now = self.now;
@@ -1223,6 +1487,12 @@ impl<'a> State<'a> {
                     self.buff_stk[buff] -= 1;
                 }
                 self.rescale_recharges(buff, k0, self.mod_stacks(buff));
+                if self.c.as_buff[buff] {
+                    let as1 = self.attack_speed_mult();
+                    if as1 != as0 {
+                        self.resize_swings(as0 / as1);
+                    }
+                }
             }
             CEffect::Reset { ab, chance, rid } => {
                 if !self.roll(rid, chance) {
@@ -1248,10 +1518,14 @@ impl<'a> State<'a> {
                     self.sync_cd(ab);
                 }
             }
-            CEffect::Gain { res, amt, chance, rid } => {
+            CEffect::Gain { res, amt, ref expr, chance, rid } => {
                 if !self.roll(rid, chance) {
                     return;
                 }
+                let amt = match expr {
+                    Some(e) => e.eval(self),
+                    None => amt,
+                };
                 self.gain(res, amt);
             }
             CEffect::ExtendDot { dot, secs } => {
@@ -1283,6 +1557,7 @@ impl<'a> State<'a> {
                 if !self.buff_up(buff) {
                     return;
                 }
+                self.settle();
                 match self.c.buff_kind[buff] {
                     BuffKind::Overlap => self.ov_exp[buff].iter_mut().for_each(|t| *t += secs),
                     BuffKind::Shared => {
@@ -1301,10 +1576,11 @@ impl<'a> State<'a> {
             CEffect::Summon { pet, count, dur } => self.summon(pet, count, dur),
             CEffect::Dismiss { pet, count, ref each } => self.dismiss(pet, count, each),
             CEffect::ExtendPet { pet, secs } => self.extend_pet(pet, secs),
-            CEffect::Trigger { ab, chance, delay, mastery_chance, rid } => {
-                let chance = match mastery_chance {
-                    Some(f) => self.mastery() * f,
-                    None => chance,
+            CEffect::Trigger { ab, chance, delay, mastery_chance, ref chance_expr, rid } => {
+                let chance = match (mastery_chance, chance_expr) {
+                    (Some(f), _) => self.mastery() * f,
+                    (None, Some(e)) => e.eval(self),
+                    (None, None) => chance,
                 };
                 if !self.roll(rid, chance) {
                     return;
@@ -1374,7 +1650,28 @@ impl<'a> State<'a> {
         let cm = p.crit_multiplier + crit_dmg + self.buff_sum(&self.c.crit_dmg_buffs);
         let dmg = base * m * if crit { cm } else { 1.0 };
         self.record(src, dmg, crit);
+        if !self.c.echoes.is_empty() && !self.c.echo_row[src] {
+            let armor = if physical && !raw { self.c.spec.fight.physical_mult } else { 1.0 };
+            self.echo(src, dmg, armor);
+        }
         (crit, dmg)
+    }
+
+    /// Copy a hit as the damage of every echo buff that is up.
+    #[inline(never)]
+    fn echo(&mut self, src: usize, dmg: f64, armor: f64) {
+        let c = self.c;
+        for e in &c.echoes {
+            if !e.sources[src] || !self.buff_up(e.buff) {
+                continue;
+            }
+            let pct = e.school_pct.get(&c.src_school[src]).copied().unwrap_or(e.pct) * self.mod_stacks(e.buff);
+            let base = if e.pre_armor { dmg / armor } else { dmg } * pct;
+            let a = &c.abilities[e.ab];
+            let d = a.def.damage.as_ref().unwrap();
+            self.hit(a.src, base, d.mult, &[], &a.crit_mods, false, d.crit_bonus, d.crit_damage_bonus, false, true);
+            self.out.casts[a.src] += 1;
+        }
     }
 
     fn power_mult(&self) -> f64 { 1.0 + self.buff_sum(&self.c.power_buffs) }
@@ -1512,7 +1809,7 @@ impl<'a> State<'a> {
             }
         }
         if self.log {
-            let res: Vec<String> = c.res_names.iter().zip(&self.res).map(|(n, v)| format!("{n}={v}")).collect();
+            let res: Vec<String> = c.res_names.iter().enumerate().map(|(r, n)| format!("{n}={}", self.res_now(r))).collect();
             println!("{:8.3} {} {} [{}]", self.now, if triggered { "trigger" } else { "cast" }, a.def.name, res.join(" "));
         }
         self.depth += 1;
@@ -1526,8 +1823,16 @@ impl<'a> State<'a> {
                     self.apply(e);
                 }
             } else {
+                self.settle();
                 for &(r, amt) in &a.cost {
                     self.res[r] -= amt;
+                    self.spent[r] = amt;
+                }
+                for &(r, most) in &a.cost_max {
+                    let paid = a.cost.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
+                    let more = (most - paid).min(self.res[r]).max(0.0);
+                    self.res[r] -= more;
+                    self.spent[r] = paid + more;
                 }
             }
         }
@@ -1835,7 +2140,12 @@ impl<'a> State<'a> {
         }
         self.push(0.0, Ev::Ready);
         if c.spec.player.weapon.is_some() {
-            self.push(0.0, Ev::Auto);
+            self.schedule_swing(0, 0.0);
+        }
+        if let Some(w) = &c.spec.player.off_hand {
+            // the off hand's first swing comes half a swing after the main hand's
+            let t = 0.5 * self.swing_time(w.speed);
+            self.schedule_swing(1, t);
         }
         for k in 0..c.procs.len() {
             self.schedule_proc(k);
@@ -1857,9 +2167,35 @@ impl<'a> State<'a> {
         if self.now >= self.end {
             return false;
         }
-        let auto_src = c.names.len() - 1;
+        let auto_src = c.auto_src;
         match ev {
-            Ev::Auto => {
+            Ev::AutoOh(g) => {
+                if g != self.swing_gen[1] {
+                    return true;
+                }
+                match (c.auto_oh_replace, c.oh_src) {
+                    (Some(i), _) => self.execute(i, true),
+                    (None, Some(src)) => {
+                        let w = c.spec.player.off_hand.as_ref().unwrap();
+                        let base = if w.max > w.min { self.rng.range(c.range_stream(src), w.min, w.max) } else { w.min };
+                        self.hit(src, 0.5 * base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, false);
+                        self.out.casts[src] += 1;
+                    }
+                    (None, None) => unreachable!(),
+                }
+                for e in &c.auto_on_hit {
+                    self.apply(e);
+                }
+                let speed = self.swing_time(c.spec.player.off_hand.as_ref().unwrap().speed);
+                self.schedule_swing(1, self.now + speed);
+                if c.auto_wakes && self.gcd_ready <= self.now {
+                    self.push(self.now, Ev::Ready);
+                }
+            }
+            Ev::Auto(g) => {
+                if g != self.swing_gen[0] {
+                    return true;
+                }
                 match c.auto_replace {
                     Some(i) => self.execute(i, true),
                     None => {
@@ -1872,9 +2208,9 @@ impl<'a> State<'a> {
                 for e in &c.auto_on_hit {
                     self.apply(e);
                 }
-                let speed = c.spec.player.weapon.as_ref().unwrap().speed / self.haste_mult();
-                self.push(self.now + speed, Ev::Auto);
-                if self.gcd_ready <= self.now {
+                let speed = self.swing_time(c.spec.player.weapon.as_ref().unwrap().speed);
+                self.schedule_swing(0, self.now + speed);
+                if c.auto_wakes && self.gcd_ready <= self.now {
                     self.push(self.now, Ev::Ready); // a proc may have made something castable
                 }
             }
@@ -1942,9 +2278,23 @@ impl<'a> State<'a> {
                 let b = b as usize;
                 // stale if the buff was refreshed, extended or consumed since
                 if (self.buff_exp[b] - self.now).abs() < 1e-6 && self.buff_stk[b] > 0 {
+                    self.settle();
                     let k = self.buff_stk[b] as f64;
                     let k0 = if c.buffs[b].flat { k.min(1.0) } else { k };
+                    let as0 = if c.as_buff[b] {
+                        // still counted as up at its expiry instant
+                        let h = self.haste_mult() - 1.0;
+                        c.attack_speed_buffs.iter().map(|&(x, p)| 1.0 + (p + c.as_per_haste[x] * h) * if x == b { k0 } else { self.mod_stacks(x) }).product()
+                    } else {
+                        1.0
+                    };
                     self.buff_stk[b] = 0;
+                    if c.as_buff[b] {
+                        let as1 = self.attack_speed_mult();
+                        if as1 != as0 {
+                            self.resize_swings(as0 / as1);
+                        }
+                    }
                     self.rescale_recharges(b, k0, 0.0);
                     if self.log {
                         println!("{:8.3} buff {} expires", self.now, c.buffs[b].name);
@@ -1982,14 +2332,23 @@ impl<'a> State<'a> {
                     }
                     None => {
                         // idle until the next cooldown comes up (or re-check shortly)
-                        let mut next = self.now + 0.5;
+                        let mut next = self.now + c.spec.fight.idle_poll;
                         for (i, _) in &c.rotation {
                             let r = self.cd_remains(*i);
                             if r > 0.0 {
                                 next = next.min(self.now + r);
                             }
                         }
-                        self.push(next.max(self.now + 0.01), Ev::Ready);
+                        let mut next = next.max(self.now + 0.01);
+                        if !c.regen_res.is_empty() {
+                            // ... or until regeneration pays for something
+                            for (i, _) in &c.rotation {
+                                if let Some(t) = self.affordable_at(*i).filter(|&t| t > self.now) {
+                                    next = next.min(t + 1e-6);
+                                }
+                            }
+                        }
+                        self.push(next, Ev::Ready);
                     }
                 }
             }
@@ -2449,6 +2808,157 @@ action = "strike"
         advance(&mut st, 40.0);
         // one per hit, at most one per 2s internal cooldown, for 20s
         assert_eq!(st.out.casts[src(&c, "gated")], 10);
+    }
+
+    /// Energy, combo points, dual wield and echoes on a bare character.
+    const ROGUE: &str = r#"
+name = "rogue test"
+[player]
+attack_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+weapon = { min = 100, max = 100, speed = 2.0 }
+off_hand = { min = 100, max = 100, speed = 2.0 }
+[fight]
+duration = 100
+variance = 0
+physical_mult = 1.0
+[resources.energy]
+max = 100
+start = 0
+regen = 10
+regen_hasted = true
+[resources.combo_points]
+max = 5
+[[buffs]]
+name = "quick"
+duration = 5
+haste_pct = 100
+[[buffs]]
+name = "frenzy"
+duration = 10
+attack_speed_pct = 100
+[[buffs]]
+name = "blades"
+duration = 100
+echo = { ability = "copy", pct = 50, school_pct = { shadow = 10 } }
+[[buffs]]
+name = "dance"
+duration = 4
+haste_duration = 1.0
+[[abilities]]
+name = "copy"
+triggered_only = true
+damage = { school = "shadow", crit_bonus = -1 }
+[[abilities]]
+name = "build"
+cost = { energy = 50 }
+gain = { combo_points = 2 }
+gcd = 1.0
+gcd_hasted = false
+[[abilities]]
+name = "finish"
+cost = { combo_points = 1 }
+cost_max = { combo_points = 5 }
+gcd = 1.0
+gcd_hasted = false
+damage = { ap_coeff = 1.0, scale = "spent.combo_points" }
+on_cast = [{ type = "gain", resource = "energy", amount_expr = "10*spent.combo_points" }]
+[[abilities]]
+name = "shadow_hit"
+triggered_only = true
+damage = { ap_coeff = 1.0, school = "shadow" }
+[[abilities]]
+name = "maybe"
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "shadow_hit", chance_expr = "combo_points>=5" }]
+[[rotation]]
+action = "build"
+"#;
+
+    #[test]
+    fn energy_regenerates_with_haste_and_pays_for_casts() {
+        let c = compile(ROGUE);
+        let mut st = state(&c);
+        let e = c.res_names.iter().position(|n| n == "energy").unwrap();
+        advance(&mut st, 4.99);
+        // 50 energy at 5s: the first build waits for it
+        assert_eq!(st.out.casts[src(&c, "build")], 0);
+        advance(&mut st, 5.01);
+        assert_eq!(st.out.casts[src(&c, "build")], 1);
+        assert!(st.res_now(e) < 1.0);
+        // double haste for 5s doubles the rate, and it drops back as the buff runs out
+        let quick = c.buffs.iter().position(|b| b.name == "quick").unwrap();
+        st.apply(&CEffect::Buff { buff: quick, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        let t0 = st.now;
+        let v0 = st.res_now(e);
+        st.now = t0 + 2.0;
+        assert!((st.res_now(e) - (v0 + 40.0)).abs() < 1e-6);
+        st.settle();
+        st.res[e] = 0.0;
+        // 3s left at double rate, then 1s at the base rate
+        st.now = t0 + 6.0;
+        assert!((st.res_now(e) - 70.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn finishers_spend_up_to_the_cap_and_scale_with_it() {
+        let c = compile(ROGUE);
+        let mut st = state(&c);
+        let cp = c.res_names.iter().position(|n| n == "combo_points").unwrap();
+        st.res[cp] = 4.0;
+        let f = ab(&c, "finish");
+        st.execute(f, false);
+        assert_eq!(st.res[cp], 0.0);
+        assert_eq!(st.spent[cp], 4.0);
+        assert!((st.out.damage[src(&c, "finish")] - 4000.0).abs() < 1e-9);
+        // amount_expr: 10 energy per point spent
+        let e = c.res_names.iter().position(|n| n == "energy").unwrap();
+        assert!((st.res_now(e) - 40.0).abs() < 1e-9);
+        // chance_expr
+        cast(&mut st, "maybe");
+        assert_eq!(st.out.hits[src(&c, "shadow_hit")], 0);
+        st.res[cp] = 5.0;
+        cast(&mut st, "maybe");
+        assert_eq!(st.out.hits[src(&c, "shadow_hit")], 1);
+    }
+
+    #[test]
+    fn both_hands_swing_and_attack_speed_resizes_the_swing() {
+        let c = compile(&ROGUE.replace("[[rotation]]\naction = \"build\"", "[[rotation]]\naction = \"finish\""));
+        let mut st = state(&c);
+        advance(&mut st, 9.9);
+        // main hand at 0, 2, .., 8; off hand at 1, 3, .., 9; half damage
+        assert_eq!(st.out.hits[src(&c, "auto_attack")], 5);
+        assert_eq!(st.out.hits[src(&c, "auto_attack_off_hand")], 5);
+        assert!((st.out.damage[src(&c, "auto_attack_off_hand")] - 5.0 * 50.0).abs() < 1e-9);
+        // at 9.9 the main hand is 0.1s from its swing; doubling attack speed brings it to 0.05s
+        let frenzy = c.buffs.iter().position(|b| b.name == "frenzy").unwrap();
+        st.apply(&CEffect::Buff { buff: frenzy, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        assert!((st.swing_at[0] - 9.95).abs() < 1e-9);
+        advance(&mut st, 12.0);
+        // then every second: 9.95, 10.95, 11.95
+        assert_eq!(st.out.hits[src(&c, "auto_attack")], 8);
+    }
+
+    #[test]
+    fn echoes_copy_hits_by_school_and_durations_grow_with_haste() {
+        let c = compile(ROGUE);
+        let mut st = state(&c);
+        let blades = c.buffs.iter().position(|b| b.name == "blades").unwrap();
+        st.apply(&CEffect::Buff { buff: blades, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        cast(&mut st, "shadow_hit");
+        // shadow hits copy 10%, the copy itself isn't copied
+        assert!((st.out.damage[src(&c, "copy")] - 100.0).abs() < 1e-9);
+        advance(&mut st, 0.5);
+        // the main-hand swing at 0 (physical): 50%
+        assert!((st.out.damage[src(&c, "copy")] - 100.0 - 50.0).abs() < 1e-9);
+        let dance = c.buffs.iter().position(|b| b.name == "dance").unwrap();
+        let quick = c.buffs.iter().position(|b| b.name == "quick").unwrap();
+        st.apply(&CEffect::Buff { buff: quick, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        st.apply(&CEffect::Buff { buff: dance, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        assert!((st.buff_exp[dance] - st.now - 8.0).abs() < 1e-9);
     }
 
     #[test]

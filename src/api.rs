@@ -27,6 +27,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/destruction_hellcaller.toml"),
         include_str!("../calibration/destruction_hellcaller.toml"),
     ),
+    (
+        "subtlety_deathstalker",
+        include_str!("../specs/subtlety_deathstalker.toml"),
+        include_str!("../calibration/subtlety_deathstalker.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
@@ -362,7 +367,7 @@ mod tests {
     #[test]
     fn unknown_spec_and_gearless_spec() {
         assert!(run_json(r#"{"spec":"nope"}"#).is_err());
-        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller"] {
+        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller", "subtlety_deathstalker"] {
             assert!(supports_gear(name), "{name}");
         }
         // A spec without a [gear] table can't take gear lines
@@ -386,5 +391,22 @@ mod tests {
         // Chaos Bolt and Shadowburn stack Wither, which collapses into Blackened Soul hits
         assert!(hits("chaos_bolt") > 30 && hits("shadowburn") > 15);
         assert!(hits("blackened_soul") > 100, "blackened_soul hits: {}", hits("blackened_soul"));
+    }
+
+    #[test]
+    fn subtlety_energy_combo_points_and_clones() {
+        let b = builtin("subtlety_deathstalker").unwrap();
+        let mut s: spec::Spec = toml::from_str(b.1).unwrap();
+        s.apply_calibration(&toml::from_str(b.2).unwrap()).unwrap();
+        let c = sim::Compiled::new(s).unwrap();
+        let r = sim::run_iteration(&c, 7, false);
+        let hits = |n: &str| r.hits[c.source_names().iter().position(|s| s == n).unwrap()];
+        // energy regeneration and Shadow Techniques' combo points carry ~130 Eviscerates a fight
+        assert!((90..170).contains(&hits("eviscerate")), "eviscerate: {}", hits("eviscerate"));
+        // both hands swing, and the Mark's stacks turn auto attacks into Hunt Them Down
+        assert!(hits("auto_attack_mh") > 300 && hits("auto_attack_oh") > 300);
+        assert!(hits("hunt_them_down") > 400);
+        // clones and copies: Ancient Arts, Shadow Blades, Goremaw's Bite
+        assert!(hits("eviscerate_shadow_clone") > 20 && hits("shadow_blades_attack") > 300 && hits("goremaws_bite_finisher") > 60);
     }
 }

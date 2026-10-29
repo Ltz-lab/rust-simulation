@@ -151,6 +151,10 @@ pub struct PlayerStats {
     pub global_mult: f64,
     #[serde(default)]
     pub weapon: Option<Weapon>,
+    /// Off-hand weapon (dual wield): its own swing timer; the first swing
+    /// comes at half its swing time.
+    #[serde(default)]
+    pub off_hand: Option<Weapon>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -170,11 +174,14 @@ pub struct Fight {
     /// Damage multiplier applied to physical hits (boss armor).
     #[serde(default = "default_armor")]
     pub physical_mult: f64,
+    /// Seconds between re-checks of the rotation while nothing is usable.
+    #[serde(default = "default_idle_poll")]
+    pub idle_poll: f64,
 }
 
 impl Default for Fight {
     fn default() -> Self {
-        Fight { duration: 300.0, variance: 0.2, physical_mult: default_armor() }
+        Fight { duration: 300.0, variance: 0.2, physical_mult: default_armor(), idle_poll: default_idle_poll() }
     }
 }
 
@@ -183,6 +190,12 @@ pub struct ResourceDef {
     pub max: f64,
     #[serde(default)]
     pub start: f64,
+    /// Passive regeneration per second (0: the resource only changes by costs and gains).
+    #[serde(default)]
+    pub regen: f64,
+    /// Regeneration scales with the player's current haste (buffs included).
+    #[serde(default)]
+    pub regen_hasted: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -210,6 +223,11 @@ pub struct AbilityDef {
     pub cast_hasted: bool,
     #[serde(default)]
     pub cost: HashMap<String, f64>,
+    /// Spend up to this much of a resource in total (at least `cost`), like
+    /// a finisher spending every combo point. `spent.<resource>` in
+    /// expressions is what the last cast that paid it paid.
+    #[serde(default)]
+    pub cost_max: HashMap<String, f64>,
     #[serde(default)]
     pub gain: HashMap<String, f64>,
     #[serde(default)]
@@ -371,8 +389,16 @@ pub struct AutoAttackDef {
     /// Each swing executes this ability instead of dealing weapon damage.
     #[serde(default)]
     pub replace_with: Option<String>,
+    /// Same, for off-hand swings (`player.off_hand`). Without it they deal
+    /// half the off-hand weapon's damage, as `auto_attack_off_hand`.
+    #[serde(default)]
+    pub off_hand_replace_with: Option<String>,
     #[serde(default)]
     pub on_hit: Vec<Effect>,
+    /// Each swing re-checks the rotation (a swing's procs may make something
+    /// castable). False: only the GCD, cooldowns, costs and the idle poll do.
+    #[serde(default = "yes")]
+    pub wakes: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -410,7 +436,11 @@ pub enum Effect {
     },
     Gain {
         resource: String,
+        #[serde(default)]
         amount: f64,
+        /// Amount from a condition-language expression instead (e.g. a buff's stacks).
+        #[serde(default)]
+        amount_expr: Option<String>,
         #[serde(default = "one")]
         chance: f64,
     },
@@ -482,6 +512,9 @@ pub enum Effect {
         delay: f64,
         #[serde(default)]
         mastery_chance: Option<f64>,
+        /// Proc chance from a condition-language expression (overrides `chance`).
+        #[serde(default)]
+        chance_expr: Option<String>,
     },
 }
 
@@ -530,6 +563,13 @@ pub struct BuffDef {
     pub stats: HashMap<String, f64>,
     #[serde(default)]
     pub haste_pct: f64,
+    /// Auto-attack speed only (percent).
+    #[serde(default)]
+    pub attack_speed_pct: f64,
+    /// Adds this share of the player's current haste to `attack_speed_pct`
+    /// (1 = "increased by an additional amount equal to your haste").
+    #[serde(default)]
+    pub attack_speed_per_haste: f64,
     /// Reduces the global cooldown only (percent speed-up).
     #[serde(default)]
     pub gcd_pct: f64,
@@ -563,6 +603,33 @@ pub struct BuffDef {
     /// Effects when the buff runs out on its own (not when consumed).
     #[serde(default)]
     pub on_expire: Vec<Effect>,
+    /// Duration grows with haste: x (1 + this x current haste, buffs included) when applied.
+    #[serde(default)]
+    pub haste_duration: f64,
+    /// While up, hits are copied as extra damage (see EchoDef).
+    #[serde(default)]
+    pub echo: Option<EchoDef>,
+}
+
+/// A buff that copies a share of each hit as another ability's damage
+/// (e.g. "X% of damage dealt is dealt again as shadow damage"). The copy is
+/// final damage: versatility and buffs aren't applied again, only the echo
+/// ability's own multiplier (calibration) and crit roll. Echoes don't echo.
+#[derive(Debug, Deserialize, Clone)]
+pub struct EchoDef {
+    /// Ability whose damage definition (and result row) the copy uses.
+    pub ability: String,
+    /// Percent of the hit copied, per stack of the buff.
+    pub pct: f64,
+    /// Per-school override of `pct`, keyed by the school of the copied hit.
+    #[serde(default)]
+    pub school_pct: HashMap<String, f64>,
+    /// Only copy hits from these result rows (empty: every source).
+    #[serde(default)]
+    pub sources: Vec<String>,
+    /// Copy the damage before armor (default) or after.
+    #[serde(default = "yes")]
+    pub pre_armor: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -582,6 +649,7 @@ fn default_fight_len() -> f64 { 300.0 }
 fn default_variance() -> f64 { 0.2 }
 fn default_armor() -> f64 { 0.70 }
 fn default_refresh() -> String { "pandemic".into() }
+fn default_idle_poll() -> f64 { 0.5 }
 
 /// Calibration overlay, kept in its own file so the hand-written spec stays
 /// clean: per damage source, the multiplier derived from the game's spell

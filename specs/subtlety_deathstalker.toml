@@ -1,0 +1,882 @@
+# Subtlety Rogue — Deathstalker, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Rogue_Subtlety.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_rogue.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# The spec runs on energy (10/s, hasted) and combo points (7). Auto attacks
+# from both hands build Shadow Techniques stacks; builders turn the stacks into
+# combo points, and with Ancient Arts a finisher does it again right after it
+# lands, so finishers chain. Finishers spend Deathstalker's Mark stacks; the
+# last one grants Darkest Night, whose 7-point finisher re-applies the Mark.
+# Shadow Dance opens stealth windows (Shadowstrike, Secret Technique,
+# Supercharged combo points), Shadow Blades and Goremaw's Bite copy damage.
+
+name = "Subtlety Rogue (Deathstalker, core kit)"
+
+# Stealth out of combat: the opener is a Shadowstrike [simc APL]
+precombat = ["stealth_open"]
+
+[player]
+# Final stats = buffed snapshot + the time-averaged gear stat procs
+# (rituals, Venomcursed, Rune of Masterful Cunning, Arcanoweave, Nature's
+# Tenacity) [obs: 14 logged fights, 200 crit / 144 haste / 88 mastery / 104
+# vers rating and 37 agility on average, converted with the probes' rating ->
+# stat deltas]. Hunt Them Down and Instant Poison crit at 24.4%, as here.
+# Haste is the exception: Venomcursed's 377 and Hasty Ritual's 101 haste
+# rating are procs below, because Shadow Dance's length depends on the haste
+# it starts with. Together they average 165 rating against 144 observed (the
+# other Venomcursed procs take some haste away), so the rest is -21 rating.
+attack_power = 2682      # 2640 + 42
+weapon_attack_power = 702   # [obs] the weapon's share of ability damage: +200 agility (+227 AP) gives +6.56%, not +8.5%
+spell_power = 433        # [obs] buffed; only the gear procs below use it, so they don't grow with agility
+crit = 0.2433            # 0.1998 + 0.0435
+haste = 0.2576           # buffed 0.2625, less 21 rating (x1.03, 44.25 rating a point [obs probe])
+versatility = 0.1292     # 0.1100 + 0.0192
+mastery = 0.9495         # 0.9060 + 0.0435: Executioner, finishers' damage [db2 76808]
+crit_multiplier = 2.3    # [obs] crit/non-crit of Instant Poison and Deathstalker's Mark
+# Daggers swing every 1.8s [db2; obs 0.713s off-hand opener = half of 1.8/1.2625]
+weapon = { min = 0, max = 0, speed = 1.8 }
+off_hand = { min = 0, max = 0, speed = 1.8 }
+
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 dwarf rogue base agility (SimC: 2326 unbuffed = 1708 from gear + 618)
+primary_mult = 1.08126        # [obs] buffed 2515 / unbuffed 2326 (+200 agility probe: +216 buffed)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2515 agility -> 2640 attack power
+crit_bonus = 0.12             # [obs] 19.98% at 367 rating = 7.98% from rating + 12%
+haste_mult = 1.03             # [obs] 26.25% at 993 rating (22.44%): x1.03, multiplicative with rating haste
+mastery_points = 10           # [obs] 8 base + 2 Skyfury, in mastery points (90.6% at 26.98 points from rating)
+mastery_coeff = 2.45          # [db2 76808] Executioner, % per mastery point (+500 mastery probe: +24.7% over 10.09 points)
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 5.9675    # [obs] weapon_attack_power 702 at 117.64 main-hand DPS
+
+# The time-averaged gear stat procs folded into [player] above, so --gear
+# lands on the same final stats. They belong to this gear set.
+[gear.procs]
+attack_power = 42
+crit = 0.0435
+haste = -0.0049
+mastery = 0.0435
+versatility = 0.0192
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.1          # [simc] rogue_t::available(): re-check at least every 100ms while pooling
+
+[resources.energy]
+max = 100                # [db2]
+start = 100              # [obs] full out of combat
+regen = 10               # [simc] base_energy_regen_per_second
+regen_hasted = true      # [obs] 9 energy in 0.713s at 1.2625 haste
+
+[resources.combo_points]
+max = 7                  # [db2] 5 + Deeper Stratagem + Secret Stratagem
+start = 0
+
+[auto_attack]
+replace_with = "mh_swing"
+off_hand_replace_with = "oh_swing"
+wakes = false   # [simc] READY_TRIGGER: a waiting rogue re-checks on resource thresholds and every 100ms, not on swings
+
+# Random gear procs, as Poisson rates [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 8.3
+
+[[procs]]
+ability = "breath_of_corruption"   # Zatha'tek main hand, hasted [obs: 18 a fight, +8% in the haste probe]
+per_minute = 2.78
+hasted = true
+
+[[procs]]
+ability = "venomcursed_haste_proc" # 38.7% uptime, 12s [obs]
+per_minute = 2.45
+
+[[procs]]
+ability = "hasty_ritual_proc"      # 18.5% uptime, 16s [obs]
+per_minute = 0.767
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "stealth"            # out of combat [db2 1784]; broken by the opener
+duration = 1e9
+
+[[buffs]]
+name = "vanish"             # [db2 11327: 3s]; broken by the next attack
+duration = 3
+
+[[buffs]]
+name = "shadow_dance"       # [db2 185313: 6s] x(1 + 1.5 x rating haste) Deepening Shadows [db2 1271702 #2, simc]
+# 6 x (1 + 1.5 x (H/1.03 - 1)) = 5.738 x (1 + 1.5228 x (H - 1)) in total
+# haste H [simc]: 8.03s, one GCD short of 9 at SimC's action spacing; 8.2s and
+# up with a haste proc (8.35 average [obs])
+duration = 5.738
+haste_duration = 1.5228
+attack_speed_pct = 25       # Warning Signs [db2 426555, simc]
+on_expire = [
+  { type = "consume", buff = "dance_stance" },
+  { type = "buff", buff = "lingering_shadow", stacks = 50 },   # [simc] full stacks as Dance ends
+  { type = "trigger", ability = "lingering_shadow_decay" },
+  { type = "consume", buff = "shadow_focus" },
+]
+
+[[buffs]]
+name = "dance_stance"       # Shadow Dance's stealth for Shadowstrike, after a short stance delay [simc shadow_dance_t]
+duration = 1e9
+
+[[buffs]]
+name = "slice_and_dice"     # +50% attack speed [db2 315496]; up from the first finisher to the end [obs]
+duration = 1e9
+attack_speed_pct = 50
+attack_speed_per_haste = 1  # Swift Slasher: plus your haste [db2 381988, simc composite_melee_auto_attack_speed]
+
+[[buffs]]
+name = "premeditation"      # next combo-point builder in stealth: +7 combo points [db2 343160]
+duration = 1e9
+
+[[buffs]]
+name = "silent_storm"       # next Shuriken Storm crits [db2 385727]
+duration = 1e9
+ability_crit_pct = { shuriken_storm = 100 }
+
+[[buffs]]
+name = "shadow_focus"       # in stealth and Shadow Dance [db2 112942]
+duration = 1e9
+
+[[buffs]]
+name = "find_weakness"      # Shadowstrike: 10s [db2 1264521]; ignores 30% armor (in the residual, 98% uptime)
+duration = 10
+
+[[buffs]]
+name = "shadow_techniques"  # auto-attack stacks, spent for combo points [db2 196911]
+duration = 1e9
+max_stacks = 14             # [db2 10]; 14 in practice [obs: capped at 14]
+
+[[buffs]]
+name = "st_counter"         # Shadow Techniques' hit counter [simc trigger_shadow_techniques]
+duration = 1e9
+max_stacks = 3
+
+[[buffs]]
+name = "ancient_arts"       # 5+ Shadow Techniques stacks: the next finisher converts them [db2 1269163: 12s, simc]
+duration = 12
+
+[[buffs]]
+name = "supercharge"        # Shadow Dance: 2 supercharged combo points, +3 each [db2 470347, 470398]
+duration = 1e9
+max_stacks = 2
+
+[[buffs]]
+name = "cold_blood"         # crit of a combo-point builder: next finisher +10% crit [db2 382245, 1264297]
+duration = 1e9
+ability_crit_pct = { eviscerate = 10, eviscerate_bonus = 10, secret_technique_player = 10, secret_technique_clones = 10 }
+
+[[buffs]]
+name = "shadow_blades"      # [db2 121471: 16s] combo points from builders doubled; 20% of damage copied [db2 #0, simc]
+duration = 16
+on_expire = [{ type = "buff", buff = "lingering_darkness" }]   # [simc]
+# a copy of each rogue hit; physical hits x1.37 (Deeper Daggers, Veiltouched,
+# Dark Brew, Ancient Arts [simc residual_shadow_multiplier]), after armor [obs 0.27 / 0.20]
+echo = { ability = "shadow_blades_attack", pct = 20, school_pct = { physical = 27.4 }, pre_armor = false, sources = [
+  "eviscerate", "eviscerate_bonus", "eviscerate_shadow_clone", "secret_technique_player", "secret_technique_clones",
+  "secret_technique_shadow_clone", "deathstalkers_mark", "hunt_them_down", "shadowstrike", "shadowstrike_shadow_clone",
+  "backstab", "backstab_shadow_clone", "goremaws_bite", "shuriken_storm", "instant_poison", "auto_attack_mh", "auto_attack_oh",
+] }
+
+[[buffs]]
+name = "lingering_darkness" # Shadow Blades ends: 30s [db2 457273]
+duration = 30
+
+[[buffs]]
+name = "goremaws_bite_window"   # Goremaw's Bite: 20% of finisher damage copied for 13.95s [db2 1309274, simc]
+duration = 13.95
+# finisher hits (combo-point state > 0); physical x1.37, both with the target
+# multipliers reversed (x0.925 physical, x0.943 shadow) [obs, simc trigger_residual_action]
+echo = { ability = "goremaws_bite_finisher", pct = 18.86, school_pct = { physical = 25.35 }, pre_armor = false, sources = [
+  "eviscerate", "eviscerate_bonus", "eviscerate_shadow_clone", "secret_technique_player", "secret_technique_clones",
+  "secret_technique_shadow_clone",
+] }
+
+[[buffs]]
+name = "lingering_shadow"   # 50 stacks as Shadow Dance ends, decaying over ~17s [db2 385960, obs]
+duration = 18
+max_stacks = 50
+# Backstab copies stacks% of its damage, x1.37 for the physical Backstab [simc, obs 0.60 at 44 stacks]
+echo = { ability = "lingering_shadow", pct = 1, school_pct = { physical = 1.37 }, pre_armor = false, sources = ["backstab", "backstab_shadow_clone"] }
+
+[[buffs]]
+name = "deathstalkers_mark" # target debuff, 3 stacks [db2 457129: 60s; 457052 #0]
+duration = 60
+max_stacks = 3
+
+[[buffs]]
+name = "darkest_night"      # last Mark stack spent: next 5+ point finisher +35% and crits [db2 457280: 30s]
+duration = 30
+ability_pct = { eviscerate = 35, eviscerate_bonus = 35, eviscerate_shadow_clone = 35 }
+ability_crit_pct = { eviscerate = 100, eviscerate_bonus = 100, eviscerate_shadow_clone = 100 }
+
+[[buffs]]
+name = "unshakeable_drive"  # each Mark stack spent; spent by builders [db2 1248775: 12s, 3 stacks]
+duration = 12
+max_stacks = 3
+
+[[buffs]]
+name = "venomcursed_haste"  # +377 haste rating for 12s [obs]: x1.0696 haste
+duration = 12
+haste_pct = 6.96
+
+[[buffs]]
+name = "hasty_ritual"       # +101 haste rating for 16s [obs]: x1.0186 haste
+duration = 16
+haste_pct = 1.86
+
+[[buffs]]
+name = "momentum_of_despair"   # Shuriken Storm crit [db2 457115: 8s]
+duration = 8
+
+# ---------------------------------------------------------------- stealth
+
+[[abilities]]
+name = "stealth_open"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "stealth" },
+  { type = "buff", buff = "premeditation" },
+  { type = "buff", buff = "silent_storm" },
+  { type = "buff", buff = "shadow_focus" },
+]
+
+[[abilities]]
+name = "shadow_dance"
+spell_id = 185313
+gcd = 0                     # off the GCD [db2]
+cooldown = 20               # [db2] recharge, not hasted [obs: 16.3 a fight]
+charges = 2                 # Double Dance [db2 394930]
+on_cast = [
+  { type = "buff", buff = "shadow_dance" },
+  { type = "trigger", ability = "dance_stance_on", delay = 0.1 },   # world lag [simc]
+  { type = "buff", buff = "supercharge", stacks = 2 },   # Supercharger 2/2 [db2 470347]
+  { type = "buff", buff = "premeditation" },
+  { type = "buff", buff = "silent_storm" },
+  { type = "buff", buff = "shadow_focus" },
+  { type = "trigger", ability = "master_of_shadows" },
+]
+
+[[abilities]]
+name = "dance_stance_on"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.shadow_dance.up", then = [{ type = "buff", buff = "dance_stance" }] }]
+
+[[abilities]]
+name = "vanish"
+spell_id = 1856
+gcd = 0
+cooldown = 120              # [db2]
+on_cast = [
+  { type = "buff", buff = "vanish" },
+  { type = "buff", buff = "premeditation" },
+  { type = "buff", buff = "silent_storm" },
+  { type = "buff", buff = "shadow_focus" },
+  { type = "trigger", ability = "master_of_shadows" },
+]
+
+[[abilities]]
+name = "master_of_shadows"  # 5 energy every 0.5s for 3s [db2 196980]
+triggered_only = true
+[abilities.dot]
+name = "master_of_shadows"
+tick_time = 0.5
+duration = 3.0
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "energy", amount = 5 }]
+
+[[abilities]]
+name = "break_stealth"      # attacks break Stealth and Vanish [simc]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "consume", buff = "stealth" },
+  { type = "consume", buff = "vanish" },
+  { type = "if", if = "!buff.shadow_dance.up", then = [{ type = "consume", buff = "shadow_focus" }] },
+]
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "shadow_blades"
+spell_id = 121471
+gcd = 0
+cooldown = 90               # [db2]
+on_cast = [{ type = "buff", buff = "shadow_blades" }]
+
+[[abilities]]
+name = "shadow_blades_attack"   # the copied damage [db2 279043]
+spell_id = 279043
+triggered_only = true
+damage = { school = "shadow", crit_bonus = -2.0 }   # final damage, never crits [obs]
+
+[[abilities]]
+name = "goremaws_bite"
+spell_id = 426591
+cost = { energy = 25 }      # [db2]
+cooldown = 45               # [db2]
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+damage = { ap_coeff = 6.3, school = "shadow" }       # [db2 426592]
+on_cast = [
+  { type = "buff", buff = "goremaws_bite_window" },
+  # still takes Premeditation and Shadow Techniques like a builder [simc bug flag]
+  { type = "trigger", ability = "premeditation_cp" },
+  { type = "trigger", ability = "st_convert_plain" },
+  { type = "trigger", ability = "break_stealth" },
+]
+[abilities.dot]
+name = "goremaws_bite"      # [db2 426593: 1.58 per 2s tick, 14s], hasted [obs 9.2 ticks a cast]
+ap_coeff = 1.58
+tick_time = 2.0
+duration = 14.0
+school = "physical"
+refresh = "pandemic"
+
+[[abilities]]
+name = "goremaws_bite_finisher"   # the copied finisher damage [db2 1309309]
+spell_id = 1309309
+triggered_only = true
+damage = { school = "shadow", crit_bonus = -2.0 }
+
+# ---------------------------------------------------------------- builders
+
+[[abilities]]
+name = "shadowstrike"       # stealth only (rotation conditions)
+spell_id = 185438
+cost = { energy = 50 }      # [db2]
+gain = { combo_points = 2 } # [db2 #1]
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+damage = { ap_coeff = 5.59, school = "physical" }   # [db2]
+on_crit = [{ type = "buff", buff = "cold_blood" }]
+on_cast = [
+  { type = "trigger", ability = "break_stealth" },
+  { type = "if", if = "buff.shadow_blades.up", then = [{ type = "gain", resource = "combo_points", amount = 2 }] },
+  { type = "trigger", ability = "premeditation_cp" },
+  { type = "trigger", ability = "st_convert_shadowstrike" },
+  { type = "buff", buff = "find_weakness" },
+  { type = "if", if = "!buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "dm_apply" }] },
+  { type = "consume", buff = "unshakeable_drive" },
+  { type = "trigger", ability = "instant_poison", chance = 0.31 },   # [obs]
+]
+
+[[abilities]]
+name = "backstab"
+spell_id = 53
+cost = { energy = 40 }      # [db2]
+gain = { combo_points = 1 } # [db2 #2]
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+damage = { ap_coeff = 1.0731, school = "physical" }   # [db2]
+on_crit = [
+  { type = "buff", buff = "cold_blood" },
+  { type = "buff", buff = "find_weakness" },          # Improved Backstab [db2 319949]
+]
+on_cast = [
+  { type = "if", if = "buff.shadow_blades.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] },
+  { type = "trigger", ability = "st_convert_backstab" },
+  { type = "consume", buff = "unshakeable_drive" },
+  { type = "trigger", ability = "instant_poison", chance = 0.41 },   # [obs]
+]
+
+[[abilities]]
+name = "shuriken_storm"
+spell_id = 197835
+cost = { energy = 50 }      # [db2]
+gain = { combo_points = 1 } # [db2]
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+damage = { ap_coeff = 0.63, school = "physical" }   # [db2]
+on_crit = [
+  { type = "buff", buff = "cold_blood" },
+  { type = "buff", buff = "momentum_of_despair" },   # [simc]
+]
+on_cast = [
+  { type = "trigger", ability = "break_stealth" },
+  { type = "consume", buff = "silent_storm" },
+  { type = "if", if = "buff.shadow_blades.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] },
+  { type = "trigger", ability = "premeditation_cp" },
+  { type = "trigger", ability = "st_convert_plain" },
+]
+
+[[abilities]]
+name = "premeditation_cp"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.premeditation.up", then = [
+  { type = "gain", resource = "combo_points", amount = 7 },   # [db2 343160]
+  { type = "consume", buff = "premeditation" },
+] }]
+
+# Shadow Techniques: a builder takes as many stacks as it has room for, as
+# combo points; each one taken is a 20% chance of a Shadow Clone of the
+# builder (Ancient Arts: 15% [db2 1268932 #0] + 5% [db2 1268939 #0]; obs 0.20 per stack).
+# 5+ stacks left over arm Ancient Arts for the next finisher.
+[[abilities]]
+name = "st_convert_backstab"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.shadow_techniques.up&combo_points<7", then = [
+    { type = "if", if = "buff.shadow_techniques.stack>=7-combo_points", then = [
+      { type = "trigger", ability = "backstab_shadow_clone", chance_expr = "0.2*(7-combo_points)" },
+      { type = "buff", buff = "shadow_techniques", set = "buff.shadow_techniques.stack-7+combo_points" },
+      { type = "gain", resource = "combo_points", amount_expr = "7-combo_points" },
+    ], else = [
+      { type = "trigger", ability = "backstab_shadow_clone", chance_expr = "0.2*buff.shadow_techniques.stack" },
+      { type = "gain", resource = "combo_points", amount_expr = "buff.shadow_techniques.stack" },
+      { type = "consume", buff = "shadow_techniques", all = true },
+    ] },
+  ] },
+  { type = "if", if = "buff.shadow_techniques.stack>=5", then = [{ type = "buff", buff = "ancient_arts" }] },
+]
+
+[[abilities]]
+name = "st_convert_shadowstrike"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.shadow_techniques.up&combo_points<7", then = [
+    { type = "if", if = "buff.shadow_techniques.stack>=7-combo_points", then = [
+      { type = "trigger", ability = "shadowstrike_shadow_clone", chance_expr = "0.2*(7-combo_points)" },
+      { type = "buff", buff = "shadow_techniques", set = "buff.shadow_techniques.stack-7+combo_points" },
+      { type = "gain", resource = "combo_points", amount_expr = "7-combo_points" },
+    ], else = [
+      { type = "trigger", ability = "shadowstrike_shadow_clone", chance_expr = "0.2*buff.shadow_techniques.stack" },
+      { type = "gain", resource = "combo_points", amount_expr = "buff.shadow_techniques.stack" },
+      { type = "consume", buff = "shadow_techniques", all = true },
+    ] },
+  ] },
+  { type = "if", if = "buff.shadow_techniques.stack>=5", then = [{ type = "buff", buff = "ancient_arts" }] },
+]
+
+[[abilities]]
+name = "st_convert_plain"   # Shuriken Storm, Goremaw's Bite: no clone of their own here
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.shadow_techniques.up&combo_points<7", then = [
+    { type = "if", if = "buff.shadow_techniques.stack>=7-combo_points", then = [
+      { type = "buff", buff = "shadow_techniques", set = "buff.shadow_techniques.stack-7+combo_points" },
+      { type = "gain", resource = "combo_points", amount_expr = "7-combo_points" },
+    ], else = [
+      { type = "gain", resource = "combo_points", amount_expr = "buff.shadow_techniques.stack" },
+      { type = "consume", buff = "shadow_techniques", all = true },
+    ] },
+  ] },
+  { type = "if", if = "buff.shadow_techniques.stack>=5", then = [{ type = "buff", buff = "ancient_arts" }] },
+]
+
+# ---------------------------------------------------------------- finishers
+# Damage per combo point spent; a Supercharged point adds 3 [db2 470347 #1 +
+# Forced Induction, simc current_effective_cp].
+
+[[abilities]]
+name = "eviscerate"
+spell_id = 196819
+cost = { energy = 35, combo_points = 1 }   # [db2]
+cost_max = { combo_points = 7 }
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+damage = { ap_coeff = 0.37325, school = "physical", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }   # [db2]
+on_cast = [
+  { type = "trigger", ability = "break_stealth" },
+  { type = "if", if = "buff.find_weakness.up", then = [{ type = "trigger", ability = "eviscerate_bonus" }] },   # Shadowed Finishers [simc]
+  { type = "trigger", ability = "finisher_common" },
+  { type = "if", if = "buff.ancient_arts.up", then = [{ type = "trigger", ability = "aa_eviscerate" }] },
+  { type = "if", if = "spent.combo_points>=5", then = [
+    { type = "if", if = "buff.darkest_night.up", then = [
+      { type = "consume", buff = "darkest_night" },
+      { type = "if", if = "!buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "dm_apply" }] },
+    ], else = [{ type = "trigger", ability = "dm_consume" }] },
+  ] },
+  { type = "buff", buff = "slice_and_dice" },
+  { type = "consume", buff = "supercharge" },
+  { type = "consume", buff = "cold_blood" },
+  { type = "trigger", ability = "instant_poison", chance = 0.13 },   # [obs]
+]
+
+[[abilities]]
+name = "eviscerate_bonus"   # Shadowed Finishers: 30% of Eviscerate as shadow [db2 328082, 382511 #0]
+spell_id = 328082
+triggered_only = true
+damage = { ap_coeff = 0.111975, school = "shadow", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }
+on_cast = [{ type = "trigger", ability = "instant_poison", chance = 0.40 }]   # [obs]
+
+[[abilities]]
+name = "secret_technique"
+spell_id = 280719
+cost = { energy = 30, combo_points = 1 }   # [db2]
+cost_max = { combo_points = 7 }
+cooldown = 25               # [db2] recharge, hasted [obs: 20s apart at 1.26 haste]
+cooldown_hasted = true
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+on_cast = [
+  { type = "trigger", ability = "break_stealth" },
+  { type = "trigger", ability = "secret_technique_player" },
+  { type = "trigger", ability = "secret_technique_clones" },     # two clones [db2 280719 #1]
+  { type = "trigger", ability = "secret_technique_clones" },
+  { type = "trigger", ability = "finisher_common" },
+  { type = "if", if = "buff.ancient_arts.up", then = [{ type = "trigger", ability = "aa_secret_technique" }] },
+  # spends a Mark stack, but can't use Darkest Night [simc affected_by.darkest_night]
+  { type = "if", if = "spent.combo_points>=5&!buff.darkest_night.up", then = [{ type = "trigger", ability = "dm_consume" }] },
+  { type = "consume", buff = "supercharge" },
+  { type = "consume", buff = "cold_blood" },
+]
+
+[[abilities]]
+name = "secret_technique_player"
+spell_id = 280720
+triggered_only = true
+damage = { ap_coeff = 0.2808, school = "physical", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }   # [db2]
+
+[[abilities]]
+name = "secret_technique_clones"
+spell_id = 282449
+triggered_only = true
+damage = { ap_coeff = 0.2808, school = "shadow", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }   # [db2]
+on_cast = [{ type = "trigger", ability = "st_proc", delay = 1.0 }]   # Ancient Arts 2: clones grant Shadow Techniques [simc, obs every clone]
+
+[[abilities]]
+name = "finisher_common"
+triggered_only = true
+gcd = 0
+on_cast = [
+  # Relentless Strikes: 4 energy per (effective) combo point [db2 58423, obs 30.3 a finisher]
+  { type = "gain", resource = "energy", amount_expr = "4*(spent.combo_points+3*buff.supercharge.up)" },
+]
+
+# Ancient Arts after a finisher: the stacks come back as combo points, and a
+# Shadow Clone repeats the finisher (20% per stack, so always at 5+ stacks) [simc trigger_ancient_arts]
+[[abilities]]
+name = "aa_eviscerate"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "eviscerate_shadow_clone", chance_expr = "0.2*buff.shadow_techniques.stack" },
+  { type = "trigger", ability = "aa_convert" },
+]
+
+[[abilities]]
+name = "aa_secret_technique"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "secret_technique_shadow_clone", chance_expr = "0.2*buff.shadow_techniques.stack" },
+  { type = "trigger", ability = "aa_convert" },
+]
+
+[[abilities]]
+name = "aa_convert"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "consume", buff = "ancient_arts" },
+  { type = "if", if = "buff.shadow_techniques.stack>=7-combo_points", then = [
+    { type = "buff", buff = "shadow_techniques", set = "buff.shadow_techniques.stack-7+combo_points" },
+    { type = "gain", resource = "combo_points", amount_expr = "7-combo_points" },
+  ], else = [
+    { type = "gain", resource = "combo_points", amount_expr = "buff.shadow_techniques.stack" },
+    { type = "consume", buff = "shadow_techniques", all = true },
+  ] },
+]
+
+# ---------------------------------------------------------------- Shadow Clones
+# Half damage [simc shadow_clone_t], x combo points for finisher clones. They
+# hit 0.2s (builders) / 0.5s (finishers) later with the state they started
+# with; here they hit at once and their Shadow Techniques stacks come late.
+
+[[abilities]]
+name = "backstab_shadow_clone"
+spell_id = 1269209
+triggered_only = true
+damage = { ap_coeff = 0.53655, school = "shadow" }   # 1.0731 x 0.5 [db2, simc]
+on_crit = [{ type = "buff", buff = "cold_blood" }]
+on_cast = [
+  { type = "trigger", ability = "st_proc", delay = 0.2 },
+  { type = "trigger", ability = "instant_poison", chance = 0.41 },
+]
+
+[[abilities]]
+name = "shadowstrike_shadow_clone"
+spell_id = 1269336
+triggered_only = true
+damage = { ap_coeff = 2.795, school = "shadow" }     # 5.59 x 0.5
+on_crit = [{ type = "buff", buff = "cold_blood" }]
+on_cast = [
+  { type = "trigger", ability = "st_proc", delay = 0.2 },
+  { type = "trigger", ability = "instant_poison", chance = 0.39 },
+]
+
+[[abilities]]
+name = "eviscerate_shadow_clone"
+spell_id = 1269205
+triggered_only = true
+damage = { ap_coeff = 0.186625, school = "shadow", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }   # 0.37325 x 0.5
+on_cast = [
+  { type = "trigger", ability = "st_proc", delay = 0.5 },
+  { type = "trigger", ability = "instant_poison", chance = 0.40 },
+]
+
+[[abilities]]
+name = "secret_technique_shadow_clone"
+spell_id = 1269560
+triggered_only = true
+damage = { ap_coeff = 0.4212, school = "shadow", mastery = true, scale = "spent.combo_points+3*buff.supercharge.up" }   # 0.8424 x 0.5
+on_cast = [{ type = "trigger", ability = "st_proc", delay = 0.5 }]
+
+# ---------------------------------------------------------------- Deathstalker
+
+[[abilities]]
+name = "dm_apply"           # 3 stacks; Quietus Celeris: 6-in-20 to spend one at once [db2 1273017]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "deathstalkers_mark", stacks = 3 },
+  { type = "trigger", ability = "dm_consume", chance = 0.3 },
+]
+
+[[abilities]]
+name = "dm_consume"         # a 5+ point finisher spends a stack [db2 457052 #1, simc trigger_deathstalkers_mark]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.deathstalkers_mark.up", then = [
+  { type = "consume", buff = "deathstalkers_mark" },
+  { type = "trigger", ability = "deathstalkers_mark" },
+  { type = "buff", buff = "unshakeable_drive" },
+  { type = "if", if = "!buff.deathstalkers_mark.up", then = [
+    { type = "gain", resource = "energy", amount = 30 },   # [db2 457280 #0]
+    { type = "buff", buff = "darkest_night" },
+  ] },
+] }]
+
+[[abilities]]
+name = "deathstalkers_mark"
+spell_id = 457157
+triggered_only = true
+damage = { ap_coeff = 1.56, school = "shadowstorm" }   # [db2]
+on_cast = [{ type = "trigger", ability = "instant_poison", chance = 0.36 }]   # [obs]
+
+[[abilities]]
+name = "hunt_them_down"     # every auto-attack hit on a Marked target [simc melee_t]
+spell_id = 457193
+triggered_only = true
+damage = { ap_coeff = 0.1, school = "shadowstorm" }    # [db2]
+
+# ---------------------------------------------------------------- auto attacks
+# 16.4% of swings miss (dual wield) and Skyfury repeats 16.1% [obs]
+
+[[abilities]]
+name = "mh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_mh", chance = 0.836 },
+  { type = "trigger", ability = "mh_repeat", chance = 0.161 },
+]
+
+[[abilities]]
+name = "mh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.836 }]
+
+[[abilities]]
+name = "oh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_oh", chance = 0.836 },
+  { type = "trigger", ability = "oh_repeat", chance = 0.161 },
+]
+
+[[abilities]]
+name = "oh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_oh", chance = 0.836 }]
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+damage = { ap_coeff = 0.3, school = "physical" }    # dagger 1.8s, AP/6 x speed; scale from calibration
+on_cast = [{ type = "trigger", ability = "auto_hit" }]
+
+[[abilities]]
+name = "auto_attack_oh"
+triggered_only = true
+damage = { ap_coeff = 0.15, school = "physical" }   # half damage off hand
+on_cast = [{ type = "trigger", ability = "auto_hit" }]
+
+[[abilities]]
+name = "auto_hit"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "hunt_them_down" }] },
+  # Shadow Techniques: a stack every 3rd hit, or the 2nd with 50%; every 2nd in Shadow Dance (Shadowcraft) [simc]
+  { type = "buff", buff = "st_counter" },
+  { type = "if", if = "buff.st_counter.stack>=3|buff.st_counter.stack>=2&buff.shadow_dance.up", then = [
+    { type = "trigger", ability = "st_proc_auto" },
+  ], else = [
+    { type = "if", if = "buff.st_counter.stack=2", then = [{ type = "trigger", ability = "st_proc_auto", chance = 0.5 }] },
+  ] },
+  { type = "trigger", ability = "instant_poison", chance = 0.406 },   # [obs]
+]
+
+[[abilities]]
+name = "st_proc_auto"       # 0.45s internal cooldown; on cooldown the count carries on [db2 196911 aura options, simc]
+triggered_only = true
+gcd = 0
+cooldown = 0.45
+on_cast = [
+  { type = "consume", buff = "st_counter", all = true },
+  { type = "trigger", ability = "st_proc" },
+]
+
+[[abilities]]
+name = "st_proc"            # a stack (2 in Shadow Dance, Shadowcraft) and 5 energy [db2 196911 #1, 426594]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "shadow_techniques" },
+  { type = "if", if = "buff.shadow_dance.up", then = [{ type = "buff", buff = "shadow_techniques" }] },
+  { type = "gain", resource = "energy", amount = 5 },
+]
+
+[[abilities]]
+name = "instant_poison"
+spell_id = 315585
+triggered_only = true
+damage = { ap_coeff = 0.074, school = "shadow" }   # [db2]; logged as shadow damage [obs]
+
+[[abilities]]
+name = "lingering_shadow"   # copied Backstab damage [db2 386081]
+spell_id = 386081
+triggered_only = true
+damage = { school = "shadow", crit_bonus = -2.0 }
+
+[[abilities]]
+name = "lingering_shadow_decay"
+triggered_only = true
+[abilities.dot]
+name = "lingering_shadow_decay"   # 50 stacks gone in ~17s [obs]
+tick_time = 1.0
+duration = 17.0
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "buff", buff = "lingering_shadow", set = "buff.lingering_shadow.stack-3" }]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "venomcursed_haste_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "venomcursed_haste" }]
+
+[[abilities]]
+name = "hasty_ritual_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "hasty_ritual" }]
+
+[[abilities]]
+name = "breath_of_corruption"
+spell_id = 1305395
+triggered_only = true
+damage = { sp_coeff = 60.0, school = "nature" }     # weapon proc, fixed damage; scale from calibration
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { sp_coeff = 15.0, school = "fire", crit_bonus = -2.0 }   # gear, fixed damage; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 1.0
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Subtlety APL, single target, Deathstalker.
+# Shadowstrike needs stealth: Stealth, Vanish, or Shadow Dance's stance.
+# stealth = buff.shadow_dance.up|buff.stealth.up|buff.vanish.up
+# dance_condition = !stealth&energy>=30&buff.slice_and_dice.up&(combo_points<=2|combo_points>=6)
+
+[[rotation]]
+action = "goremaws_bite"
+if = "buff.shadow_dance.up&!buff.ancient_arts.up|fight_remains<=14"
+
+[[rotation]]
+action = "shadow_blades"
+if = "!(buff.shadow_dance.up|buff.stealth.up|buff.vanish.up)&energy>=30&buff.slice_and_dice.up&(combo_points<=2|combo_points>=6)&cooldown.shadow_dance.charges_fractional>=1.8|fight_remains<=20"
+
+[[rotation]]
+action = "shadow_dance"
+if = "!(buff.shadow_dance.up|buff.stealth.up|buff.vanish.up)&(energy>=30&buff.slice_and_dice.up&(combo_points<=2|combo_points>=6)&(buff.darkest_night.up|cooldown.secret_technique.ready&buff.deathstalkers_mark.stack<=1)&cooldown.shadow_blades.remains>=35-cooldown.secret_technique.duration|fight_remains<=10)"
+
+[[rotation]]
+action = "vanish"
+if = "!(buff.shadow_dance.up|buff.stealth.up|buff.vanish.up)&energy>=50&combo_points<=2"
+
+# build at max for Apex
+[[rotation]]
+action = "shadowstrike"
+if = "(buff.dance_stance.up|buff.stealth.up|buff.vanish.up)&!buff.ancient_arts.up&buff.shadow_techniques.stack>=5&(buff.darkest_night.up|cooldown.secret_technique.ready)"
+
+# finishers at 6+ combo points (7 with Darkest Night)
+[[rotation]]
+action = "eviscerate"
+if = "(combo_points>=7|combo_points>=6&!buff.darkest_night.up)&(buff.darkest_night.up|!buff.slice_and_dice.up)"
+
+[[rotation]]
+action = "secret_technique"
+if = "(combo_points>=7|combo_points>=6&!buff.darkest_night.up)&buff.shadow_dance.up"
+
+[[rotation]]
+action = "eviscerate"
+if = "(combo_points>=7|combo_points>=6&!buff.darkest_night.up)&(buff.shadow_dance.up|buff.shadow_blades.up|buff.deathstalkers_mark.stack>1|buff.deathstalkers_mark.stack=1&buff.shadow_techniques.stack>=5)"
+
+# builders, in stealth or above 60 energy
+[[rotation]]
+action = "shuriken_storm"
+if = "buff.shadow_dance.up&buff.premeditation.up&(buff.deathstalkers_mark.up|buff.darkest_night.up)"
+
+[[rotation]]
+action = "shadowstrike"
+if = "buff.dance_stance.up|buff.stealth.up|buff.vanish.up"
+
+[[rotation]]
+action = "backstab"
+if = "!(buff.shadow_dance.up|buff.stealth.up|buff.vanish.up)&energy>60"

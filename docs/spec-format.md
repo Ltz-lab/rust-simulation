@@ -32,8 +32,10 @@ Buffs can modify damage, crit (globally or per ability), crit damage, haste,
 mastery, power, GCD, per-ability cast time and recharge rate, or store a
 percentage of damage dealt for a later burst; they can stack with independent
 timers (`overlap`), count stacks without multiplying bonuses (`flat`), extend
-on refresh (`refresh_extend`), follow the target's health, and fire
-`on_expire` effects. DoTs support hasted ticks, partial final ticks (or
+on refresh (`refresh_extend`), follow the target's health, fire
+`on_expire` effects, copy a share of each hit as another ability's damage
+(`echo`), grow with haste (`haste_duration`) or change auto-attack speed only
+(`attack_speed_pct`, `attack_speed_per_haste`). DoTs support hasted ticks, partial final ticks (or
 `whole_ticks` only), `pandemic`/`extend`/`reset` refresh, stacks
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
 on-crit effects, and `banked` rolling damage fed by hits.
@@ -56,6 +58,47 @@ Each on-hit proc has its own `hit_proc/<ability>` random stream.
 
 Trinket effects and set bonuses are spec fragments in this same format, added
 with gear lines; see [gear.md](gear.md#trinkets-and-set-bonuses).
+
+## Energy, combo points, dual wield
+
+```toml
+[resources.energy]
+max = 100
+start = 100
+regen = 10                  # per second, continuous
+regen_hasted = true         # x current haste, buffs included
+
+[player]
+weapon = { min = 0, max = 0, speed = 1.8 }
+off_hand = { min = 0, max = 0, speed = 1.8 }   # own swing timer, first swing at half
+
+[auto_attack]
+replace_with = "mh_swing"
+off_hand_replace_with = "oh_swing"   # without it: half the off-hand's weapon damage
+wakes = false               # swings don't re-check the rotation (default true)
+
+[fight]
+idle_poll = 0.1             # re-check while nothing is usable (default 0.5)
+
+[[abilities]]
+name = "eviscerate"
+cost = { energy = 35, combo_points = 1 }
+cost_max = { combo_points = 7 }     # spend up to 7
+damage = { ap_coeff = 0.37, scale = "spent.combo_points" }
+on_cast = [{ type = "gain", resource = "energy", amount_expr = "4*spent.combo_points" }]
+
+[[buffs]]
+name = "shadow_blades"
+duration = 16
+echo = { ability = "shadow_blades_attack", pct = 20, school_pct = { physical = 27.4 }, sources = ["eviscerate"], pre_armor = false }
+```
+
+An idle player wakes when regeneration pays for a rotation ability's cost.
+`spent.<resource>` is what the last cast that paid that resource paid;
+`trigger` takes `chance_expr`, and `cooldown.X.duration` is the current
+(hasted) cooldown. An echo's copy is final damage (no versatility or buffs
+again), scaled by the echo ability's own multiplier and per stack of the buff;
+echoes don't copy echoes. Attack-speed buffs resize a swing in progress.
 
 ## Pets and summons
 

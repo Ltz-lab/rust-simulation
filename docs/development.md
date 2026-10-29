@@ -17,20 +17,24 @@ specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
   fire_mage.toml            Fire spec, same tagging
   destruction_hellcaller.toml  Destruction Warlock spec, same tagging
+  subtlety_deathstalker.toml   Subtlety Rogue spec, same tagging
   examples/summoner.toml    made-up spec showing pets and summons
 data/
   gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
 profiles/
   MID2_Paladin_Retribution.simc   gear of SimC's MID2 sample Ret profile
   MID2_Warlock_Destruction.simc   gear and talents of SimC's MID2 sample Destruction profile
+  MID2_Rogue_Subtlety.simc        gear and talents of SimC's MID2 sample Subtlety profile
 derived/
   retribution_herald.toml   multipliers and buff modifiers read from game data (tools/effects.py)
   fire_mage.toml
   destruction_hellcaller.toml
+  subtlety_deathstalker.toml
 calibration/
   retribution_herald.toml   derived multipliers + fitted residuals and crit offsets
   fire_mage.toml
   destruction_hellcaller.toml
+  subtlety_deathstalker.toml
 reference/                  observations used for calibration and validation
 tools/
   spelldb.py         look up spells in raw DB2 tables
@@ -119,6 +123,19 @@ python3 tools/validate_stats.py specs/destruction_hellcaller.toml calibration/de
     "+500 crit=reference/destro_probe_crit_rating.json" "+500 haste=reference/destro_probe_haste_rating.json" \
     "+500 mastery=reference/destro_probe_mastery_rating.json" "+500 vers=reference/destro_probe_versatility_rating.json" \
     "+200 intellect=reference/destro_probe_intellect.json"
+
+# Subtlety: same loop
+./target/release/azsim specs/subtlety_deathstalker.toml -n 10000 --calib calibration/subtlety_deathstalker.toml --json out.json
+python3 tools/compare.py reference/sub_core_observations.json out.json
+python3 tools/effects.py target/db2 specs/subtlety_deathstalker.toml reference/sub_core_observations.json \
+    profiles/MID2_Rogue_Subtlety.simc --out derived/subtlety_deathstalker.toml
+python3 tools/calibrate.py specs/subtlety_deathstalker.toml reference/sub_core_observations.json \
+    calibration/subtlety_deathstalker.toml --derived derived/subtlety_deathstalker.toml --rounds 6
+python3 tools/validate_stats.py specs/subtlety_deathstalker.toml calibration/subtlety_deathstalker.toml \
+    reference/sub_core_observations.json \
+    "+500 crit=reference/sub_probe_crit_rating.json" "+500 haste=reference/sub_probe_haste_rating.json" \
+    "+500 mastery=reference/sub_probe_mastery_rating.json" "+500 vers=reference/sub_probe_versatility_rating.json" \
+    "+200 agility=reference/sub_probe_agility.json"
 
 # regenerate a reference: prefix, SimC profile, primary stat, SimC binary
 tools/make_reference.sh fire $SIMC/profiles/MID2/MID2_Mage_Fire.simc intellect $SIMC/build/simc

@@ -3,7 +3,7 @@
 
   python3 tools/compare.py observations.json azsim_result.json [--md]
 
-Columns: DPS per source for both, and hits per fight (direct hits or ticks).
+Columns: DPS per source for both, and hits per fight (direct hits plus ticks).
 Hit counts are the structural test — calibration only fixes damage per hit,
 so a wrong count means a wrong mechanic or rotation.
 """
@@ -21,7 +21,7 @@ def main():
     for n in names:
         o = obs["sources"].get(n)
         m = mine.get(n)
-        o_hits = (o["direct_hits"] or o["ticks"]) if o else 0.0
+        o_hits = (o["direct_hits"] + o["ticks"]) if o else 0.0
         m_hits = m["hits_per_fight"] if m else 0.0
         od, mdps = (o["dps"] if o else 0.0), (m["dps"] if m else 0.0)
         if od == 0 and mdps == 0:

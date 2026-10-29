@@ -71,9 +71,10 @@ def main():
     mine = {s["name"] for s in res["sources"] if s["hits_per_fight"] > 0}
     targets = {}
     for name, o in obs["sources"].items():
-        hits = o["direct_hits"] or o["ticks"]
+        # a spell with both a direct hit and ticks (one result row) counts both
+        hits = o["direct_hits"] + o["ticks"]
         if name in mine and hits > 0:
-            crit = o["direct_crit_rate"] if o["direct_hits"] else o["tick_crit_rate"]
+            crit = (o["direct_crit_rate"] * o["direct_hits"] + o["tick_crit_rate"] * o["ticks"]) / hits
             targets[name] = (o["dps"] * length / hits, crit)
     missing = [n for n in obs["sources"] if n not in targets]
 

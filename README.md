@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Three specs so far, all Midnight Season 2, compared against SimC's sample
+Four specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -29,6 +29,7 @@ profiles (core kit, 300s Patchwerk):
 | [Retribution Paladin (Herald)](docs/retribution.md) | 131,766 | 132,884 | +0.85% | haste +0.86 pts | ~16× |
 | [Fire Mage (Sunfury)](docs/fire-mage.md) | 147,374 | 148,454 | +0.73% | haste +2.19 pts | ~15× |
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
+| [Subtlety Rogue (Deathstalker)](docs/subtlety-rogue.md) | 179,254 | 181,350 | +1.17% | crit -0.40 pts | ~4× |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -56,7 +57,7 @@ cargo build --release
 ## Docs
 
 - Specs: [Retribution Paladin](docs/retribution.md), [Fire Mage](docs/fire-mage.md),
-  [Destruction Warlock](docs/destruction-warlock.md)
+  [Destruction Warlock](docs/destruction-warlock.md), [Subtlety Rogue](docs/subtlety-rogue.md)
   (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer

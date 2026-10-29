@@ -6,6 +6,8 @@
 #[derive(Debug, Clone)]
 pub enum Var {
     Resource(usize),
+    /// What the player's last cast paid of a resource (`spent.<resource>`).
+    Spent(usize),
     Gcd,
     Time,
     FightRemains,
@@ -14,6 +16,8 @@ pub enum Var {
     CdRemains(usize),
     CdCharges(usize),
     CdChargesFrac(usize),
+    /// Current (hasted) cooldown length.
+    CdDuration(usize),
     BuffUp(usize),
     BuffRemains(usize),
     BuffStack(usize),

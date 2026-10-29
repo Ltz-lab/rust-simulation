@@ -1197,4 +1197,25 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         assert!((b["versatility"].as_f64().unwrap() - 0.052778).abs() < 1e-5);
         assert_eq!(rep["player"]["spell_power"].as_f64().unwrap(), 3413.0);
     }
+
+    #[test]
+    fn subtlety_rogue_agility_and_weapon_power() {
+        let rep = caster(
+            include_str!("../specs/subtlety_deathstalker.toml"),
+            include_str!("../profiles/MID2_Rogue_Subtlety.simc"),
+        );
+        let g = &rep["gear"];
+        assert_eq!(g["agility"], 1708);
+        assert_eq!(g["crit_rating"], 367);
+        assert_eq!(g["haste_rating"], 993);
+        assert_eq!(g["mastery_rating"], 1241);
+        assert_eq!(g["versatility_rating"], 432);
+        let b = &rep["buffed"];
+        assert_eq!(b["attack_power"].as_f64().unwrap(), 2640.0);
+        assert!((b["weapon_attack_power"].as_f64().unwrap() - 702.0).abs() < 0.5);
+        assert!((b["crit"].as_f64().unwrap() - 0.199783).abs() < 1e-5);
+        assert!((b["haste"].as_f64().unwrap() - 0.262452).abs() < 1e-5);
+        assert!((b["mastery"].as_f64().unwrap() - 0.905967).abs() < 1e-5);
+        assert!((b["versatility"].as_f64().unwrap() - 0.11).abs() < 1e-5);
+    }
 }

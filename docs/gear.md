@@ -126,6 +126,15 @@ Fire 148,405 vs 148,397 (+0.01%; SimC 147,351), Destruction 155,828 vs
 155,835 (-0.00%; SimC 157,039).
 
 
+## Agility
+
+Subtlety Rogue's `[gear]` works like Ret's: `attack_power_mult` (Battle
+Shout) on the buffed agility, and `weapon_ap_per_dps` for the main hand's
+share of ability damage (702 at 117.6 DPS, fitted to the agility probe). All
+14 items, every rating and the buffed stats match SimC without trinkets; see
+[subtlety-rogue.md](subtlety-rogue.md#gear).
+
+
 ## Known gaps
 
 - The `[gear]` constants are per spec and race (all dwarf
