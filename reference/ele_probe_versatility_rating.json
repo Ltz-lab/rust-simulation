@@ -1,0 +1,511 @@
+{
+ "player": "MID2_Shaman_Elemental_Farseer",
+ "dps": 175918.88909559147,
+ "fight_length": 299.99515623124637,
+ "buffed_stats": {
+  "attributes": null,
+  "stats": {
+   "spell_power": 3374.0,
+   "attack_power": 648.0,
+   "spell_crit": 0.2817391304347826,
+   "attack_crit": 0.2817391304347826,
+   "spell_haste": 0.8078374924724235,
+   "attack_haste": 0.8078374924724235,
+   "spell_cast_speed": 0.8078374924724235,
+   "auto_attack_speed": 0.8078374924724235,
+   "mastery_value": 0.6407608695652175,
+   "damage_versatility": 0.14240740740740743,
+   "heal_versatility": 0.14240740740740743,
+   "mitigation_versatility": 0.07120370370370371,
+   "crit_rating": 1066.0,
+   "crit_pct": 0.2817391304347826,
+   "haste_rating": 888.0,
+   "haste_pct": 0.237872727272727,
+   "mastery_rating": 974.0,
+   "mastery_pct": 0.6407608695652175,
+   "versatility_rating": 607.0,
+   "versatility_pct": 0.14240740740740743,
+   "avoidance_rating": 148.0,
+   "avoidance_pct": 0.040216817220210484,
+   "speed_rating": 11.0,
+   "speed_pct": 7.4266734976767665,
+   "manareg_per_second": 2560.0,
+   "armor": 3014.0,
+   "dodge": 0.0623057147759712
+  }
+ },
+ "sources": {
+  "ancestor_lava_burst": {
+   "spell_id": 447419,
+   "school": "fire",
+   "dps": 30798.85611629451,
+   "share": 0.17513738890106498,
+   "executes": 283.3188637727545,
+   "direct_hits": 282.749549909982,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 1.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lightning_bolt": {
+   "spell_id": 188196,
+   "school": "nature",
+   "dps": 28440.11704399694,
+   "share": 0.16172444263250016,
+   "executes": 141.18063612722545,
+   "direct_hits": 140.95099019803962,
+   "direct_noncrit_avg": 25047.93250202744,
+   "direct_crit_rate": 0.6231553730127417,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lava_burst": {
+   "spell_id": 51505,
+   "school": "fire",
+   "dps": 22219.19066614482,
+   "share": 0.1263492066740985,
+   "executes": 65.50990198039608,
+   "direct_hits": 65.37447489497899,
+   "direct_noncrit_avg": 31579.28890659715,
+   "direct_crit_rate": 0.9986475197899678,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "elemental_blast": {
+   "spell_id": 117014,
+   "school": "elemental",
+   "dps": 20813.17601044319,
+   "share": 0.11835391832227123,
+   "executes": 22.02620524104821,
+   "direct_hits": 21.971794358871776,
+   "direct_noncrit_avg": 129994.67029899698,
+   "direct_crit_rate": 0.5161921756785054,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lightning_bolt_overload": {
+   "spell_id": 45284,
+   "school": "nature",
+   "dps": 13569.915471191154,
+   "share": 0.07716518932582091,
+   "executes": 172.24924984997,
+   "direct_hits": 171.9143828765753,
+   "direct_noncrit_avg": 9886.348218340225,
+   "direct_crit_rate": 0.6210542238771236,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lava_burst_overload": {
+   "spell_id": 285466,
+   "school": "fire",
+   "dps": 10127.861703925126,
+   "share": 0.05759198482173836,
+   "executes": 83.06801360272054,
+   "direct_hits": 82.90338067613523,
+   "direct_noncrit_avg": 10188.31974618373,
+   "direct_crit_rate": 0.9988249033621758,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "flame_shock": {
+   "spell_id": 188389,
+   "school": "firestorm",
+   "dps": 9949.491517848204,
+   "share": 0.05657768453313831,
+   "executes": 13.364472894578915,
+   "direct_hits": 13.364472894578917,
+   "direct_noncrit_avg": 8437.586076146468,
+   "direct_crit_rate": 0.5162627789669056,
+   "ticks": 221.16003200640128,
+   "tick_noncrit_avg": 5626.907807861776,
+   "tick_crit_rate": 0.5221345557395718
+  },
+  "elemental_blast_foe": {
+   "spell_id": 117014,
+   "school": "elemental",
+   "dps": 6752.609634104717,
+   "share": 0.03839864750559968,
+   "executes": 20.496699339867973,
+   "direct_hits": 20.44648929785957,
+   "direct_noncrit_avg": 45195.94849853836,
+   "direct_crit_rate": 0.5191366962783235,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_fire_elemental_fire_blast": {
+   "spell_id": 57984,
+   "school": "fire",
+   "dps": 5901.782102432993,
+   "share": 0.03356042521125651,
+   "executes": 27.794558911782357,
+   "direct_hits": 27.794558911782353,
+   "direct_noncrit_avg": 44802.1241470476,
+   "direct_crit_rate": 0.37542192954046566,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "elemental_blast_overload": {
+   "spell_id": 120588,
+   "school": "elemental",
+   "dps": 4874.0043281352655,
+   "share": 0.02771597712262052,
+   "executes": 27.229645929185835,
+   "direct_hits": 27.16623324664933,
+   "direct_noncrit_avg": 24596.341772958986,
+   "direct_crit_rate": 0.5160672734234633,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "ancestor_elemental_blast": {
+   "spell_id": 465717,
+   "school": "elemental",
+   "dps": 4131.080371861523,
+   "share": 0.023491347436292855,
+   "executes": 42.58871774354871,
+   "direct_hits": 42.4744948989798,
+   "direct_noncrit_avg": 15566.628304755186,
+   "direct_crit_rate": 0.38054914519851174,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_storm_elemental_stormfury": {
+   "spell_id": 157375,
+   "school": "nature",
+   "dps": 4124.783352145694,
+   "share": 0.02345553949632507,
+   "executes": 7.377675535107022,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 29.319263852770554,
+   "tick_noncrit_avg": 27593.44594992745,
+   "tick_crit_rate": 0.4694508313604017
+  },
+  "elemental_blast_overload_foe": {
+   "spell_id": 120588,
+   "school": "elemental",
+   "dps": 3008.3270628117357,
+   "share": 0.017106821914159017,
+   "executes": 24.535907181436286,
+   "direct_hits": 24.469093818763753,
+   "direct_noncrit_avg": 16795.263554551202,
+   "direct_crit_rate": 0.5217910252532272,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_storm_elemental_wind_gust": {
+   "spell_id": 157331,
+   "school": "nature",
+   "dps": 2942.704671393645,
+   "share": 0.016733660838208292,
+   "executes": 34.299059811962394,
+   "direct_hits": 34.17963592718544,
+   "direct_noncrit_avg": 18137.88349620738,
+   "direct_crit_rate": 0.3780140930798764,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "earthen_rage": {
+   "spell_id": 170379,
+   "school": "nature",
+   "dps": 2569.6767095560404,
+   "share": 0.01461244104430952,
+   "executes": 137.29565913182637,
+   "direct_hits": 136.79475895179036,
+   "direct_noncrit_avg": 2671.4885724704873,
+   "direct_crit_rate": 0.4830785698931178,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire": {
+   "spell_id": 1286970,
+   "school": "fire",
+   "dps": 1114.750254800715,
+   "share": 0.006339016233765348,
+   "executes": 50.195239047809565,
+   "direct_hits": 50.195239047809565,
+   "direct_noncrit_avg": 6662.383687094581,
+   "direct_crit_rate": 0.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_fire_elemental_meteor": {
+   "spell_id": 117588,
+   "school": "fire",
+   "dps": 1042.6676041046314,
+   "share": 0.005929118957700587,
+   "executes": 2.952390478095619,
+   "direct_hits": 2.9431886377275456,
+   "direct_noncrit_avg": 76095.3889011937,
+   "direct_crit_rate": 0.35037042071637325,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "lava_burst_asc": {
+   "spell_id": 51505,
+   "school": "fire",
+   "dps": 982.1656933398118,
+   "share": 0.005585075444043282,
+   "executes": 2.952390478095619,
+   "direct_hits": 2.9475895179035807,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 1.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_storm_elemental_call_lightning": {
+   "spell_id": 157348,
+   "school": "nature",
+   "dps": 861.4680135950387,
+   "share": 0.004898729288942643,
+   "executes": 7.377675535107022,
+   "direct_hits": 7.377675535107022,
+   "direct_noncrit_avg": 24710.794390337745,
+   "direct_crit_rate": 0.369431414549497,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "primal_fire_elemental_immolate": {
+   "spell_id": 118297,
+   "school": "fire",
+   "dps": 833.8596092037607,
+   "share": 0.0047417343720354875,
+   "executes": 2.987597519503901,
+   "direct_hits": 2.987597519503901,
+   "direct_noncrit_avg": 13043.596864145424,
+   "direct_crit_rate": 0.3469032474054235,
+   "ticks": 28.99039807961592,
+   "tick_noncrit_avg": 4750.392003203713,
+   "tick_crit_rate": 0.37708300269798445
+  },
+  "lava_burst_overload_asc": {
+   "spell_id": 285466,
+   "school": "fire",
+   "dps": 457.6898430286825,
+   "share": 0.002602648739028098,
+   "executes": 6.529705941188237,
+   "direct_hits": 6.516103220644129,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 1.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire_lingering": {
+   "spell_id": 1287663,
+   "school": "cosmic",
+   "dps": 339.2252809080653,
+   "share": 0.0019290011850809196,
+   "executes": 50.195239047809565,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 244.35587117423484,
+   "tick_noncrit_avg": 416.46704161976606,
+   "tick_crit_rate": 0.0
+  }
+ },
+ "buffs": {
+  "akilzons_rite": {
+   "spell_id": 1297664,
+   "uptime": 0.23094260530787492,
+   "starts": 4.097219443888778,
+   "refreshes": 1.505101020204041,
+   "interval": 60.027884877734884,
+   "duration": 16.934558528265114
+  },
+  "ancestral_swiftness": {
+   "spell_id": 443454,
+   "uptime": 0.011326997468690248,
+   "starts": 10.254050810162033,
+   "refreshes": 0.0,
+   "interval": 30.77127554961055,
+   "duration": 1.4183275905327362
+  },
+  "arcanoweave_insight": {
+   "spell_id": 1229746,
+   "uptime": 0.524932967652872,
+   "starts": 5.871774354870974,
+   "refreshes": 5.197239447889578,
+   "interval": 49.8595464120323,
+   "duration": 26.84662012920775
+  },
+  "ascendance": {
+   "spell_id": 1219480,
+   "uptime": 0.14510734640959647,
+   "starts": 2.952390478095619,
+   "refreshes": 0.0,
+   "interval": 124.78310286298567,
+   "duration": 14.658874771789844
+  },
+  "call_of_the_ancestors": {
+   "spell_id": 447244,
+   "uptime": 0.712675740593426,
+   "starts": 12.680736147229446,
+   "refreshes": 31.068213642728544,
+   "interval": 15.19705307329101,
+   "duration": 16.860078686356648
+  },
+  "elemental_blast_critical_strike": {
+   "spell_id": 118522,
+   "uptime": 0.8769292281947945,
+   "starts": 10.792758551710342,
+   "refreshes": 34.831966393278655,
+   "interval": 27.565273235072265,
+   "duration": 24.384239780252212
+  },
+  "elemental_blast_haste": {
+   "spell_id": 173183,
+   "uptime": 0.8756901687281473,
+   "starts": 10.694738947789558,
+   "refreshes": 34.89477895579116,
+   "interval": 27.819892422401182,
+   "duration": 24.57669460418216
+  },
+  "elemental_blast_mastery": {
+   "spell_id": 173184,
+   "uptime": 0.8770417235273651,
+   "starts": 10.719543908781757,
+   "refreshes": 34.94338867773555,
+   "interval": 27.765456976768068,
+   "duration": 24.5554852305743
+  },
+  "fire_elemental": {
+   "spell_id": 188592,
+   "uptime": 0.227907835935605,
+   "starts": 2.952390478095619,
+   "refreshes": 0.0,
+   "interval": 124.78310286298567,
+   "duration": 23.077115896950442
+  },
+  "halazzis_rite": {
+   "spell_id": 1297663,
+   "uptime": 0.27570311408598724,
+   "starts": 4.779355871174235,
+   "refreshes": 1.9945989197839569,
+   "interval": 55.67080777355306,
+   "duration": 17.324459356725143
+  },
+  "janalais_rite": {
+   "spell_id": 1297655,
+   "uptime": 0.11227376503809328,
+   "starts": 2.1098219643928786,
+   "refreshes": 0.4426885377075415,
+   "interval": 81.62197371466357,
+   "duration": 15.973397483205606
+  },
+  "lava_surge": {
+   "spell_id": 77762,
+   "uptime": 0.1030822119475373,
+   "starts": 22.541708341668333,
+   "refreshes": 0.0028005601120224045,
+   "interval": 13.11488552285279,
+   "duration": 1.3726957091849858
+  },
+  "master_of_the_elements": {
+   "spell_id": 260734,
+   "uptime": 0.3262891353622585,
+   "starts": 65.50990198039608,
+   "refreshes": 0.0,
+   "interval": 4.586843275360524,
+   "duration": 1.4941101941806738
+  },
+  "nalorakks_rite": {
+   "spell_id": 1297665,
+   "uptime": 0.08122873139773218,
+   "starts": 1.5917183436687337,
+   "refreshes": 0.16263252650530105,
+   "interval": 89.77632923640165,
+   "duration": 15.3048154560281
+  },
+  "power_of_the_maelstrom": {
+   "spell_id": 191877,
+   "uptime": 0.1994228176177599,
+   "starts": 17.06761352270454,
+   "refreshes": 4.131826365273055,
+   "interval": 16.85450798166391,
+   "duration": 3.5044362383926577
+  },
+  "rune_of_critical_power": {
+   "spell_id": 1287772,
+   "uptime": 0.8814991575890871,
+   "starts": 11.329665933186638,
+   "refreshes": 38.85797159431886,
+   "interval": 19.683529081802504,
+   "duration": 23.34542655013833
+  },
+  "soul_fang_alacrity": {
+   "spell_id": 1305360,
+   "uptime": 0.5000180605654486,
+   "starts": 9.388077615523105,
+   "refreshes": 7.3940788157631525,
+   "interval": 31.363225276032743,
+   "duration": 15.989852805477005
+  },
+  "storm_elemental": {
+   "spell_id": 157299,
+   "uptime": 0.29085031423205426,
+   "starts": 7.417883576715343,
+   "refreshes": 0.0,
+   "interval": 43.316643199352924,
+   "duration": 11.757034452130377
+  },
+  "stormkeeper": {
+   "spell_id": 191634,
+   "uptime": 0.08208635731474391,
+   "starts": 7.417883576715343,
+   "refreshes": 0.0,
+   "interval": 43.316643199352924,
+   "duration": 3.3204439479988115
+  },
+  "venomcursed_ascendance": {
+   "spell_id": 1317581,
+   "uptime": 0.38682927931150374,
+   "starts": 7.331666333266654,
+   "refreshes": 3.7501500300060013,
+   "interval": 39.218105814100156,
+   "duration": 15.836012825051052
+  },
+  "venomcursed_mastery": {
+   "spell_id": 1307922,
+   "uptime": 0.3872616318675995,
+   "starts": 7.338267653530706,
+   "refreshes": 3.7549509901980396,
+   "interval": 39.19984368402809,
+   "duration": 15.851858896206384
+  },
+  "wind_gust": {
+   "spell_id": 263806,
+   "uptime": 0.25536765512478904,
+   "starts": 7.385677135427086,
+   "refreshes": 35.133026605321064,
+   "interval": 43.16543645061436,
+   "duration": 10.367340695285336
+  },
+  "call_lightning": {
+   "spell_id": 157348,
+   "uptime": 0.8714510894044962,
+   "starts": 7.377675535107022,
+   "refreshes": 0.0,
+   "interval": 43.29783971449144,
+   "duration": 10.301743045031122
+  }
+ }
+}
