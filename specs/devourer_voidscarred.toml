@@ -1,0 +1,558 @@
+# Devourer Demon Hunter — Void-Scarred, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Demon_Hunter_Devourer.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (SimC spell_query on build 12.1.5.70575)
+#   [obs]  SimC's own combat log and reference/devourer_*.json
+#   [simc] read from sc_demon_hunter.cpp or its default APL
+# Damage coefficients are spell-power coefficients from SpellEffect.
+# Residual damage multipliers (the spec's +38%, Feast of Souls, Devourer's Bite,
+# Rolling Torment, Voidsurge...) live in calibration/, not here.
+#
+# The spec runs on fury (140) and soul fragments (10). About a quarter of the
+# direct hits shatter a fragment (Shattered Souls + Sweet Release [simc]);
+# Consume/Devour add two and Soul Immolation one every other tick. Reap and
+# Cull eat up to 4 fragments (10 while Moment of Craving is up), each giving one
+# Void Metamorphosis stack (outside Meta) or one Collapsing Star stack (inside).
+# 35 stacks open Void Metamorphosis, which drains fury and ends at 0 (modelled
+# as a fixed 24s window [obs]); inside it Consume becomes Devour, Reap becomes Cull,
+# Voidblade becomes Pierce the Veil and Hungering Slash becomes Reaper's Toll.
+# 30 Collapsing Star stacks open Collapsing Star.
+
+name = "Devourer Demon Hunter (Void-Scarred, core kit)"
+
+# [obs] Entropy starts the pull with 25 soul-fragment stacks; the pull also
+# opens with Soul Immolation and one Consume.
+precombat = ["entropy", "soul_immolation", "consume"]
+
+[player]
+spell_power = 3969       # [obs] buffed snapshot
+# Observed in-fight crit is 26.8% against the 22.3% snapshot: the gear procs
+# (Venomcursed Critical Strike etc.) are folded in as their time average.
+crit = 0.268             # [obs]
+haste = 0.2086           # [obs] 20.86% (Consume casts land 1.448s apart)
+mastery = 0.4437         # [obs] Mastery: Monster Within
+versatility = 0.0528     # [obs]
+crit_multiplier = 2.52   # [obs] Calamitous: crits hit for 240% plus gear
+
+[fight]
+duration = 300
+variance = 0.2
+
+[resources.fury]
+max = 140                # [obs] log: 140 cap
+start = 0
+
+[resources.soul_fragment]
+max = 10                 # [simc] DEVOURER_MAX_SOUL_FRAGMENTS
+start = 0
+
+# Random gear procs, as Poisson rates [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 7.78
+
+# Shattered Souls: every direct hit has a chance to shatter a fragment [simc]
+[[procs]]
+ability = "shatter_soul"
+on_hit = true
+chance = 0.25
+sources = ["consume", "devour", "reap_damage", "cull_damage", "voidblade_damage", "hungering_slash_damage", "pierce_the_veil_damage", "reapers_toll_damage", "collapsing_star_damage", "predators_wake_damage", "the_hunt_damage", "voidstep", "voidsurge", "void_ray_tick", "void_ray_tick_meta"]
+on_tick = true
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "void_souls"          # Void Metamorphosis stacks: 35 opens Meta [db2 1225789]
+duration = 1e9
+max_stacks = 35
+flat = true
+
+[[buffs]]
+name = "metamorphosis"       # [obs] 25.2s average uptime; 24s of actions once SimC's ~150ms per-action latency is taken out
+duration = 24
+# [db2 1217607 #4] +0.4 x mastery (44.37% x 1.2 Enduring Torment) = +21.3%
+damage_pct = 21.3
+
+[[buffs]]
+name = "hungering_slash"     # [db2 1239525: 6s] Hungering Slash / Reaper's Toll available
+duration = 6
+
+[[buffs]]
+name = "voidstep"            # [db2 1223157] a Vengeful Retreat charge
+duration = 15
+max_stacks = 5
+flat = true
+
+[[buffs]]
+name = "voidsurge"           # [db2 1246160 #2] +10% damage per stack, 12s, 8 stacks
+duration = 12
+max_stacks = 8
+damage_pct = 10
+
+[[buffs]]
+name = "collapsing_star_stacks"   # [simc] 30 stacks open Collapsing Star
+duration = 1e9
+max_stacks = 30
+flat = true
+
+[[buffs]]
+name = "collapsing_star"     # [db2 1221171: 3s] Collapsing Star window
+duration = 3
+
+[[buffs]]
+name = "moment_of_craving"   # [db2 1238495: 8s] Reap/Cull shatter 10 souls
+duration = 8
+
+# One Voidsurge per ability per Metamorphosis [simc]
+[[buffs]]
+name = "vs_reapers"
+duration = 25
+
+[[buffs]]
+name = "vs_pierce"
+duration = 25
+
+[[buffs]]
+name = "vs_wake"
+duration = 25
+
+[[buffs]]
+name = "volatile_instinct"   # [db2 1272462] the next Voidsurge repeats
+duration = 10
+
+# ---------------------------------------------------------------- helpers
+
+[[abilities]]
+name = "entropy"             # [db2] Entropy: 25 starting stacks
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "void_souls", stacks = 25 }]
+
+[[abilities]]
+name = "shatter_soul"        # [simc] Shattered Souls
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "soul_fragment", amount = 1 }]
+
+[[abilities]]
+name = "voidsurge"           # [db2 1246160: 6.25 SP AoE]
+spell_id = 1246160
+triggered_only = true
+damage = { sp_coeff = 6.25, school = "cosmic", mastery = true, mastery_scale = 1.6 }
+on_cast = [{ type = "buff", buff = "voidsurge" }]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+no_procs = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 0.12
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "extend"
+
+[[abilities]]
+name = "burning_blades_holder"   # [db2 1245654: 6s, 2s ticks] 35% of Voidblade/Hungering Slash damage
+triggered_only = true
+[abilities.dot]
+name = "burning_blades"
+banked = true
+tick_time = 2.0
+duration = 6.0
+hasted = false
+school = "cosmic"
+
+[[abilities]]
+name = "the_hunt_dot_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "the_hunt_dot"        # [db2 1246168: 6s, 2s ticks]
+sp_coeff = 1.275
+tick_time = 2.0
+duration = 6.0
+hasted = true
+school = "cosmic"
+mastery = true
+
+[[abilities]]
+name = "soul_immolation_dot_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "soul_immolation"
+tick_time = 1.0
+duration = 5.0
+hasted = false
+school = "fire"
+tick_on_apply = true
+on_tick = [{ type = "gain", resource = "fury", amount = 6 }]
+
+# ---------------------------------------------------------------- outside Void Metamorphosis
+
+[[abilities]]
+name = "consume"
+spell_id = 473662
+cast_time = 1.75             # [db2 2s - 0.25 Improved Consume 1272817 #2]
+gcd = 0
+damage = { sp_coeff = 3.67, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2 473662 #1] (+10% Improved Consume in derived/)
+on_cast = [
+  { type = "gain", resource = "fury", amount = 8 },        # [db2 1261710]
+  { type = "gain", resource = "soul_fragment", amount = 2 },  # [simc] Predator's Thirst
+  { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+2" },
+]
+
+[[abilities]]
+name = "reap"
+spell_id = 1226019
+gcd = 1.24                  # [obs] 1.027s at 20.86% haste (SimC's double-hasted GCD)
+cost = { soul_fragment = 4 }
+damage = { sp_coeff = 6.0156, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
+source = "reap_damage"
+on_cast = [
+  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
+  { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+spent.soul_fragment" },
+]
+
+[[abilities]]
+name = "reap_moc"            # Moment of Craving: shatters up to 10 souls [db2 1238495]
+source = "reap_damage"
+gcd = 1.24                  # [obs]
+requires_buff = "moment_of_craving"
+cost = { soul_fragment = 4 }
+cost_max = { soul_fragment = 10 }
+damage = { sp_coeff = 6.0156, school = "cosmic", mastery = true, mastery_scale = 1.2 }
+on_cast = [
+  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
+  { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+spent.soul_fragment" },
+  { type = "consume", buff = "moment_of_craving", all = true },
+]
+
+[[abilities]]
+name = "soul_immolation"
+spell_id = 1241937
+cooldown = 30               # [db2 60s - 30s Tempered Soul 1246555]
+charges = 2                 # [db2] Tempered Soul
+gcd = 1.5
+on_cast = [
+  { type = "trigger", ability = "soul_immolation_dot_apply" },
+  { type = "gain", resource = "soul_fragment", amount = 3 },   # [simc] every other tick
+]
+
+# Voidblade is overridden by Pierce the Veil inside Void Metamorphosis [simc];
+# the two share its 30s cooldown.
+[[abilities]]
+name = "voidblade_cast"
+spell_id = 1245412
+cooldown = 30               # [db2]
+cooldown_hasted = true      # [db2 1213636 #6]
+gcd = 0.5                   # [db2]
+on_cast = [
+  { type = "buff", buff = "hungering_slash" },
+  { type = "if", if = "buff.metamorphosis.up", then = [{ type = "trigger", ability = "pierce_the_veil_damage" }], else = [{ type = "trigger", ability = "voidblade_damage" }] },
+]
+
+[[abilities]]
+name = "voidblade_damage"
+spell_id = 1245414
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 1.2, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2]
+
+[[abilities]]
+name = "hungering_slash"
+spell_id = 1239123
+requires_buff = "hungering_slash"
+gcd = 1.5
+damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 1.2, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2]
+source = "hungering_slash_damage"
+on_cast = [
+  { type = "consume", buff = "hungering_slash", all = true },
+  { type = "buff", buff = "voidstep" },
+]
+
+# The Hunt and Predator's Wake share one 90s cooldown [simc]: Predator's Wake
+# overrides The Hunt inside Void Metamorphosis. One cast carries both rows.
+[[abilities]]
+name = "hunt_cast"
+spell_id = 1246167
+cooldown = 90               # [db2]
+cooldown_hasted = true      # [db2 1213636 #6]
+cast_time = 1.0             # [db2]
+on_cast = [
+  { type = "if", if = "buff.metamorphosis.up", then = [{ type = "trigger", ability = "predators_wake_damage" }], else = [{ type = "trigger", ability = "the_hunt_damage" }] },
+]
+
+[[abilities]]
+name = "the_hunt_damage"
+spell_id = 1246169
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 6.6, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
+on_cast = [
+  { type = "trigger", ability = "the_hunt_dot_apply" },
+  { type = "buff", buff = "hungering_slash" },
+]
+
+[[abilities]]
+name = "predators_wake_damage"
+spell_id = 1259431
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 6.6, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
+on_cast = [
+  { type = "trigger", ability = "the_hunt_dot_apply" },
+  { type = "buff", buff = "hungering_slash" },
+  { type = "if", if = "buff.vs_wake.up", then = [
+    { type = "consume", buff = "vs_wake", all = true },
+    { type = "trigger", ability = "voidsurge", delay = 0.45 },
+  ] },
+]
+
+[[abilities]]
+name = "vengeful_retreat"
+spell_id = 198793
+triggered_only = false
+requires_buff = "voidstep"
+gcd = 0                     # [simc] use_off_gcd
+damage = { sp_coeff = 0.02, school = "physical" }   # [obs] 153 per hit
+source = "vengeful_retreat_damage"
+on_cast = [
+  { type = "consume", buff = "voidstep" },
+  { type = "trigger", ability = "voidstep_damage" },
+]
+
+[[abilities]]
+name = "voidstep_damage"
+spell_id = 1239526
+triggered_only = true
+damage = { sp_coeff = 1.5, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
+source = "voidstep"
+
+# ---------------------------------------------------------------- Void Metamorphosis
+
+[[abilities]]
+name = "metamorphosis"
+spell_id = 1217605
+gcd = 1.5
+on_cast = [
+  { type = "buff", buff = "metamorphosis" },
+  { type = "consume", buff = "void_souls", all = true },
+  { type = "buff", buff = "vs_reapers" },
+  { type = "buff", buff = "vs_pierce" },
+  { type = "buff", buff = "vs_wake" },
+  { type = "buff", buff = "volatile_instinct" },
+  { type = "reset_cooldown", ability = "voidblade_cast" },      # [db2] Violent Transformation
+  { type = "reset_cooldown", ability = "soul_immolation" },
+]
+
+[[abilities]]
+name = "devour"
+spell_id = 1217610
+cast_time = 1.17            # [obs] 0.966s at 20.86% haste
+gcd = 0
+requires_buff = "metamorphosis"
+damage = { sp_coeff = 3.67, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2 1217610 #1] (+10% Improved Consume in derived/)
+on_cast = [
+  { type = "gain", resource = "fury", amount = 16 },          # [db2 1288123]
+  { type = "gain", resource = "soul_fragment", amount = 2 },
+]
+
+[[abilities]]
+name = "cull"
+spell_id = 1245453
+requires_buff = "metamorphosis"
+gcd = 1.24                  # [obs]
+cost = { soul_fragment = 4 }
+damage = { sp_coeff = 7.736, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
+source = "cull_damage"
+on_cast = [
+  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
+  { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+spent.soul_fragment" },
+]
+
+[[abilities]]
+name = "cull_moc"            # Moment of Craving
+source = "cull_damage"
+requires_buff = "metamorphosis"
+gcd = 1.24                  # [obs]
+cost = { soul_fragment = 4 }
+cost_max = { soul_fragment = 10 }
+damage = { sp_coeff = 7.736, school = "cosmic", mastery = true, mastery_scale = 1.6 }
+on_cast = [
+  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
+  { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+spent.soul_fragment" },
+  { type = "consume", buff = "moment_of_craving", all = true },
+]
+
+[[abilities]]
+name = "pierce_the_veil_damage"
+spell_id = 1245483
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 1.6, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2]
+on_cast = [
+  { type = "if", if = "buff.vs_pierce.up", then = [
+    { type = "consume", buff = "vs_pierce", all = true },
+    { type = "trigger", ability = "voidsurge", delay = 0.45 },
+  ] },
+]
+
+[[abilities]]
+name = "reapers_toll"
+spell_id = 1245470
+requires_buff = "hungering_slash"
+gcd = 1.5
+damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 1.6, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2]
+source = "reapers_toll_damage"
+on_cast = [
+  { type = "consume", buff = "hungering_slash", all = true },
+  { type = "buff", buff = "voidstep" },
+  { type = "if", if = "buff.vs_reapers.up", then = [
+    { type = "consume", buff = "vs_reapers", all = true },
+    { type = "trigger", ability = "voidsurge", delay = 0.45 },
+    { type = "if", if = "buff.volatile_instinct.up", then = [
+      { type = "consume", buff = "volatile_instinct", all = true },
+      { type = "trigger", ability = "voidsurge", delay = 0.45 },
+    ] },
+  ] },
+]
+
+[[abilities]]
+name = "collapsing_star"
+spell_id = 1221150
+requires_buff = "metamorphosis"
+gcd = 1.5
+damage = { sp_coeff = 12.755, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
+source = "collapsing_star_damage"
+on_cast = [
+  { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack-30" },
+  { type = "buff", buff = "collapsing_star" },
+  { type = "gain", resource = "soul_fragment", amount = 3 },   # [simc] Star Fragments
+  { type = "reset_cooldown", ability = "hunt_cast" },          # [simc] Demonic Intensity
+]
+
+[[abilities]]
+name = "void_ray"
+spell_id = 473728
+gcd = 0
+cost = { fury = 100 }       # [db2] requires 100 Fury; drains 5 per tick (100 over the channel)
+channel = { ticks = 20, on_finish = [{ type = "buff", buff = "moment_of_craving" }] }
+[abilities.dot]
+name = "void_ray_tick"       # [db2 1213649: 3s, 0.15s ticks, hasted]
+sp_coeff = 0.2025
+tick_time = 0.15
+duration = 3.0
+hasted = true
+school = "cosmic"
+mastery = true
+mastery_scale = 1.2
+
+[[abilities]]
+name = "void_ray_meta"
+spell_id = 1217607
+requires_buff = "metamorphosis"
+gcd = 0
+cooldown = 16               # [db2 1217607 #8]
+cooldown_hasted = true      # [db2 1213636 #6]
+channel = { ticks = 20, on_finish = [{ type = "buff", buff = "moment_of_craving" }] }
+[abilities.dot]
+name = "void_ray_tick_meta"  # [db2 1214595]
+sp_coeff = 0.2835
+tick_time = 0.15
+duration = 3.0
+hasted = true
+school = "cosmic"
+mastery = true
+mastery_scale = 1.6
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of the observed priority (SimC default Void-Scarred APL), single target.
+# Vengeful Retreat and Voidblade/Pierce are off the GCD and shared by both windows
+# (Voidblade is overridden by Pierce the Veil inside Void Metamorphosis, The Hunt by
+# Predator's Wake), so they sit at the top.
+
+[[rotation]]
+action = "vengeful_retreat"
+
+[[rotation]]
+action = "voidblade_cast"
+if = "!buff.hungering_slash.up"
+
+[[rotation]]
+action = "void_ray_meta"
+
+[[rotation]]
+action = "collapsing_star"
+if = "buff.collapsing_star_stacks.stack>=30"
+
+[[rotation]]
+action = "hunt_cast"
+
+# --- Void Metamorphosis
+[[rotation]]
+action = "reapers_toll"
+if = "buff.metamorphosis.up&buff.hungering_slash.up"
+
+[[rotation]]
+action = "cull_moc"
+if = "buff.metamorphosis.up&buff.moment_of_craving.up"
+
+[[rotation]]
+action = "cull"
+if = "buff.metamorphosis.up"
+
+[[rotation]]
+action = "devour"
+if = "buff.metamorphosis.up"
+
+[[rotation]]
+action = "soul_immolation"
+if = "buff.metamorphosis.up&!dot.soul_immolation.ticking"
+
+# --- outside Void Metamorphosis
+[[rotation]]
+action = "metamorphosis"
+if = "buff.void_souls.stack>=35"
+
+[[rotation]]
+action = "reap_moc"
+if = "!buff.metamorphosis.up&buff.moment_of_craving.up&soul_fragment>=4"
+
+[[rotation]]
+action = "reap"
+if = "!buff.metamorphosis.up&fury<100&soul_fragment>=4"
+
+[[rotation]]
+action = "void_ray"
+if = "!buff.metamorphosis.up&fury>=100"
+
+[[rotation]]
+action = "hungering_slash"
+if = "!buff.metamorphosis.up&buff.hungering_slash.remains<1.3"
+
+[[rotation]]
+action = "reap"
+if = "!buff.metamorphosis.up&soul_fragment>=4"
+
+[[rotation]]
+action = "soul_immolation"
+if = "!buff.metamorphosis.up&!dot.soul_immolation.ticking"
+
+[[rotation]]
+action = "consume"
+if = "!buff.metamorphosis.up"
