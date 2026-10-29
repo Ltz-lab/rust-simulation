@@ -36,6 +36,36 @@ mastery = 0.4437         # [obs] Mastery: Monster Within
 versatility = 0.0528     # [obs]
 crit_multiplier = 2.52   # [obs] Calamitous: crits hit for 240% plus gear
 
+[gear]
+spec_id = 1480                # [db2] ChrSpecialization: picks the class set bonuses
+primary = "intellect"
+base_primary = 622            # [obs] level-90 void elf base intellect (naked SimC character: 704 buffed)
+primary_mult = 1.18965        # [obs] x1.05 matching gear x1.03 Arcane Intellect x1.10 talent (buffed 3969; +200 int probe 4207)
+spell_power_per_primary = 1.0 # [obs] spell power = buffed intellect (3969)
+crit_bonus = 0.07             # [obs] 22.30% at 704 rating = 15.30% from rating + 7%
+haste_mult = 1.0              # [obs] 20.86% at 918 rating, from rating alone
+mastery_points = 16.2         # [obs] incl. 2 Skyfury, in mastery points (44.37% at 28.17 points from rating)
+mastery_coeff = 1.0           # [obs] Mastery: Monster Within, +1% per point; +500 probe gives +9.97 points
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+
+# Raid-night kit with gear lines (see Ret): SimC's default level-90 Devourer
+# consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
+#   primary 50     Blooming Feast [obs]
+#   primary 25.1   Void-Touched augment rune [db2 1264426]
+#   mastery 165    Flask of the Magisters (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+primary_buffs = { lights_potential = 695 }   # primary stat potion [db2 1236616, item-level scaled]
+
+# The time-averaged gear stat procs folded into [player] above, so --gear
+# lands on the same final stats. They belong to this gear set; other gear
+# keeps the same averages.
+[gear.procs]
+crit = 0.045
+
 [fight]
 duration = 300
 variance = 0.2
@@ -133,6 +163,20 @@ duration = 25
 [[buffs]]
 name = "volatile_instinct"   # [db2 1272462] the next Voidsurge repeats
 duration = 10
+
+[[buffs]]
+name = "full_kit"            # [simc] marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"           # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"    # potion: +695 intellect for 30s [db2 1236616]
+duration = 30
+power_pct = 0                # [simc] computed from the gear's spell power
 
 # ---------------------------------------------------------------- helpers
 
@@ -505,7 +549,31 @@ school = "cosmic"
 mastery = true
 mastery_scale = 1.6
 
+[[abilities]]
+name = "full_kit"            # [simc] gear-kit markers (see [gear.kit])
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300              # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
 # ---------------------------------------------------------------- rotation
+
+# SimC cooldowns: the potion in Void Metamorphosis, or in the last 30s; only
+# with [gear.kit] (the ability needs the kit's marker).
+[[rotation]]
+action = "potion"
+if = "buff.metamorphosis.up|fight_remains<=30"
+
 # SimC's default Void-Scarred APL, single target (apl/demon_hunter/devourer.simc).
 # Vengeful Retreat is off the GCD; Voidblade is overridden by Pierce the Veil and
 # The Hunt by Predator's Wake inside Void Metamorphosis. Both Voidblade/Pierce and

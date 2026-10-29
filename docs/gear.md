@@ -99,7 +99,7 @@ name) and check it against SimC on the same character.
 
 ## Casters
 
-Fire Mage and Destruction Warlock carry `[gear]` tables too. Casters have no
+Fire Mage, Destruction Warlock and Devourer Demon Hunter carry `[gear]` tables too. Casters have no
 weapon attack power; `spell_power_per_primary` turns the buffed intellect
 into spell power (1 per point, observed) and `attack_power_mult` is left out.
 Their `[player]` stats are the buffed snapshot plus time-averaged gear stat

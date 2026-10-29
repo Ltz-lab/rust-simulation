@@ -60,6 +60,28 @@ only (no trinkets, tier set, consumables or Bloodlust), 300s Patchwerk,
 | azsim | 164,308 (±101) |
 | difference | **+0.03%** |
 
+## Gear
+
+`--gear` on the sample profile reproduces SimC's buffed stats exactly
+(`tools/check_gear.py ... --no-trinkets`): every item level and rating
+matches, and spell power 3,969, crit 22.30%, haste 20.86%, mastery 44.37%,
+versatility 5.28%. The `[gear]` constants come from the stat probes: level-90
+base intellect 622 (SimC's naked character), ×1.05 matching gear ×1.03 Arcane
+Intellect ×1.10 talent (3969 buffed; +200 int gives +238 spell power), spell
+power = intellect, crit 7% plus rating/46, haste from rating alone, 16.2
+mastery points × Monster Within's 1.0, and Mark of the Wild's 3%
+versatility. The gear stat procs (Venomcursed Critical Strike and its kin) are
+folded into `[player]` as a +4.5% crit average, so `[gear.procs]` adds that
+back.
+
+`[gear.kit]` adds SimC's default Devourer consumables and Bloodlust on top:
+Blooming Feast, the Void-Touched rune, Flask of the Magisters, Thalassian
+Phoenix Oil, a primary-stat potion used inside Metamorphosis or the last 30s,
+and Bloodlust at the pull. `--set gear.kit.enabled=0` gives the core-kit run.
+With gear lines and no kit, azsim gives 164,350 DPS against SimC's 164,317
+(+0.02%, 5,000 iterations, seed 42), which is +0.01% against the spec-stats
+run.
+
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
@@ -137,3 +159,6 @@ go through 1.2× (Enduring Torment) and the Metamorphosis window's extra
   specs. The lingering rune DoT is a separate rune's proc in the data, so it
   is applied by 67% of Unleashed Fire procs to match its observed 26
   applications per fight.
+- The sample profile's trinkets (Freightrunner's Flask, Gebbo's Bottomless
+  Bag) have no template in `data/item_effects.toml`, so a full raid-kit run
+  counts them as stats only.

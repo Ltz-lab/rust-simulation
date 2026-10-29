@@ -33,6 +33,7 @@ SPEC_BY_PROFILE = {
     "feral": "feral_wildstalker",
     "arms": "arms_slayer",
     "shadow": "shadow_voidweaver",
+    "devourer": "devourer_voidscarred",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
