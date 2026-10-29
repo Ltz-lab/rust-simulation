@@ -1,0 +1,525 @@
+{
+ "player": "MID2_Demon_Hunter_Devourer_Void-Scarred",
+ "dps": 185356.34625963765,
+ "fight_length": 299.9913951317112,
+ "buffed_stats": {
+  "attributes": null,
+  "stats": {
+   "spell_power": 3969.0,
+   "attack_power": 652.0,
+   "spell_crit": 0.22304347826086957,
+   "attack_crit": 0.22304347826086957,
+   "spell_haste": 0.7575496711545746,
+   "attack_haste": 0.7575496711545746,
+   "spell_cast_speed": 0.7575496711545746,
+   "auto_attack_speed": 0.7575496711545746,
+   "mastery_value": 0.4437391304347827,
+   "damage_versatility": 0.05277777777777777,
+   "heal_versatility": 0.05277777777777777,
+   "mitigation_versatility": 0.026388888888888885,
+   "crit_rating": 704.0,
+   "crit_pct": 0.22304347826086957,
+   "haste_rating": 1418.0,
+   "haste_pct": 0.3200454545454545,
+   "mastery_rating": 1296.0,
+   "mastery_pct": 0.4437391304347827,
+   "versatility_rating": 123.0,
+   "versatility_pct": 0.05277777777777777,
+   "leech_rating": 194.0,
+   "leech_pct": 0.14811554068982896,
+   "speed_rating": 22.0,
+   "speed_pct": 8.877007370689467,
+   "armor": 1201.0,
+   "dodge": 0.06246253863410698,
+   "parry": 0.03
+  }
+ },
+ "sources": {
+  "cull_damage": {
+   "spell_id": 1245455,
+   "school": "cosmic",
+   "dps": 44003.62385714891,
+   "share": 0.23743251990998157,
+   "executes": 0.0,
+   "direct_hits": 43.046015338446146,
+   "direct_noncrit_avg": 216954.18139747696,
+   "direct_crit_rate": 0.27210968666485924,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "reap_damage": {
+   "spell_id": 1225823,
+   "school": "cosmic",
+   "dps": 23169.213523522827,
+   "share": 0.12501526622173245,
+   "executes": 0.0,
+   "direct_hits": 30.81360453484495,
+   "direct_noncrit_avg": 160143.66678720163,
+   "direct_crit_rate": 0.2659993507196191,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "devour": {
+   "spell_id": 1217610,
+   "school": "cosmic",
+   "dps": 19162.15110734208,
+   "share": 0.10339416224177451,
+   "executes": 56.8216072024008,
+   "direct_hits": 56.8216072024008,
+   "direct_noncrit_avg": 71901.66697976542,
+   "direct_crit_rate": 0.26798037650814516,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "void_ray_tick_meta": {
+   "spell_id": 1214595,
+   "school": "cosmic",
+   "dps": 17175.473514238474,
+   "share": 0.09267454813202314,
+   "executes": 0.0,
+   "direct_hits": 377.7789263087696,
+   "direct_noncrit_avg": 9680.277259629254,
+   "direct_crit_rate": 0.2691844982916416,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "voidsurge": {
+   "spell_id": 1246160,
+   "school": "cosmic",
+   "dps": 15596.676545159864,
+   "share": 0.08415575558867501,
+   "executes": 0.0,
+   "direct_hits": 25.447149049683226,
+   "direct_noncrit_avg": 130420.0804143047,
+   "direct_crit_rate": 0.27086063210860106,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "reapers_toll_damage": {
+   "spell_id": 1239127,
+   "school": "cosmic",
+   "dps": 14570.686846419352,
+   "share": 0.07861977245318454,
+   "executes": 0.0,
+   "direct_hits": 19.620873624541517,
+   "direct_noncrit_avg": 87237.62076506358,
+   "direct_crit_rate": 0.45339292694118244,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "void_ray_tick": {
+   "spell_id": 1213649,
+   "school": "cosmic",
+   "dps": 11074.319602832955,
+   "share": 0.0597542515617599,
+   "executes": 0.0,
+   "direct_hits": 342.7099033011004,
+   "direct_noncrit_avg": 6867.430097007102,
+   "direct_crit_rate": 0.2707273005009793,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "consume": {
+   "spell_id": 473662,
+   "school": "cosmic",
+   "dps": 9671.722740168716,
+   "share": 0.052186190608386814,
+   "executes": 30.204734911637214,
+   "direct_hits": 31.20473491163721,
+   "direct_noncrit_avg": 66308.2267570949,
+   "direct_crit_rate": 0.2630819700159217,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "burning_blades": {
+   "spell_id": 1245654,
+   "school": "cosmic",
+   "dps": 7884.333083887458,
+   "share": 0.04254188423194849,
+   "executes": 0.0,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 62.176392130710234,
+   "tick_noncrit_avg": 38043.55272434753,
+   "tick_crit_rate": 0.0
+  },
+  "pierce_the_veil_damage": {
+   "spell_id": 1245414,
+   "school": "cosmic",
+   "dps": 7558.410970386651,
+   "share": 0.04078329023627893,
+   "executes": 0.0,
+   "direct_hits": 12.380126708902967,
+   "direct_noncrit_avg": 108979.20411994173,
+   "direct_crit_rate": 0.44755979314802846,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "collapsing_star_damage": {
+   "spell_id": 1221162,
+   "school": "cosmic",
+   "dps": 5160.16289817464,
+   "share": 0.027842945027368508,
+   "executes": 0.0,
+   "direct_hits": 6.289429809936646,
+   "direct_noncrit_avg": 175639.19201812433,
+   "direct_crit_rate": 0.2639168698971477,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "the_hunt_dot": {
+   "spell_id": 1246168,
+   "school": "cosmic",
+   "dps": 3749.9563888088824,
+   "share": 0.020233824328601924,
+   "executes": 0.0,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 34.40946982327442,
+   "tick_noncrit_avg": 23263.338066507407,
+   "tick_crit_rate": 0.2664689807546951
+  },
+  "predators_wake_damage": {
+   "spell_id": 1246169,
+   "school": "cosmic",
+   "dps": 3590.5156787010947,
+   "share": 0.01937352223848262,
+   "executes": 0.0,
+   "direct_hits": 6.21240413471157,
+   "direct_noncrit_avg": 123327.16276956513,
+   "direct_crit_rate": 0.2663839836831088,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire": {
+   "spell_id": 1286970,
+   "school": "fire",
+   "dps": 818.9143228674366,
+   "share": 0.004418656333851085,
+   "executes": 39.771590530176724,
+   "direct_hits": 39.771590530176724,
+   "direct_noncrit_avg": 6176.922616005225,
+   "direct_crit_rate": 0.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "the_hunt_damage": {
+   "spell_id": 1246169,
+   "school": "cosmic",
+   "dps": 645.5828974495336,
+   "share": 0.0034834034271776786,
+   "executes": 0.0,
+   "direct_hits": 1.0436812270756919,
+   "direct_noncrit_avg": 131896.95353364744,
+   "direct_crit_rate": 0.26805111821086264,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "voidstep": {
+   "spell_id": 1239526,
+   "school": "cosmic",
+   "dps": 535.1024403542999,
+   "share": 0.002887278584958206,
+   "executes": 19.924308102700902,
+   "direct_hits": 19.924308102700902,
+   "direct_noncrit_avg": 6231.804153922431,
+   "direct_crit_rate": 0.2689906782923033,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "voidblade_damage": {
+   "spell_id": 1245414,
+   "school": "cosmic",
+   "dps": 524.5469964951407,
+   "share": 0.0028303240567951493,
+   "executes": 0.0,
+   "direct_hits": 1.3631210403467824,
+   "direct_noncrit_avg": 68761.41442267856,
+   "direct_crit_rate": 0.4442270058708414,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire_lingering": {
+   "spell_id": 1287663,
+   "school": "cosmic",
+   "dps": 272.1756259671944,
+   "share": 0.0014685914264983598,
+   "executes": 39.771590530176724,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 211.45615205068356,
+   "tick_noncrit_avg": 386.1329729466577,
+   "tick_crit_rate": 0.0
+  },
+  "hungering_slash_damage": {
+   "spell_id": 1239127,
+   "school": "cosmic",
+   "dps": 153.43466978971452,
+   "share": 0.0008278950026478171,
+   "executes": 0.0,
+   "direct_hits": 0.30343447815938646,
+   "direct_noncrit_avg": 58553.996489271594,
+   "direct_crit_rate": 0.4626373626373626,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "vengeful_retreat_damage": {
+   "spell_id": 198813,
+   "school": "physical",
+   "dps": 14.070036341666361,
+   "share": 7.591838787350531e-05,
+   "executes": 0.0,
+   "direct_hits": 20.968656218739582,
+   "direct_noncrit_avg": 155.87723401677545,
+   "direct_crit_rate": 0.2669157986801304,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  }
+ },
+ "buffs": {
+  "akilzons_rite": {
+   "spell_id": 1297664,
+   "uptime": 0.13112849137524496,
+   "starts": 2.3044348116038678,
+   "refreshes": 0.8606202067355785,
+   "interval": 78.93457270315889,
+   "duration": 17.095209600691945
+  },
+  "arcanoweave_insight": {
+   "spell_id": 1229746,
+   "uptime": 0.5236379802114948,
+   "starts": 5.870956985661888,
+   "refreshes": 5.132710903634544,
+   "interval": 49.85729211873082,
+   "duration": 26.77959635416667
+  },
+  "collapsing_star": {
+   "spell_id": 1221171,
+   "uptime": 0.05794185083863155,
+   "starts": 6.3527842614204735,
+   "refreshes": 0.0,
+   "interval": 46.770968210604735,
+   "duration": 2.735689301595605
+  },
+  "collapsing_star_stacking": {
+   "spell_id": 1227702,
+   "uptime": 0.5292772855434766,
+   "starts": 7.670890296765588,
+   "refreshes": 282.9029676558853,
+   "interval": 40.01343243647236,
+   "duration": 20.70074140993978
+  },
+  "demonsurge_demonic_intensity": {
+   "spell_id": 1245496,
+   "uptime": 0.62202179761072,
+   "starts": 6.603201067022341,
+   "refreshes": 0.0,
+   "interval": 47.92596661131538,
+   "duration": 28.256300991394497
+  },
+  "demonsurge_demonsurge": {
+   "spell_id": 452435,
+   "uptime": 0.62202179761072,
+   "starts": 6.603201067022341,
+   "refreshes": 0.0,
+   "interval": 47.92596661131538,
+   "duration": 28.256300991394497
+  },
+  "entropic_embrace": {
+   "spell_id": 256374,
+   "uptime": 0.26267119120911675,
+   "starts": 5.820606868956319,
+   "refreshes": 1.8199399799933311,
+   "interval": 47.21011204578363,
+   "duration": 13.542195694380998
+  },
+  "feast_of_souls": {
+   "spell_id": 1232310,
+   "uptime": 0.9882947607505796,
+   "starts": 3.7579193064354786,
+   "refreshes": 510.6595531843948,
+   "interval": 65.14539940212478,
+   "duration": 78.9262205414013
+  },
+  "halazzis_rite": {
+   "spell_id": 1297663,
+   "uptime": 0.08186929367789908,
+   "starts": 1.5601867289096365,
+   "refreshes": 0.23941313771257086,
+   "interval": 89.38107955056181,
+   "duration": 15.727479957356078
+  },
+  "hungering_slash": {
+   "spell_id": 1239525,
+   "uptime": 0.05732992611232764,
+   "starts": 19.960320106702234,
+   "refreshes": 1.0426808936312104,
+   "interval": 14.859979896238643,
+   "duration": 0.857701080532108
+  },
+  "impending_apocalypse": {
+   "spell_id": 1227338,
+   "uptime": 0.1725902880381014,
+   "starts": 6.119039679893298,
+   "refreshes": 0.09003001000333445,
+   "interval": 48.146699863662924,
+   "duration": 8.463537258309797
+  },
+  "janalais_rite": {
+   "spell_id": 1297655,
+   "uptime": 0.3846343582402345,
+   "starts": 6.093031010336779,
+   "refreshes": 3.946648882960987,
+   "interval": 46.1866262725137,
+   "duration": 18.959671503382065
+  },
+  "metamorphosis": {
+   "spell_id": 1217607,
+   "uptime": 0.62202179761072,
+   "starts": 6.603201067022341,
+   "refreshes": 0.0,
+   "interval": 47.92596661131538,
+   "duration": 28.256300991394497
+  },
+  "moment_of_craving": {
+   "spell_id": 1238495,
+   "uptime": 0.047053240723972725,
+   "starts": 33.68456152050683,
+   "refreshes": 0.5308436145381794,
+   "interval": 8.71108006833365,
+   "duration": 0.41896977267790064
+  },
+  "nalorakks_rite": {
+   "spell_id": 1297665,
+   "uptime": 0.07846811037264359,
+   "starts": 1.551517172390797,
+   "refreshes": 0.1140380126708903,
+   "interval": 87.73111942959002,
+   "duration": 15.177923307626394
+  },
+  "reap": {
+   "spell_id": 1226019,
+   "uptime": 0.2452390501060562,
+   "starts": 72.73324441480493,
+   "refreshes": 1.2054018006002,
+   "interval": 4.12966954998867,
+   "duration": 1.0116925080421129
+  },
+  "rolling_torment": {
+   "spell_id": 1244235,
+   "uptime": 0.232204974397551,
+   "starts": 5.923307769256419,
+   "refreshes": 0.0,
+   "interval": 48.426781572730334,
+   "duration": 11.771112096050269
+  },
+  "rune_of_masterful_cunning": {
+   "spell_id": 1287771,
+   "uptime": 0.8671523413247627,
+   "starts": 11.583861287095699,
+   "refreshes": 36.438812937645885,
+   "interval": 18.967232833437038,
+   "duration": 22.468866129078535
+  },
+  "soul_fang_alacrity": {
+   "spell_id": 1305360,
+   "uptime": 0.49532706977967755,
+   "starts": 9.346782260753585,
+   "refreshes": 7.290430143381127,
+   "interval": 31.533260242882736,
+   "duration": 15.903842909970125
+  },
+  "soul_fragments": {
+   "spell_id": 1245577,
+   "uptime": 0.8761832622121688,
+   "starts": 57.261420473491164,
+   "refreshes": 460.50050016672225,
+   "interval": 5.2812276626414905,
+   "duration": 4.816171686233445
+  },
+  "vengeful_retreat_movement": {
+   "spell_id": null,
+   "uptime": 0.06898216245253538,
+   "starts": 20.96865621873958,
+   "refreshes": 0.0,
+   "interval": 14.088496571694845,
+   "duration": 0.9857199232927074
+  },
+  "venomcursed_critical_strike": {
+   "spell_id": 1307910,
+   "uptime": 0.38643806749047144,
+   "starts": 7.341447149049683,
+   "refreshes": 3.7915971990663553,
+   "interval": 39.17436236897272,
+   "duration": 15.800575580605729
+  },
+  "venomcursed_haste": {
+   "spell_id": 1307927,
+   "uptime": 0.38441685730651287,
+   "starts": 7.2874291430476825,
+   "refreshes": 3.7619206402134044,
+   "interval": 39.54092926249011,
+   "duration": 15.83317692939245
+  },
+  "void_metamorphosis_stack": {
+   "spell_id": 1225789,
+   "uptime": 0.3458663198275405,
+   "starts": 6.956318772924308,
+   "refreshes": 217.8872957652551,
+   "interval": 46.39915097918876,
+   "duration": 14.91434822281674
+  },
+  "voidrush": {
+   "spell_id": 1272422,
+   "uptime": 0.03502669645483897,
+   "starts": 21.003001000333445,
+   "refreshes": 0.0,
+   "interval": 14.085404738171198,
+   "duration": 0.49959282289837187
+  },
+  "voidstep": {
+   "spell_id": 1223157,
+   "uptime": 0.0,
+   "starts": 19.924308102700902,
+   "refreshes": 0.0,
+   "interval": 14.60224376152427,
+   "duration": 0.0
+  },
+  "voidsurge": {
+   "spell_id": 1246160,
+   "uptime": 0.4440459455208881,
+   "starts": 12.374458152717573,
+   "refreshes": 13.072690896965655,
+   "interval": 24.019525319229754,
+   "duration": 10.765759695960481
+  },
+  "volatile_instinct": {
+   "spell_id": 1272462,
+   "uptime": 0.07699359195085796,
+   "starts": 6.603201067022341,
+   "refreshes": 0.0,
+   "interval": 47.92596661131538,
+   "duration": 3.494351315988126
+  }
+ }
+}
