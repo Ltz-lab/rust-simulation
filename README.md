@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Eleven specs so far, all Midnight Season 2, compared against SimC's sample
+Twelve specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
