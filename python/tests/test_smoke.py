@@ -14,7 +14,7 @@ def test_specs():
 
 def test_sim():
     r = azsim.sim("retribution_herald", gear_lines=GEAR, iterations=500, seed=3)
-    assert 100_000 < r["dps"] < 200_000
+    assert 100_000 < r["dps"] < 300_000   # full kit: trinkets, tier, consumables, Bloodlust
     assert r["dps_error_95"] > 0 and r["iterations"] == 500
     assert r["dps"] == azsim.sim("retribution_herald", gear_lines=GEAR, iterations=500, seed=3)["dps"]
 
