@@ -240,9 +240,10 @@ triggered_only = true
 no_procs = true
 damage = { sp_coeff = 0.9154, school = "frost", mastery = true, mastery_scale = 1.0, crit_chance_multiplier = 1.5, crit_damage_bonus = 0.200, scale = "6+6*buff.thermal_void.up" } # [db2, obs] crit x1.5 Improved Shatter; Deep Shatter +50% x crit
 on_cast = [
-  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.22+0.10*buff.thermal_void.up" }, # [simc] 10% + 1% per shatter stack
+  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.23+0.03*buff.thermal_void.up" }, # [db2 1262981] 20% + 0.5% per shattered stack
   { type = "trigger", ability = "frost_splinter", count = "(3+3*buff.thermal_void.up)*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 444719] Force of Will: stacks/2
-  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "1.2+1.2*buff.thermal_void.up" }, # [db2 1247798] Glaciate; [obs] fitted to 8 Ray casts
+  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "0.6+0.6*buff.thermal_void.up" }, # [db2 1247798] Glaciate: 0.1 s per stack
+  { type = "consume", buff = "thermal_void", all = true }, # [simc] ice_lance_t::execute
 ]
 
 [[abilities]]
@@ -253,9 +254,11 @@ triggered_only = true
 no_procs = true
 damage = { sp_coeff = 0.9154, school = "frost", mastery = true, mastery_scale = 1.0, crit_chance_multiplier = 1.5, crit_damage_bonus = 0.200, scale = "buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up)" }
 on_cast = [
-  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.22+0.10*buff.thermal_void.up" },
+  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.20+0.005*(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))" }, # [db2 1262981]
   { type = "trigger", ability = "frost_splinter", count = "(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))/2*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 444719] Force of Will
-  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "0.2*(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))" }, # [db2 1247798]; [obs] fitted
+  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "0.1*(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))" }, # [db2 1247798] Glaciate
+  { type = "buff", buff = "freezing", set = "buff.freezing.stack-6-6*buff.thermal_void.up" }, # [db2 1246769] Shatter effect 4, at impact
+  { type = "consume", buff = "thermal_void", all = true }, # [simc] ice_lance_t::execute
 ]
 
 # ---------------------------------------------------------------- player casts
@@ -267,8 +270,8 @@ cast_time = 1.75 # [db2]
 damage = { sp_coeff = 2.448, school = "frost", mastery = true, mastery_scale = 1.0, crit_damage_bonus = 0.238 } # [db2 228597; obs] Piercing Cold +20% crit bonus
 on_cast = [
   { type = "buff", buff = "freezing" }, # [db2 1246769] Shatter effect 1
-  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.15 }, # [db2 112965] Fingers of Frost
-  { type = "trigger", ability = "brain_freeze_proc", chance = 0.35 }, # [obs] 35% in the reference logs
+  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.1875 }, # [db2 112965 + 205030] 15% x1.25 Frozen Touch
+  { type = "trigger", ability = "brain_freeze_proc", chance = 0.36 }, # [obs] 36.0% of Frostbolts in the reference
   { type = "trigger", ability = "frost_splinter", count = "1+buff.splinterstorm.up", delay = 1.2, interval = 0.1 }, # [simc]
 ]
 on_crit = [
@@ -312,8 +315,7 @@ requires_buff = "fingers_of_frost"
 free_with = "fingers_of_frost" # spends one Fingers of Frost stack
 damage = { sp_coeff = 1.8375, school = "frost", mastery = true, mastery_scale = 1.0 } # [db2]
 on_cast = [
-  { type = "trigger", ability = "shatter_fof" },
-  { type = "consume", buff = "thermal_void", all = true }, # [simc] ice_lance_t::execute
+  { type = "trigger", ability = "shatter_fof", delay = 0.212 }, # [obs] Ice Lance travel, 0.212 s at the reference distance
 ]
 
 [[abilities]]
@@ -322,9 +324,7 @@ source = "ice_lance"
 spell_id = 30455
 damage = { sp_coeff = 1.8375, school = "frost", mastery = true, mastery_scale = 1.0 }
 on_cast = [
-  { type = "trigger", ability = "shatter_freezing" },
-  { type = "buff", buff = "freezing", set = "buff.freezing.stack-6-6*buff.thermal_void.up" }, # [db2 1246769] Shatter effect 4
-  { type = "consume", buff = "thermal_void", all = true },
+  { type = "trigger", ability = "shatter_freezing", delay = 0.212 }, # [obs] Ice Lance travel, 0.212 s at the reference distance
 ]
 
 [[abilities]]
@@ -358,8 +358,8 @@ on_cast = [
   { type = "consume", buff = "glacial_spike", all = true },
   { type = "buff", buff = "freezing", stacks = 3 }, # [db2 1246769] Shatter effect 3
   { type = "trigger", ability = "fingers_of_frost_proc" }, # [db2 379993] Flash Freeze, 100%
-  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.15 }, # [db2 112965] Fingers of Frost
-  { type = "trigger", ability = "brain_freeze_proc", chance = 0.25 }, # [db2 190447] Brain Freeze
+  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.1875 }, # [db2 112965 + 205030]
+  { type = "trigger", ability = "brain_freeze_proc", chance = 0.36 }, # [obs] 35.9% of Glacial Spikes
   { type = "trigger", ability = "frost_splinter", count = "3*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [simc] 1 + Signature Spell 2
 ]
 on_crit = [
@@ -369,15 +369,15 @@ on_crit = [
 on_noncrit = [{ type = "buff", buff = "overflowing_energy" }]
 
 [[abilities]]
-name = "ray_of_frost" # [db2 205021: 60 s cooldown, 8 ticks of 4.5 SP]
+name = "ray_of_frost" # [db2 205021: 60 s cooldown, 8 ticks of 4.5 SP; 1263249 gives a second charge]
 spell_id = 205021
+charges = 2 # [db2 1263249 effect 2] Hand of Frost: Ray of Frost gains an additional charge
 cooldown = 60 # [db2]
 on_start = [
   { type = "consume", buff = "ray_toggle", all = true },
   { type = "buff", buff = "ray_toggle" }, # first tick is an odd one
 ]
 on_cast = [
-  { type = "trigger", ability = "frost_splinter", count = "4*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 470021] Signature Spell
   { type = "buff", buff = "splinterstorm" }, # [db2 443783]
 ]
 channel = { ticks = 8 } # [db2]
@@ -429,7 +429,7 @@ duration = 8 # [db2]
 hasted = false
 school = "cosmic"
 crit_bonus = -10 # [obs] cannot crit
-refresh = "extend" # [obs] stacked applications keep ticking
+refresh = "reset" # [simc] DOT_REFRESH_DURATION: a proc restarts the 8 s dot
 
 [[abilities]]
 name = "acidbrood_scourge"
@@ -447,10 +447,16 @@ damage = { sp_coeff = 1.5, school = "shadow" } # [db2]
 
 # ---------------------------------------------------------------- rotation
 # [simc] default single-target Spellslinger APL (MID2_Mage_Frost.simc), no tier.
+# The cds list opens with Ray of Frost when both charges are up (and at the
+# end of the fight); the rest is the spellslinger list.
 
 [[rotation]]
 action = "flurry"
 if = "buff.brain_freeze.up&!buff.thermal_void.up"
+
+[[rotation]]
+action = "ray_of_frost"
+if = "cooldown.ray_of_frost.charges=2|fight_remains<12"
 
 [[rotation]]
 action = "ice_lance_fof"

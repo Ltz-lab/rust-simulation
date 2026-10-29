@@ -4,66 +4,66 @@
 
 [sources."acidbrood_scourge"]
 derived = 1.000000
-mult = 0.775276
+mult = 0.775002
 crit_bonus = -0.003456
 
 [sources."flurry_bolt"]
 derived = 1.470840
-mult = 1.051588
-crit_bonus = -0.000386
+mult = 1.044705
+crit_bonus = -0.000234
 
 [sources."frost_splinter"]
 derived = 1.225700
-mult = 1.067879
-crit_bonus = +0.000243
+mult = 1.067765
+crit_bonus = +0.000203
 
 [sources."frostbolt"]
 derived = 1.000000
-mult = 1.968159
-crit_bonus = +0.001206
+mult = 1.968366
+crit_bonus = +0.002106
 
 [sources."frozen_orb_bolt"]
 derived = 1.532125
-mult = 1.193237
-crit_bonus = +0.001209
+mult = 1.192916
+crit_bonus = +0.001167
 
 [sources."glacial_spike"]
 derived = 1.000000
-mult = 1.977592
-crit_bonus = -0.002378
+mult = 1.978869
+crit_bonus = -0.003003
 
 [sources."hand_of_frost"]
 derived = 1.225700
-mult = 1.058125
-crit_bonus = +0.001513
+mult = 1.058559
+crit_bonus = +0.001551
 
 [sources."ice_lance"]
 derived = 1.000000
-mult = 1.309533
-crit_bonus = +0.000087
+mult = 1.308617
+crit_bonus = +0.000164
 
 [sources."ray_of_frost"]
 derived = 1.912092
-mult = 1.323850
-crit_bonus = -0.002420
+mult = 1.325728
+crit_bonus = -0.001891
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.939728
+mult = 0.939337
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.881014
+mult = 0.900662
 crit_bonus = +0.000000
 
 [sources."shatter_ice_lance"]
 derived = 1.470840
-mult = 1.091585
-crit_bonus = +0.000342
+mult = 1.078137
+crit_bonus = +0.000394
 
 [sources."void_eruption"]
 derived = 1.000000
-mult = 1.046216
+mult = 1.045854
 crit_bonus = -0.000693
 
