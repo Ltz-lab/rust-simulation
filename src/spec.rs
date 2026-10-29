@@ -255,6 +255,9 @@ pub struct AbilityDef {
     /// travel time: buffs gained or spent on cast affect the hit).
     #[serde(default)]
     pub on_start: Vec<Effect>,
+    /// Player effects after cast time is determined, before the cast begins.
+    #[serde(default)]
+    pub on_begin: Vec<Effect>,
     #[serde(default)]
     pub on_cast: Vec<Effect>,
     /// Effects when a direct-damage hit crits.
@@ -365,6 +368,11 @@ pub struct DotDef {
     pub banked: bool,
     pub tick_time: f64,
     pub duration: f64,
+    /// Optional dynamic base times, evaluated on application / each tick.
+    #[serde(default)]
+    pub duration_expr: Option<String>,
+    #[serde(default)]
+    pub tick_time_expr: Option<String>,
     #[serde(default = "yes")]
     pub hasted: bool,
     #[serde(default = "default_school")]
@@ -427,9 +435,19 @@ pub struct AutoAttackDef {
     pub wakes: bool,
 }
 
+/// One uniformly selected, eligible alternative of a `choose` effect.
+#[derive(Debug, Deserialize, Clone)]
+pub struct EffectChoice {
+    #[serde(rename = "if", default)]
+    pub condition: Option<String>,
+    pub effects: Vec<Effect>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Effect {
+    /// Select one eligible choice uniformly; do nothing if none is eligible.
+    Choose { choices: Vec<EffectChoice> },
     Buff {
         buff: String,
         #[serde(default = "one_u32")]
@@ -521,6 +539,11 @@ pub enum Effect {
         #[serde(default)]
         count: u32,
         #[serde(default)]
+        each: Vec<Effect>,
+    },
+    /// Apply effects once per currently active instance, with its self context.
+    ForEachPet {
+        pet: String,
         each: Vec<Effect>,
     },
     /// Add time to every active instance of a pet.

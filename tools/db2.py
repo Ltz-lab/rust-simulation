@@ -71,7 +71,8 @@ class Db2:
 
 
 TABLES = [
-    "SpellName", "SpellEffect", "SpellMisc", "SpellClassOptions", "SpellLabel", "SpecializationSpells",
+    "SpellName", "SpellEffect", "SpellMisc", "SpellCooldowns", "SpellCategories",
+    "SpellCategory", "SpellPower", "SpellAuraOptions", "SpellDuration", "SpellCastTimes", "SpellClassOptions", "SpellLabel", "SpecializationSpells",
     "ChrSpecialization", "TraitTreeLoadout", "SkillLineXTraitTree", "TraitNode", "TraitNodeXTraitNodeEntry",
     "TraitNodeEntry", "TraitDefinition", "TraitSubTree",
     "SpellCooldowns", "SpellCategories", "SpellCategory", "SpellPower", "SpellAuraOptions",

@@ -54,6 +54,7 @@ fn stream_key(name: &str) -> u64 {
 
 #[derive(Debug, Clone)]
 enum CEffect {
+    Choose { choices: Vec<(Option<Expr>, Vec<CEffect>)>, rid: usize },
     // `rid`: this effect's own random stream for its chance roll
     Buff { buff: usize, stacks: u32, chance: f64, dur: Option<f64>, set: Option<Expr>, rid: usize },
     Consume { buff: usize, all: bool },
@@ -69,6 +70,7 @@ enum CEffect {
     Summon { pet: usize, count: u32, dur: Option<f64> },
     Dismiss { pet: usize, count: u32, each: Vec<CEffect> },
     ExtendPet { pet: usize, secs: f64 },
+    ForEachPet { pet: usize, each: Vec<CEffect> },
 }
 
 /// How a buff's presence is decided.
@@ -95,6 +97,7 @@ struct CAbility {
     free_with: Option<usize>,
     requires_buff: Option<usize>,
     on_start: Vec<CEffect>,
+    on_begin: Vec<CEffect>,
     on_cast: Vec<CEffect>,
     on_crit: Vec<CEffect>,
     on_noncrit: Vec<CEffect>,
@@ -147,6 +150,8 @@ struct CPet {
 #[derive(Debug, Clone)]
 struct CDot {
     def: DotDef,
+    duration: Option<Expr>,
+    tick_time: Option<Expr>,
     on_tick: Vec<CEffect>,
     on_crit: Vec<CEffect>,
     buff_mods: Vec<(usize, f64)>,
@@ -359,6 +364,15 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
         rolls.len() - 1
     };
     Ok(match e {
+        Effect::Choose { choices } => {
+            let roll = rid();
+            CEffect::Choose {
+            choices: choices.iter().enumerate().map(|(i, choice)| Ok((
+                choice.condition.as_ref().map(|e| expr::parse(e, n)).transpose()?,
+                compile_effects(&choice.effects, n, &format!("{site}/choice/{i}"), rolls)?,
+            ))).collect::<Result<_, String>>()?,
+            rid: roll,
+        }},
         Effect::Buff { buff: b, stacks, chance, duration, set } => CEffect::Buff {
             buff: get(n.buff, "buff", b)?,
             stacks: *stacks,
@@ -403,6 +417,10 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
         Effect::Dismiss { pet, count, each } => CEffect::Dismiss {
             pet: get(n.pet, "pet", pet)?,
             count: *count,
+            each: compile_effects(each, n, &format!("{site}/each"), rolls)?,
+        },
+        Effect::ForEachPet { pet, each } => CEffect::ForEachPet {
+            pet: get(n.pet, "pet", pet)?,
             each: compile_effects(each, n, &format!("{site}/each"), rolls)?,
         },
         Effect::ExtendPet { pet, seconds } => CEffect::ExtendPet { pet: get(n.pet, "pet", pet)?, secs: *seconds },
@@ -521,6 +539,8 @@ impl Compiled {
             let dot_idx = match &a.dot {
                 Some(d) => {
                     dots.push(CDot {
+                        duration: d.duration_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
+                        tick_time: d.tick_time_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
                         on_crit: effects(&d.on_crit, &format!("{}/on_crit", d.name)).map_err(ctx)?,
                         // banked damage already carries the hit's buffs: only buffs naming the DoT apply
@@ -574,6 +594,7 @@ impl Compiled {
                     .map(|b| get(&buff, "buff", b))
                     .transpose()
                     .map_err(ctx)?,
+                on_begin: effects(&a.on_begin, &format!("{}/on_begin", a.name)).map_err(ctx)?,
                 on_start: effects(&a.on_start, &format!("{}/on_start", a.name)).map_err(ctx)?,
                 on_cast: effects(&a.on_cast, &format!("{}/on_cast", a.name)).map_err(ctx)?,
                 on_crit: effects(&a.on_crit, &format!("{}/on_crit", a.name)).map_err(ctx)?,
@@ -1466,6 +1487,15 @@ impl<'a> State<'a> {
 
     fn apply(&mut self, e: &CEffect) {
         match *e {
+            CEffect::Choose { ref choices, rid } => {
+                let eligible: Vec<_> = choices.iter().filter(|(cond, _)|
+                    cond.as_ref().is_none_or(|e| e.eval(self) != 0.0)).collect();
+                if !eligible.is_empty() {
+                    let k = (self.rng.f64(self.c.roll_stream(rid)) * eligible.len() as f64) as usize;
+                    for e in &eligible[k].1 { self.apply(e); }
+                }
+            }
+
             CEffect::Buff { buff, stacks, chance, dur, ref set, rid } => {
                 if !self.roll(rid, chance) {
                     return;
@@ -1630,6 +1660,21 @@ impl<'a> State<'a> {
             }
             CEffect::Summon { pet, count, dur } => self.summon(pet, count, dur),
             CEffect::Dismiss { pet, count, ref each } => self.dismiss(pet, count, each),
+            CEffect::ForEachPet { pet, ref each } => {
+                // Snapshot identities: effects may dismiss/reuse slots or summon
+                // more instances. Only original, still-live instances react.
+                let instances: Vec<_> = self.pets[pet].iter().enumerate()
+                    .filter(|(s, _)| self.pet_active(pet, *s))
+                    .map(|(s, i)| (s, i.generation)).collect();
+                for (s, generation) in instances {
+                    if !self.pet_active(pet, s) || self.pets[pet][s].generation != generation {
+                        continue;
+                    }
+                    let prev = self.ctx.replace((pet, s));
+                    for e in each { self.apply(e); }
+                    self.ctx = prev;
+                }
+            }
             CEffect::ExtendPet { pet, secs } => self.extend_pet(pet, secs),
             CEffect::Trigger { ab, chance, delay, mastery_chance, ref chance_expr, ref count, interval, rid } => {
                 let chance = match (mastery_chance, chance_expr) {
@@ -1762,28 +1807,31 @@ impl<'a> State<'a> {
         }
     }
 
-    fn tick_len(&self, def: &DotDef) -> f64 {
-        if def.hasted { def.tick_time / self.haste_mult() } else { def.tick_time }
+    fn tick_len(&self, di: usize) -> f64 {
+        let d = &self.c.dots[di];
+        let base = d.tick_time.as_ref().map_or(d.def.tick_time, |e| e.eval(self).max(0.001));
+        if d.def.hasted { base / self.haste_mult() } else { base }
     }
 
     fn start_ticking(&mut self, di: usize) {
         self.dot_gen[di] += 1;
         self.dot_last[di] = self.now;
         let g = self.dot_gen[di];
-        let t = self.tick_len(&self.c.dots[di].def);
+        let t = self.tick_len(di);
         self.push(self.now + t, Ev::DotTick(di as u32, g));
     }
 
     fn apply_dot(&mut self, di: usize) {
         let c = self.c;
         let def = &c.dots[di].def;
+        let duration = c.dots[di].duration.as_ref().map_or(def.duration, |e| e.eval(self).max(0.0));
         let remaining = (self.dot_exp[di] - self.now).max(0.0);
         let was = remaining > 0.0;
         self.dot_exp[di] = self.now
-            + def.duration
+            + duration
             + match def.refresh.as_str() {
                 "extend" => remaining,
-                "pandemic" => remaining.min(0.3 * def.duration),
+                "pandemic" => remaining.min(0.3 * duration),
                 _ => 0.0,
             };
         if !was {
@@ -2281,7 +2329,7 @@ impl<'a> State<'a> {
                     return true;
                 }
                 let d = &c.dots[di].def;
-                let tick = self.tick_len(d);
+                let tick = self.tick_len(di);
                 let frac = ((self.now - self.dot_last[di]) / tick).clamp(0.0, 1.0);
                 self.dot_tick(di, frac);
                 self.dot_last[di] = self.now;
@@ -2395,6 +2443,7 @@ impl<'a> State<'a> {
                     Some(i) => {
                         let d = &c.abilities[i].def;
                         let ct = self.cast_time(i);
+                        for e in &c.abilities[i].on_begin { self.apply(e); }
                         if let Some(ch) = &d.channel {
                             if d.gcd > 0.0 {
                                 self.gcd_ready = self.now + self.gcd_len(d.gcd, d.gcd_hasted);
@@ -2406,7 +2455,7 @@ impl<'a> State<'a> {
                             self.dot_exp[di] = self.end;
                             self.channel_gen += 1;
                             self.cast_end = self.end;
-                            self.channel_tick_time = self.tick_len(&c.dots[di].def);
+                            self.channel_tick_time = self.tick_len(di);
                             let first = if c.dots[di].def.tick_on_apply { self.now } else { self.now + self.channel_tick_time };
                             self.push(first, Ev::ChannelTick(i as u32, self.channel_gen, 0));
                             let _ = ch;
