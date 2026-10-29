@@ -18,6 +18,7 @@ pub enum Var {
     BuffStack(usize),
     DotTicking(usize),
     DotRemains(usize),
+    DotStack(usize),
     Const(f64),
 }
 

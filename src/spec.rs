@@ -167,6 +167,13 @@ pub struct DamageDef {
     pub school: String,
     #[serde(default)]
     pub mastery: bool,
+    /// Share of mastery applied when `mastery` is set (e.g. 0.75 for a bonus
+    /// rolled uniformly between 50% and 100% of mastery).
+    #[serde(default = "one")]
+    pub mastery_scale: f64,
+    /// Damage is further increased by the player's crit chance.
+    #[serde(default)]
+    pub crit_scaling: bool,
     /// Residual multiplier: talents/auras not modelled individually.
     /// This is the knob log calibration tunes.
     #[serde(default = "one")]
@@ -219,14 +226,28 @@ pub struct DotDef {
     #[serde(default)]
     pub mastery: bool,
     #[serde(default = "one")]
+    pub mastery_scale: f64,
+    #[serde(default)]
+    pub crit_scaling: bool,
+    #[serde(default = "one")]
     pub mult: f64,
     #[serde(default)]
     pub crit_bonus: f64,
     #[serde(default)]
     pub crit_damage_bonus: f64,
+    /// Stack cap. A fresh application has one stack; refreshing keeps the
+    /// count; `dot_stack` effects add or remove stacks.
+    #[serde(default = "one_u32")]
+    pub max_stacks: u32,
+    /// Tick damage is multiplied by the stack count (false: stacks only count).
+    #[serde(default = "yes")]
+    pub per_stack: bool,
     /// Seconds added to the DoT each time a tick crits.
     #[serde(default)]
     pub extend_on_crit: f64,
+    /// Only whole ticks: no shortened final tick at expiry (a pet's attacks).
+    #[serde(default)]
+    pub whole_ticks: bool,
     /// Deal one tick immediately when freshly applied.
     #[serde(default)]
     pub tick_on_apply: bool,
@@ -236,6 +257,9 @@ pub struct DotDef {
     pub refresh: String,
     #[serde(default)]
     pub on_tick: Vec<Effect>,
+    /// Effects when a tick crits.
+    #[serde(default)]
+    pub on_crit: Vec<Effect>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -258,6 +282,9 @@ pub enum Effect {
         stacks: u32,
         #[serde(default = "one")]
         chance: f64,
+        /// Lasts this long instead of the buff's own duration.
+        #[serde(default)]
+        duration: Option<f64>,
     },
     Consume {
         buff: String,
@@ -285,6 +312,22 @@ pub enum Effect {
     ExtendDot {
         dot: String,
         seconds: f64,
+    },
+    /// Change a ticking DoT's stack count: add `stacks` (negative removes,
+    /// never below `min`), or `set` it to the value of a condition-language
+    /// expression. A DoT left with no stacks stops.
+    DotStack {
+        dot: String,
+        #[serde(default)]
+        stacks: i32,
+        #[serde(default)]
+        set: Option<String>,
+        #[serde(default)]
+        min: u32,
+    },
+    /// Stop a DoT.
+    CancelDot {
+        dot: String,
     },
     /// Add time to a buff that is currently up.
     ExtendBuff {
@@ -351,6 +394,17 @@ pub struct BuffDef {
     /// While up, this percent of all damage dealt is stored (for a later burst).
     #[serde(default)]
     pub store_damage_pct: f64,
+    /// Per-ability cast time reduction while up (percent; 100 = instant).
+    #[serde(default)]
+    pub cast_time_pct: HashMap<String, f64>,
+    /// Reapplying while up adds the duration to what's left instead of
+    /// restarting it.
+    #[serde(default)]
+    pub refresh_extend: bool,
+    /// Bonuses apply once while up, whatever the stack count (stacks only
+    /// count uses, e.g. "your next 8 casts").
+    #[serde(default)]
+    pub flat: bool,
     /// Every application is its own stack with its own timer ("multiple
     /// applications may overlap"), instead of one shared timer.
     #[serde(default)]

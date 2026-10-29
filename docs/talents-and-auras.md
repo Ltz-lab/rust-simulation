@@ -32,6 +32,7 @@ as a factor):
 |---|---:|---:|---|
 | Retribution | ×2.10 | ×1.38 | 95% → 60% |
 | Fire | ×1.46 | ×1.18 | 70% → 10% |
+| Destruction | ×1.71 | ×1.18 | 75% → 4% |
 
 DPS and the stat probes are unchanged within 0.15 points, except Ret haste,
 which moves from +0.74 to +0.86: with Avenging Wrath's +20% damage now applied

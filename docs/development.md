@@ -16,16 +16,20 @@ src/
 specs/
   retribution_herald.toml   Ret spec; every number tagged [db2] or [obs]
   fire_mage.toml            Fire spec, same tagging
+  destruction_hellcaller.toml  Destruction Warlock spec, same tagging
 data/
   gamedata.json.gz          item/bonus/gem/enchant + scaling tables (built by tools/gamedata.py)
 profiles/
   MID2_Paladin_Retribution.simc   gear of SimC's MID2 sample Ret profile
+  MID2_Warlock_Destruction.simc   gear and talents of SimC's MID2 sample Destruction profile
 derived/
   retribution_herald.toml   multipliers and buff modifiers read from game data (tools/effects.py)
   fire_mage.toml
+  destruction_hellcaller.toml
 calibration/
   retribution_herald.toml   derived multipliers + fitted residuals and crit offsets
   fire_mage.toml
+  destruction_hellcaller.toml
 reference/                  observations used for calibration and validation
 tools/
   spelldb.py         look up spells in raw DB2 tables
@@ -100,6 +104,19 @@ python3 tools/validate_stats.py specs/fire_mage.toml calibration/fire_mage.toml 
     "+500 crit=reference/fire_probe_crit_rating.json" "+500 haste=reference/fire_probe_haste_rating.json" \
     "+500 mastery=reference/fire_probe_mastery_rating.json" "+500 vers=reference/fire_probe_versatility_rating.json" \
     "+200 intellect=reference/fire_probe_intellect.json"
+
+# Destruction: same loop
+./target/release/azsim specs/destruction_hellcaller.toml -n 10000 --calib calibration/destruction_hellcaller.toml --json out.json
+python3 tools/compare.py reference/destro_core_observations.json out.json
+python3 tools/effects.py target/db2 specs/destruction_hellcaller.toml reference/destro_core_observations.json \
+    profiles/MID2_Warlock_Destruction.simc --out derived/destruction_hellcaller.toml
+python3 tools/calibrate.py specs/destruction_hellcaller.toml reference/destro_core_observations.json \
+    calibration/destruction_hellcaller.toml --derived derived/destruction_hellcaller.toml --rounds 6
+python3 tools/validate_stats.py specs/destruction_hellcaller.toml calibration/destruction_hellcaller.toml \
+    reference/destro_core_observations.json \
+    "+500 crit=reference/destro_probe_crit_rating.json" "+500 haste=reference/destro_probe_haste_rating.json" \
+    "+500 mastery=reference/destro_probe_mastery_rating.json" "+500 vers=reference/destro_probe_versatility_rating.json" \
+    "+200 intellect=reference/destro_probe_intellect.json"
 
 # regenerate a reference: prefix, SimC profile, primary stat, SimC binary
 tools/make_reference.sh fire $SIMC/profiles/MID2/MID2_Mage_Fire.simc intellect $SIMC/build/simc
