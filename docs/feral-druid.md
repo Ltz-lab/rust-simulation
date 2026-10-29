@@ -1,4 +1,4 @@
-# Feral Druid (Wildstalker) — draft
+# Feral Druid (Wildstalker)
 
 Single target, Midnight Season 2, core kit. Profile:
 `profiles/MID2_Druid_Feral.simc` (hero tree Wildstalker). Spec:
@@ -12,58 +12,89 @@ energy). Tiger's Fury (+50 energy, +21% damage, bleeds +31% for their full
 duration) drives Berserk (15s, +15% damage, +1 combo point per builder, one
 combo point every 1.5s) and Feral Frenzy / Convoke the Spirits.
 
-Wildstalker: Rip and Rake ticks grow Bloodseeker Vines (stacking bleed, 6s);
-each stack bursts as Bursting Growth on expiry and has a 30% chance per tick
-to proc Rampancy. Tiger's Fury gives the next two builders an Unseen Slash,
-and Ferocious Bite has a 15% chance per combo point to do the same. Sudden
-Ambush, Frantic Momentum, Savage Fury, Tiger's Tenacity and Omen of Clarity
-(7 real PPM on auto attacks) are modelled from SimC's source.
+Wildstalker: Rip and Rake ticks grow Bloodseeker Vines (a stacking bleed that
+ticks every 1.6s), each stack bursts as Bursting Growth on expiry, and every
+vine tick has a 30% chance to proc Rampancy. Tiger's Fury gives the next two
+builders an Unseen Slash and Ferocious Bite has a 15% chance per combo point
+to do the same; Convoke's Ferocious Bites proc it too. Sudden Ambush, Frantic
+Momentum, Savage Fury, Tiger's Tenacity, Panther's Guile and Omen of Clarity
+(a 15.2% chance per auto-attack swing) are modelled from SimC's source.
 
 ## Results
 
 | | value |
 |---|---:|
-| reference DPS (SimC, 300s core kit) | 169,338 |
-| azsim DPS, 10,000 iterations, seed 1 | 171,069 |
-| difference | +1.02% |
+| reference DPS (SimC, 300s core kit) | 169,230 |
+| azsim DPS, 10,000 iterations, seed 1 | 169,363 |
+| difference | +0.08% |
 
 `derived/feral_wildstalker.toml` comes from `tools/effects.py` (Feral Druid's
 +70% spec aura, Killer Instinct, Lacerating Claws, Dreadful Bleeding,
 Sabertooth, Taste for Blood, Focused Frenzy, Soul of the Forest, Circle of
-Life and Death, the Wildstalker label modifiers). `calibration/feral_wildstalker.toml`
-fits the per-hit residual and crit offset on top; hit counts are the engine's.
+Life and Death, the Wildstalker label modifiers).
+`calibration/feral_wildstalker.toml` fits the per-hit residual and crit offset
+on top; hit counts are the engine's.
+
+Per-source counts (per fight, 10,000 iterations):
+
+| source | reference | azsim |
+|---|---:|---:|
+| Ferocious Bite | 59.1 | 57.4 |
+| Rip (ticks) | 249.2 | 251.4 |
+| Unseen Slash (hits) | 208.8 | 201.1 |
+| Rake (casts + ticks) | 28.0 + 164.9 | 25.0 + 168.4 |
+| auto attacks | 461.9 | 491.4 |
+| Shred | 102.9 | 111.7 |
+| Feral Frenzy (hits) | 105.6 | 107.1 |
+| Bloodseeker Vines (ticks) | 182.5 | 167.2 |
+| Lunar Inspiration (casts + ticks) | 19.1 + 225.9 | 20.2 + 241.8 |
+| Bursting Growth | 135.6 | 131.7 |
+| Convoke: Bite / Shred / Wrath | 10.8 / 17.9 / 9.9 | 10.3 / 17.6 / 10.1 |
+| Rampancy | 54.7 | 50.1 |
 
 Stat probes (held out, same calibration):
 
 | probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +8.76% | +8.92% | +0.16 pts |
-| +500 haste | +8.85% | +10.45% | +1.60 pts |
-| +500 mastery | +8.01% | +8.32% | +0.31 pts |
-| +500 versatility | +8.34% | +8.57% | +0.24 pts |
-| +200 agility | +5.92% | +5.95% | +0.03 pts |
+| +500 crit | +8.85% | +8.85% | -0.00 pts |
+| +500 haste | +9.00% | +9.18% | +0.17 pts |
+| +500 mastery | +8.12% | +8.12% | -0.00 pts |
+| +500 versatility | +8.57% | +8.57% | +0.01 pts |
+| +200 agility | +5.94% | +5.95% | +0.01 pts |
+
+Reference and azsim priority orders agree: haste > crit > vers > mastery >
+agility.
 
 ## Known gaps
 
-- **Overflowing Power** (Berserk lets combo points go over the cap, up to 3,
-  restored by finishers) is not modelled; the combo point cap is 5 always.
-  This costs Ferocious Bite and Shred casts (53.5 and 93.3 a fight against
-  59.1 and 102.9).
+- **Overflowing Power** (Berserk lets combo points go over the cap, restored
+  by finishers) is not modelled; the combo point cap is 5 always.
 - **Coiled to Spring** (combo point overflow: next Ferocious Bite +10%) is
   not modelled — the engine has no "gain overflowed" hook.
 - **Twin Sprouts** (30% chance to add a second Bloodseeker Vines stack) is
-  folded into the vines residual rather than applied as a second stack.
-- **Gear stat procs**: only Rune of Burning Haste's average haste is folded
-  into `[player]`; Arcanoweave Insight, Might of the Void and the Venomcursed
-  ring procs sit in the residual. There is no `[gear]` block yet, so `--gear`
-  is not supported.
-- **Convoke the Spirits** is a 16-tick weighted approximation of SimC's random
-  cast pool (4 Ferocious Bite, 6 Shred, 1 Moonfire-or-Wrath, 3 Wrath, a rare
-  Feral Frenzy, a heal). It casts 3 times a fight where the reference averages
-  2.5, so the convoke rows run high; Rake from convoke (0.3 hits) is not
-  modelled.
-- **Unseen Slash's bleed** ticks more often than the reference (243 hits
-  against 209): the dot stays up longer in this model.
+  folded into the vines' grow rate (13.5%/10% per Rake/Rip tick from Thriving
+  Growth, x1.2 Green Thumb, x1.3 Twin Sprouts) rather than applied as a
+  second stack, so the vines' stack count and Bursting Growth line up but a
+  doubled application shares one timer in SimC and not here.
+- **Bloodseeker Vines** is a per-stack DoT here; SimC refreshes one dot and
+  keeps the stack timers separate, which keeps its bleed up 95.8% of the
+  fight. With a 7.8s effective duration this model gets 167 ticks against
+  182.5 and 8% less vines damage, which the calibration does not hide (the
+  rows run -8.5%).
+- **Gear stat procs**: Rune of Burning Haste, Arcanoweave Insight, Might of
+  the Void and the Venomcursed ring are not modelled, so the in-fight haste
+  from Savage Fury and Frantic Momentum is more than SimC applies to its
+  auto-attacks in practice: `cat_melee` 491 against 462 and Shred 112 against
+  103. There is no `[gear]` block yet, so `--gear` is not supported.
+- **Convoke the Spirits** is a 32-slot weighted approximation of SimC's cast
+  pool (7 Bite, 12 Shred, 6 Wrath, 2 Moonfire-or-Wrath, 4 heals, a 40%
+  Feral Frenzy). Rake from convoke (0.3 hits) is not modelled.
+- **Shadowmeld** is cast on cooldown-ish (3 times a fight, matching the
+  reference) but this model's Rake refresh already covers those casts, so it
+  does not add the 3 extra Rakes the reference's APL gets (25 against 28).
+- **Unseen Slash from a Ferocious Bite** is not scaled by the combo points and
+  excess energy of the Bite that proc'd it (SimC scales it by `cp/5 x
+  energy`); the average lands in the residual.
 - `cat_melee` and `feral_frenzy` need large residuals because the observation
   rows carry spell id 0 / the parent spell 274837, so `effects.py` cannot see
   Cat Form's +40% auto-attack, Feral Druid's +560% auto-attack or Focused

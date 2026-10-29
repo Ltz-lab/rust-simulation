@@ -4,90 +4,90 @@
 
 [sources."bloodseeker_vines"]
 derived = 3.023790
-mult = 1.294445
-crit_bonus = +0.053685
+mult = 0.810209
+crit_bonus = +0.053727
 
 [sources."bursting_growth"]
 derived = 2.499000
-mult = 0.929076
-crit_bonus = +0.053890
+mult = 0.909902
+crit_bonus = +0.054943
 
 [sources."cat_melee"]
-mult = 11.507789
-crit_bonus = +0.053371
+mult = 11.454896
+crit_bonus = +0.053117
 
 [sources."feral_frenzy"]
 derived = 1.000000
-mult = 8.270655
-crit_bonus = +0.054054
+mult = 8.070472
+crit_bonus = +0.054541
 
 [sources."feral_frenzy_convoke"]
 derived = 1.000000
-mult = 13.544666
-crit_bonus = +0.056601
+mult = 13.229495
+crit_bonus = +0.054769
 
 [sources."ferocious_bite"]
 derived = 3.969396
-mult = 1.328858
-crit_bonus = +0.054937
+mult = 1.320495
+crit_bonus = +0.054635
 
 [sources."ferocious_bite_convoke"]
 derived = 3.969396
-mult = 2.135539
-crit_bonus = +0.055420
+mult = 2.070243
+crit_bonus = +0.064677
 
 [sources."lunar_inspiration"]
 derived = 3.386645
-mult = 0.957261
-crit_bonus = +0.054246
+mult = 0.949133
+crit_bonus = +0.054224
 
 [sources."lunar_inspiration_convoke"]
 derived = 3.386645
-mult = 1.493050
-crit_bonus = +0.054494
+mult = 1.461842
+crit_bonus = +0.055948
 
 [sources."rake"]
 derived = 3.930927
-mult = 1.940233
-crit_bonus = +0.066435
+mult = 1.905534
+crit_bonus = +0.078432
 
 [sources."rampancy"]
 derived = 2.499000
-mult = 0.893858
-crit_bonus = +0.053012
+mult = 0.894225
+crit_bonus = +0.053583
 
 [sources."rip"]
 derived = 5.060600
-mult = 1.720708
-crit_bonus = +0.054157
+mult = 1.695162
+crit_bonus = +0.052707
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.716366
+mult = 0.713690
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.712558
+mult = 0.708946
 crit_bonus = +0.000000
 
 [sources."shred"]
 derived = 2.499000
-mult = 1.100636
-crit_bonus = +0.074107
+mult = 1.094265
+crit_bonus = +0.065658
 
 [sources."shred_convoke"]
 derived = 2.499000
-mult = 1.340214
-crit_bonus = +0.212379
+mult = 1.295735
+crit_bonus = +0.206720
 
 [sources."unseen_slash"]
 derived = 2.499000
-mult = 2.018331
-crit_bonus = +0.053873
+mult = 2.002461
+crit_bonus = +0.053089
 
 [sources."wrath_convoke"]
 derived = 1.120000
-mult = 0.705466
-crit_bonus = +0.054718
+mult = 0.685611
+crit_bonus = +0.047136
 
