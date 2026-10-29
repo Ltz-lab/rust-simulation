@@ -41,7 +41,8 @@ on refresh (`refresh_extend`), retain their original expiry when stacked
 `whole_ticks` only), `pandemic`/`extend`/`reset`/`rolling` refresh, tick-rate buffs, stacks
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
 on-crit effects, and `banked` rolling damage fed by direct hits or ticks. Feed entries may
-restrict contributions with `crit_only = true` and an `if` expression.
+restrict contributions with `crit_only = true`, an `if` expression, and a
+`chance` (default 1: every hit; each entry rolls its own random stream).
 `mastery_power` applies independent copies of the mastery factor for
 multischool damage (default 1).
 

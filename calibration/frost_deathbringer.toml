@@ -3,148 +3,148 @@
 # residual fitted to observed logs on top. Hit counts are NOT fitted.
 
 [sources."auto_attack_mh"]
-mult = 1.666797
-crit_bonus = -0.003178
+mult = 1.645136
+crit_bonus = +0.011090
 
 [sources."auto_attack_oh"]
 derived = 1.000000
-mult = 1.664785
-crit_bonus = -0.003412
+mult = 1.642449
+crit_bonus = +0.010624
 
 [sources."breath_of_sindragosa_damage"]
 derived = 1.040400
-mult = 1.208068
-crit_bonus = -0.055540
+mult = 1.200193
+crit_bonus = -0.037392
 
 [sources."chosen_of_frostbrood"]
 derived = 1.000000
-mult = 2.384569
-crit_bonus = -0.065904
+mult = 2.414466
+crit_bonus = -0.038460
 
 [sources."cryogenic_chamber"]
 derived = 1.000000
-mult = 7.568255
+mult = 7.174771
 crit_bonus = +0.000000
 
 [sources."empower_rune_weapon"]
 derived = 1.000000
-mult = 1.332631
-crit_bonus = -0.053228
+mult = 1.222440
+crit_bonus = -0.041455
 
 [sources."exterminate"]
 derived = 1.040400
-mult = 0.482323
-crit_bonus = -0.061491
+mult = 0.483460
+crit_bonus = -0.053782
 
 [sources."exterminate_second_hit"]
 derived = 1.040400
-mult = 0.442930
-crit_bonus = -0.062176
+mult = 0.438659
+crit_bonus = -0.051572
 
 [sources."frost_fever"]
 derived = 1.605888
-mult = 1.279312
-crit_bonus = -0.045673
+mult = 1.222368
+crit_bonus = -0.031982
 
 [sources."frost_strike"]
 derived = 1.000000
-mult = 1.805820
-crit_bonus = -0.052035
+mult = 1.686725
+crit_bonus = -0.036185
 
 [sources."frost_strike_offhand"]
 derived = 1.404540
-mult = 0.642711
-crit_bonus = -0.049116
+mult = 0.600510
+crit_bonus = -0.036115
 
 [sources."frostreaper"]
 derived = 1.040400
-mult = 1.268105
-crit_bonus = -0.048981
+mult = 1.232869
+crit_bonus = -0.034615
 
 [sources."frostwyrms_fury"]
 derived = 1.000000
-mult = 2.884546
-crit_bonus = -0.037027
+mult = 3.041702
+crit_bonus = -0.033654
 
 [sources."glacial_advance_arctic_assault_obliterate"]
 derived = 1.092420
-mult = 1.808416
-crit_bonus = -0.049260
+mult = 1.251048
+crit_bonus = -0.037398
 
 [sources."howling_blast"]
 derived = 1.040400
-mult = 9.196196
-crit_bonus = -0.051172
+mult = 8.597836
+crit_bonus = -0.036619
 
 [sources."hyperpyrexia"]
 derived = 1.000000
-mult = 1.108125
+mult = 0.975336
 crit_bonus = +0.000000
 
 [sources."icy_death_torrent"]
 derived = 1.000000
-mult = 1.245044
-crit_bonus = -0.039643
+mult = 1.191272
+crit_bonus = -0.028076
 
 [sources."obliterate"]
 derived = 1.000000
-mult = 5.488415
-crit_bonus = -0.087611
+mult = 5.462431
+crit_bonus = +0.013662
 
 [sources."obliterate_frost"]
 derived = 1.487772
-mult = 1.077193
-crit_bonus = -0.087737
+mult = 1.055995
+crit_bonus = +0.012353
 
 [sources."obliterate_offhand"]
 derived = 1.352520
-mult = 1.560933
-crit_bonus = -0.086519
+mult = 1.553446
+crit_bonus = +0.014683
 
 [sources."obliterate_offhand_frost"]
 derived = 1.352520
-mult = 0.457616
-crit_bonus = -0.089447
+mult = 0.448663
+crit_bonus = +0.013653
 
 [sources."reapers_mark"]
 derived = 1.092420
-mult = 1.491441
-crit_bonus = -0.041930
+mult = 1.455441
+crit_bonus = -0.031315
 
 [sources."reapers_mark_explosion"]
 derived = 1.092420
-mult = 0.748184
-crit_bonus = -0.046228
+mult = 0.786154
+crit_bonus = -0.036050
 
 [sources."remorseless_winter_damage"]
 derived = 1.404540
-mult = 0.482306
-crit_bonus = -0.052144
+mult = 0.487500
+crit_bonus = -0.035928
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.766863
+mult = 0.754791
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.736044
+mult = 0.724361
 crit_bonus = +0.000000
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.844825
-crit_bonus = -0.050239
+mult = 0.828980
+crit_bonus = -0.037318
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.789349
-crit_bonus = -0.052060
+mult = 0.777432
+crit_bonus = -0.036088
 
 [sources."wave_of_souls"]
 derived = 1.040400
-mult = 1.126757
-crit_bonus = -0.035913
+mult = 1.100768
+crit_bonus = -0.028091
 
 [buffs."pillar_of_frost".ability_pct]
 "remorseless_winter_damage" = 450.0000

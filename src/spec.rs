@@ -397,6 +397,9 @@ pub struct FeedDef {
     /// Only critical hits contribute to the bank.
     #[serde(default)]
     pub crit_only: bool,
+    /// Chance for a hit to contribute (default: every hit).
+    #[serde(default = "one")]
+    pub chance: f64,
     /// Optional condition checked when the hit lands.
     #[serde(default, rename = "if")]
     pub condition: Option<String>,

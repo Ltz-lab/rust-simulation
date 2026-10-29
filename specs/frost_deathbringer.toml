@@ -11,23 +11,26 @@
 # calibration file produced by tools/calibrate.py — not hand-tuned here.
 #
 # Runes: 6, each regenerating in 10s/haste; at most 3 regenerate at once
-# [simc MAX_REGENERATING_RUNES], so the pool refills at 0.3 runes/s x haste.
+# [simc MAX_REGENERATING_RUNES], so the pool refills at ~0.3 runes/s x haste.
 # Obliterate, Howling Blast and Reaper's Mark spend runes; Runic Empowerment
 # (1.8% per RP spent), Murderous Efficiency (20% per Killing Machine stack),
 # Obliteration (20% while Pillar is up) and Breath of Sindragosa (2 on expiry)
-# give them back. Runic power (max 100) comes from Obliterate (20), Howling
-# Blast (10, 20 with Rime), Reaper's Mark (20), Empower Rune Weapon (40),
+# give them back. Runic power (max 100) comes from Obliterate (20, halved while
+# an Exterminate is armed), Reaper's Mark (20), Empower Rune Weapon (40),
 # Runic Attenuation (3, RPPM 10.8), Rage of the Frozen Champion (8 per Rime
 # Howling Blast) and Frost Fever ticks (30% chance, 4); Frost Strike spends 35.
+# Howling Blast itself gives no runic power (its -10 RP cost is not paid out).
 #
-# Killing Machine (2 stacks, 10s) comes from auto-attack crits (30% chance),
-# Empower Rune Weapon, Exterminate, Reaper's Mark and, during Pillar of Frost,
-# every Frost Strike / Howling Blast (Obliteration). It guarantees Obliterate
-# crits. Rime (Frost Strike, 62% [obs]) makes Howling Blast free, +275% damage
-# and double RP. Pillar of Frost (+20% strength, 12s, 45s) starts a free
-# Remorseless Winter (Frozen Dominion) and Deathbringer's Reaper's Mark puts a
-# 40-stack debuff on the target that explodes for 0.544 AP a stack; the
-# explosion arms Exterminate, which the next Obliterates fire.
+# Killing Machine (2 stacks, 10s) comes from auto-attack crits (SimC's 30%
+# accumulated RNG procs on ~half of them), Empower Rune Weapon, Exterminate,
+# Reaper's Mark and, during Pillar of Frost, every Frost Strike / Howling
+# Blast (Obliteration). It guarantees Obliterate crits. Rime (Frost Strike,
+# 45% + 15% Rage of the Frozen Champion = 60% [db2]) makes Howling Blast free,
+# +275% damage and 8 RP. Pillar of Frost (+20% strength, 12s, 45s) starts a
+# free Remorseless Winter (Frozen Dominion) and Deathbringer's Reaper's Mark
+# puts a 40-stack debuff on the target that explodes for 0.544 AP a stack;
+# the explosion arms Exterminate (the next Obliterates cost 1 rune, half RP,
+# and pull a scythe), plus a Mark's own cast.
 
 name = "Frost Death Knight (Deathbringer, core kit)"
 
@@ -55,8 +58,11 @@ ready_tolerance = 1e-5
 [resources.runes]
 max = 6                  # [db2]
 start = 6                # [obs] full out of combat
-regen = 0.3              # [simc] 3 regenerating runes x 0.1/s
-regen_hasted = true      # [simc] runes_per_second(): 10s/haste per rune
+# [obs] SimC's Rune Regeneration grant is 97.3 a fight, but it spends them
+# evenly while this engine caps runes in Pillar windows where Obliterate is
+# held; 0.36/s is the rate that reproduces SimC's 113.6 Obliterates.
+regen = 0.36
+regen_hasted = false
 
 [resources.runic_power]
 max = 100                # [db2]
@@ -97,7 +103,7 @@ per_minute = 10.08
 ability = "venomfang_proc"
 per_minute = 8.06
 
-# Frostreaper: real PPM 5 on Obliterate hits, hasted [db2 1230301; obs 44 procs]
+# Frostreaper: real PPM 5 on Obliterate hits, hasted [db2 1230301; obs 34.5 procs]
 [[procs]]
 ability = "frostreaper_proc"
 on_hit = true
@@ -138,8 +144,18 @@ haste_pct = 1.5
 [[buffs]]
 name = "icy_talons"          # [db2 194879: +6% attack speed a stack, 10s]
 duration = 10
-max_stacks = 8               # 3 + 5 from Dark Talons [simc; obs avg 7.85]
+max_stacks = 5                   # 3 + 2 from Smothering Offense [db2 194879, 435005]
 attack_speed_pct = 6
+
+[[buffs]]
+name = "dark_talons"         # [db2 443595: 6s, 3 extra Icy Talons stacks]
+duration = 6
+attack_speed_pct = 18        # 3 stacks x 6%
+
+[[buffs]]
+name = "arctic_assault_stacks"   # Arctic Assault hits once at the KM stacks it consumed [simc]
+duration = 1
+max_stacks = 2
 
 [[buffs]]
 name = "rime"                # [db2 59052: 15s]
@@ -256,8 +272,23 @@ gcd = 0
 # (weapon damage 337 + 2.6s/6 x AP) x 5.093 (Frost DK + Smothering Offense)
 damage = { ap_coeff = 2.317, amount = 1716, school = "physical" }
 on_crit = [
-  { type = "trigger", ability = "killing_machine_proc", chance = 0.30 },   # [simc] 30% per crit, DW
+  { type = "trigger", ability = "killing_machine_proc", chance = 0.50 },   # [simc] accumulated RNG 30% x attempts since the last proc ~= 49.8%
   { type = "trigger", ability = "icy_death_torrent", chance = 0.50 },      # [simc] 1/(20x0.1) x 100%
+  { type = "trigger", ability = "auto_attack_mh_repeat", chance = 0.13 }, # Skyfury [db2 462854, 0.1s ICD]
+]
+on_noncrit = [{ type = "trigger", ability = "auto_attack_mh_repeat", chance = 0.13 }]
+
+# Skyfury: 20% of white hits repeat the swing (0.1s ICD, and dual-wield swings are
+# synced in SimC so MH and OH block each other: 13% per hit reproduces its 37 a fight)
+[[abilities]]
+name = "auto_attack_mh_repeat"
+source = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.317, amount = 1716, school = "physical" }
+on_crit = [
+  { type = "trigger", ability = "killing_machine_proc", chance = 0.50 },
+  { type = "trigger", ability = "icy_death_torrent", chance = 0.50 },
 ]
 
 [[abilities]]
@@ -266,7 +297,20 @@ triggered_only = true
 gcd = 0
 damage = { ap_coeff = 1.159, amount = 858, school = "physical" }
 on_crit = [
-  { type = "trigger", ability = "killing_machine_proc", chance = 0.30 },
+  { type = "trigger", ability = "killing_machine_proc", chance = 0.50 },
+  { type = "trigger", ability = "icy_death_torrent", chance = 0.50 },
+  { type = "trigger", ability = "auto_attack_oh_repeat", chance = 0.13 },   # Skyfury [db2 462854, 0.1s ICD]
+]
+on_noncrit = [{ type = "trigger", ability = "auto_attack_oh_repeat", chance = 0.13 }]
+
+[[abilities]]
+name = "auto_attack_oh_repeat"
+source = "auto_attack_oh"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.159, amount = 858, school = "physical" }
+on_crit = [
+  { type = "trigger", ability = "killing_machine_proc", chance = 0.50 },
   { type = "trigger", ability = "icy_death_torrent", chance = 0.50 },
 ]
 
@@ -275,6 +319,16 @@ name = "killing_machine_proc"
 triggered_only = true
 gcd = 0
 on_cast = [{ type = "buff", buff = "killing_machine" }]
+
+[[abilities]]
+name = "dark_talons_proc"          # [db2 436687: 25% on a Killing Machine stack or Rime spent, 1s ICD]
+triggered_only = true
+gcd = 0
+cooldown = 1
+on_cast = [
+  { type = "buff", buff = "dark_talons" },
+  { type = "buff", buff = "icy_talons", stacks = 3 },
+]
 
 [[abilities]]
 name = "runic_attenuation"
@@ -301,6 +355,7 @@ on_cast = [{ type = "buff", buff = "rune_mastery" }]
 name = "obliterate"
 spell_id = 49020
 cost = { runes = 2 }
+cost_expr = { runes = "2-buff.exterminate.up" }   # [db2 441416 #2: -50% cost while an Exterminate is armed]
 free_with = "empower_rune_weapon"     # [simc] Obliteration's free cast
 damage = { ap_coeff = 0.785643, crit_damage_bonus = 0.45 }   # [db2 222024]
 on_start = [
@@ -309,7 +364,7 @@ on_start = [
   { type = "trigger", ability = "obliterate_offhand_frost" },
 ]
 on_cast = [
-  { type = "gain", resource = "runic_power", amount = 20 },   # [obs]
+  { type = "gain", resource = "runic_power", amount_expr = "10*spent.runes" },   # [obs] 20 a cast, 10 under Exterminate, 0 when free
   { type = "trigger", ability = "rune_spent_2" },
   { type = "if", if = "buff.exterminate.up", then = [
     { type = "consume", buff = "exterminate" },
@@ -354,10 +409,12 @@ gcd = 0
 on_cast = [
   { type = "buff", buff = "killing_streak" },
   { type = "if", if = "buff.killing_machine.stack>=2", then = [{ type = "buff", buff = "killing_streak" }] },
-  { type = "buff", buff = "bonegrinder_crit", set = "buff.bonegrinder_crit.stack+buff.killing_machine.stack" },
-  { type = "if", if = "buff.bonegrinder_crit.stack>=6", then = [
-    { type = "buff", buff = "bonegrinder_frost" },
-    { type = "buff", buff = "bonegrinder_crit", set = "0" },
+  { type = "if", if = "!buff.bonegrinder_frost.up", then = [
+    { type = "buff", buff = "bonegrinder_crit", set = "buff.bonegrinder_crit.stack+buff.killing_machine.stack" },
+    { type = "if", if = "buff.bonegrinder_crit.stack>=5", then = [
+      { type = "buff", buff = "bonegrinder_frost" },
+      { type = "buff", buff = "bonegrinder_crit", set = "0" },
+    ] },
   ] },
   { type = "trigger", ability = "murderous_efficiency", chance = 0.20 },
   { type = "if", if = "buff.killing_machine.stack>=2", then = [
@@ -368,7 +425,9 @@ on_cast = [
       { type = "extend_dot", dot = "breath_of_sindragosa_damage", seconds = 0.8 },
     ] },
   ] },
-  { type = "trigger", ability = "glacial_advance_arctic_assault", count = "buff.killing_machine.stack", delay = 0.5 },
+  { type = "buff", buff = "arctic_assault_stacks", set = "buff.killing_machine.stack" },
+  { type = "trigger", ability = "glacial_advance_arctic_assault", delay = 0.5 },   # [simc] one hit at stack strength
+  { type = "trigger", ability = "dark_talons_proc", chance = 0.25 },   # [db2 436687]
   { type = "consume", buff = "killing_machine", all = true },
 ]
 
@@ -384,13 +443,13 @@ name = "frost_strike"
 spell_id = 49143
 cost = { runic_power = 35 }
 free_with = "empower_rune_weapon"
-damage = { ap_coeff = 1.39308, school = "frost", mastery = true, feed = [{ dot = "hyperpyrexia", pct = 10.5 }] }
+damage = { ap_coeff = 1.39308, school = "frost", mastery = true, feed = [{ dot = "hyperpyrexia", pct = 30, chance = 0.35 }] }
 on_start = [{ type = "trigger", ability = "frost_strike_offhand" }]
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 4 }] }]
 on_noncrit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 on_cast = [
   { type = "buff", buff = "icy_talons" },                          # [simc] RP spent
-  { type = "trigger", ability = "rime_proc", chance = 0.62 },      # [obs] 60 of 97
+  { type = "trigger", ability = "rime_proc", chance = 0.60 },      # [db2 59057 45% + 377076 15%]
   { type = "trigger", ability = "runic_empowerment", chance = 0.63 },   # 1.8% x 35 RP
   { type = "if", if = "buff.frostreaper_debuff.up", then = [
     { type = "trigger", ability = "frostreaper" },
@@ -407,7 +466,7 @@ name = "frost_strike_offhand"
 spell_id = 66196
 triggered_only = true
 gcd = 0
-damage = { ap_coeff = 1.39308, school = "frost", mastery = true, feed = [{ dot = "hyperpyrexia", pct = 10.5 }] }
+damage = { ap_coeff = 1.39308, school = "frost", mastery = true, feed = [{ dot = "hyperpyrexia", pct = 30, chance = 0.35 }] }
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 4 }] }]
 on_noncrit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 
@@ -434,7 +493,6 @@ on_cast = [{ type = "gain", resource = "runes", amount = 1 }]
 name = "howling_blast"
 spell_id = 49184
 cost = { runes = 1 }
-gain = { runic_power = 10 }         # [db2]
 damage = { ap_coeff = 0.506819, school = "frost", mastery = true }
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 4 }] }]
 on_noncrit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
@@ -454,18 +512,19 @@ source = "howling_blast"
 spell_id = 49184
 requires_buff = "rime"
 free_with = "rime"
-gain = { runic_power = 20 }         # [db2 59052 #2]
 damage = { ap_coeff = 0.506819, school = "frost", mastery = true, mult = 1.6 }   # x1.6 Bind in Darkness; Rime's +275% is a derived buff
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 4 }] }]
 on_noncrit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 on_cast = [
-  { type = "trigger", ability = "rage_of_the_frozen_champion" },
+  { type = "trigger", ability = "rune_spent_1" },               # [simc] fires even when Rime makes it free
+  { type = "trigger", ability = "rage_of_the_frozen_champion" },   # 8 RP [db2 377077]
   { type = "reduce_cooldown", ability = "empower_rune_weapon", seconds = 6 },   # Frostbound Will
   { type = "if", if = "dot.breath_of_sindragosa_damage.ticking", then = [
     { type = "extend_dot", dot = "breath_of_sindragosa_damage", seconds = 0.8 },
   ] },
   { type = "trigger", ability = "frost_fever_apply" },
   { type = "buff", buff = "cryo_stack" },
+  { type = "trigger", ability = "dark_talons_proc", chance = 0.25 },   # [db2 436687]
   { type = "if", if = "buff.pillar_of_frost.up", then = [
     { type = "trigger", ability = "killing_machine_proc" },
     { type = "trigger", ability = "obliteration_rune", chance = 0.20 },
@@ -485,7 +544,7 @@ gcd = 0
 [abilities.dot]
 name = "frost_fever"                # [db2 55095: 24s, 3s, hasted]
 ap_coeff = 0.428
-tick_time = 2.4                # [obs] 1.71s ticks at 1.4 haste; the spell's 3s period doesn't reproduce it
+tick_time = 2.55               # [obs] 1.73s ticks at 1.47 haste (173 a fight); the spell's 3s period doesn't reproduce it
 duration = 24.0
 hasted = true
 school = "frost"
@@ -516,7 +575,7 @@ source = "glacial_advance_arctic_assault_obliterate"
 spell_id = 195975
 triggered_only = true
 gcd = 0
-damage = { ap_coeff = 0.494734, school = "frost", mastery = true, feed = [{ dot = "hyperpyrexia", pct = 10.5 }] }   # 0.824557 x 60% [db2 456230]
+damage = { ap_coeff = 0.494734, school = "frost", mastery = true, scale = "buff.arctic_assault_stacks.stack", feed = [{ dot = "hyperpyrexia", pct = 30, chance = 0.35 }] }   # 0.824557 x 60% [db2 456230]
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 4 }] }]
 on_noncrit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 on_cast = [
@@ -589,6 +648,7 @@ on_expire = [{ type = "consume", buff = "gathering_storm", all = true }]
 [[abilities]]
 name = "cryogenic_chamber"          # 15% of each Rime Howling Blast, released by Remorseless Winter
 triggered_only = true
+requires_buff = "cryo_stack"
 gcd = 0
 damage = { ap_coeff = 0.456, school = "frost", mastery = true, scale = "buff.cryo_stack.stack", crit_bonus = -2.0 }
 on_cast = [{ type = "buff", buff = "cryo_stack", set = "0" }]
@@ -617,7 +677,12 @@ spell_id = 1249658
 gcd = 0
 cooldown = 90
 cost = { runic_power = 60 }
-on_cast = [{ type = "trigger", ability = "breath_of_sindragosa_apply" }]
+on_cast = [
+  { type = "buff", buff = "icy_talons" },               # [simc] any RP spend
+  { type = "reset_cooldown", ability = "empower_rune_weapon", keep_recharge = true },   # [db2 303753]
+  { type = "trigger", ability = "runic_empowerment", chance = 1.08 },   # [simc] 60 RP x 1.8%
+  { type = "trigger", ability = "breath_of_sindragosa_apply" },
+]
 
 [[abilities]]
 name = "breath_of_sindragosa_apply"
@@ -632,7 +697,7 @@ hasted = false
 tick_on_apply = true
 school = "frost"
 mastery = true
-feed = [{ dot = "hyperpyrexia", pct = 10.5 }]
+feed = [{ dot = "hyperpyrexia", pct = 30, chance = 0.35 }]
 on_tick = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 on_crit = [{ type = "if", if = "buff.reapers_mark_debuff.up", then = [{ type = "buff", buff = "reapers_mark_stacks", stacks = 2 }] }]
 on_expire = [{ type = "gain", resource = "runes", amount = 2 }]   # [db2 1234304]
@@ -708,7 +773,7 @@ cooldown = 90
 damage = { ap_coeff = 2.966, school = "frost", mastery = true, mult = 2.0 }   # [db2 279303]; Chosen +100%
 on_cast = [
   { type = "buff", buff = "chosen_of_frostbrood_haste" },
-  { type = "if", if = "buff.pillar_of_frost.up", then = [{ type = "extend_buff", buff = "pillar_of_frost", seconds = 2.0 }] },
+  { type = "if", if = "buff.pillar_of_frost.up", then = [{ type = "extend_buff", buff = "pillar_of_frost", seconds = 4.0 }] },   # [obs] SimC log: +4s
   { type = "trigger", ability = "chosen_of_frostbrood_fwf_proc", delay = 1.25 },
 ]
 
@@ -723,7 +788,11 @@ name = "chosen_of_frostbrood"       # the recall, ~52% of Frostwyrm's Fury [obs]
 requires_buff = "chosen_of_frostbrood_fwf"
 gcd = 0
 damage = { ap_coeff = 3.085, school = "frost", mastery = true }
-on_cast = [{ type = "consume", buff = "chosen_of_frostbrood_fwf" }]
+on_cast = [
+  { type = "consume", buff = "chosen_of_frostbrood_fwf" },
+  { type = "buff", buff = "chosen_of_frostbrood_haste" },   # [obs] the recall refreshes the haste buff
+  { type = "if", if = "buff.pillar_of_frost.up", then = [{ type = "extend_buff", buff = "pillar_of_frost", seconds = 2.0 }] },   # [obs] SimC log: +2s
+]
 
 # ---------------------------------------------------------------- rune spends
 

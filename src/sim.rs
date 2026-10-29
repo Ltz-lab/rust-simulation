@@ -176,15 +176,25 @@ struct CFeed {
     pct: f64,
     per_mastery: f64,
     crit_only: bool,
+    /// Chance the hit contributes; `rid` is its own random stream.
+    chance: f64,
+    rid: Option<usize>,
     condition: Option<Expr>,
 }
 
-fn compile_feeds(feeds: &[FeedDef], n: &Names) -> Result<Vec<CFeed>, String> {
-    feeds.iter().map(|f| Ok(CFeed {
+fn compile_feeds(feeds: &[FeedDef], n: &Names, site: &str, rolls: &mut Vec<String>) -> Result<Vec<CFeed>, String> {
+    feeds.iter().enumerate().map(|(k, f)| Ok(CFeed {
         dot: n.dot(&f.dot)?,
         pct: f.pct / 100.0,
         per_mastery: f.per_mastery,
         crit_only: f.crit_only,
+        chance: f.chance,
+        rid: if f.chance < 1.0 {
+            rolls.push(format!("{site}/feed/{k}/{}", f.dot));
+            Some(rolls.len() - 1)
+        } else {
+            None
+        },
         condition: f.condition.as_ref().map(|s| expr::parse(s, n)).transpose()?,
     })).collect()
 }
@@ -589,11 +599,15 @@ impl Compiled {
             let ctx = |e: String| format!("ability '{}': {e}", a.name);
             let dot_idx = match &a.dot {
                 Some(d) => {
+                    let dot_feeds = {
+                        let mut r = rolls.borrow_mut();
+                        compile_feeds(&d.feed, &n, &format!("{}/feed", d.name), &mut r).map_err(ctx)?
+                    };
                     dots.push(CDot {
                         duration: d.duration_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         tick_time: d.tick_time_expr.as_ref().map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                         on_expire: effects(&d.on_expire, &format!("{}/on_expire", d.name)).map_err(ctx)?,
-                        feeds: compile_feeds(&d.feed, &n).map_err(ctx)?,
+                        feeds: dot_feeds,
                         no_procs: a.no_procs,
                         on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
                         on_crit: effects(&d.on_crit, &format!("{}/on_crit", d.name)).map_err(ctx)?,
@@ -657,7 +671,10 @@ impl Compiled {
                 on_noncrit: effects(&a.on_noncrit, &format!("{}/on_noncrit", a.name)).map_err(ctx)?,
                 on_free: effects(&a.on_free, &format!("{}/on_free", a.name)).map_err(ctx)?,
                 src: ab_src[ai],
-                feeds: compile_feeds(a.damage.as_ref().map_or(&[], |d| d.feed.as_slice()), &n).map_err(ctx)?,
+                feeds: {
+                    let mut r = rolls.borrow_mut();
+                    compile_feeds(a.damage.as_ref().map_or(&[], |d| d.feed.as_slice()), &n, &format!("{}/feed", a.name), &mut r).map_err(ctx)?
+                },
                 crit_mods: crit_mods(&spec.buffs, &a.name, a.source.as_deref().unwrap_or(&a.name)),
                 dot: dot_idx,
                 stored_from: a
@@ -2088,7 +2105,8 @@ impl<'a> State<'a> {
 
     fn feed_hit(&mut self, feeds: &[CFeed], crit: bool, damage: f64) {
         for f in feeds {
-            if (!f.crit_only || crit) && f.condition.as_ref().is_none_or(|e| e.eval(self) != 0.0) {
+            let applies = (!f.crit_only || crit) && f.condition.as_ref().is_none_or(|e| e.eval(self) != 0.0);
+            if applies && f.rid.is_none_or(|rid| self.roll(rid, f.chance)) {
                 self.feed(f.dot, damage * (f.pct + f.per_mastery * self.mastery()));
             }
         }
@@ -2161,6 +2179,8 @@ impl<'a> State<'a> {
         self.cur.push(a.src);
         let prev_pet = std::mem::replace(&mut self.cur_pet, a.pet);
         if !triggered {
+            // `spent` is what this cast paid: a free cast pays nothing.
+            self.spent.iter_mut().for_each(|s| *s = 0.0);
             let free = a.free_with.is_some_and(|b| self.buff_up(b));
             if free {
                 if !(a.def.preserve_late_free && self.resolving_cast) {

@@ -43,7 +43,7 @@ profiles (core kit, 300s Patchwerk):
 | [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,729 | -0.59% | haste -3.06 pts | ~10× |
 | [Survival Hunter (Sentinel)](docs/survival-hunter.md) | 163,198 | 163,103 | -0.06% | agility +1.71 pts | — |
 | [Assassination Rogue (Deathstalker)](docs/assassination-rogue.md) | 148,195 | 148,533 | +0.23% | haste +0.66 pts | — |
-| [Frost Death Knight (Deathbringer)](docs/frost-deathknight.md) | 162,879 | 158,453 | -2.72% | crit -2.52 pts | — |
+| [Frost Death Knight (Deathbringer)](docs/frost-deathknight.md) | 162,970 | 162,532 | -0.27% | crit -2.02 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
