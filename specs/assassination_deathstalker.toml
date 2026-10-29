@@ -1,0 +1,806 @@
+# Assassination Rogue — Deathstalker, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Rogue_Assassination.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_rogue.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, spec auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# The spec runs on energy (13.2/s base, hasted) and combo points (7, start 0).
+# Builders (Mutilate, Shiv, Fan of Knives, Ambush) generate points, finishers
+# (Envenom, Rupture) spend them. Garrote and Rupture are maintained bleeds;
+# poisons (Deadly and Amplifying, both lethal through Dragon-Tempered Blades)
+# proc from every direct hit, with a higher rate while Envenom is up. Kingsbane
+# and Deathmark are the 60s/120s cooldowns. Deathstalker's Mark is applied by
+# Garrote; finishers spend its stacks, and the last one arms Darkest Night.
+#
+# Not modelled yet (draft): gear (no [gear]/[gear.kit]) and registration. The
+# fight's average gear haste and crit procs are folded into `gear_haste` and
+# [player].crit (Alacrity included); Lethal Dose, Zoldyck Recipe, Precise
+# Killer, Implacable's +20% to the Mark and Hunt Them Down, and the persistent
+# multiplier of stealth Garrote (our Improved Garrote buff only covers its 6s
+# window) stay in the calibration residuals. See docs/assassination-rogue.md.
+
+name = "Assassination Rogue (Deathstalker, core kit)"
+
+# Stealth + Slice and Dice before the pull [simc APL]. SnD is kept up by
+# Cut to the Chase in practice (98% uptime [obs]); here it is one long buff.
+precombat = ["stealth_open", "slice_and_dice_open"]
+
+[player]
+attack_power = 2644      # [obs] fully buffed snapshot (agility 2519 x Battle Shout 1.05)
+weapon_attack_power = 741   # [obs] SimC's ability attack power is 3385 = 2644 + 741 (weapon share)
+spell_power = 431        # [obs] only the gear procs below use it
+crit = 0.3840            # [obs] 33.565% snapshot + ~4.8pp time-averaged gear crit procs (poison crit rate in the log)
+haste = 0.31114          # [obs] rating 1201 (46.24 a point) + Blessing of the Bronze and Skyfury
+versatility = 0.05278    # [obs] rating 123 (54 a point) + Mark of the Wild
+mastery = 0.43572        # [obs] Potent Assassin: 1.7% per point, 10 base/Skyfury points + rating
+crit_multiplier = 2.305  # [obs] 2.0 x Precise Killer +10% x Eyes of the Eagle +2% twice x diamond +0.6%
+# Daggers swing every 1.8s [db2]; ability damage comes from coefficients below.
+weapon = { min = 0, max = 0, speed = 1.8 }
+off_hand = { min = 0, max = 0, speed = 1.8 }
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.1          # [simc] rogue_t::available(): re-check at least every 100ms while pooling
+
+[resources.energy]
+max = 250                # [db2] 100 + Vigor 2/2 (+100) + Path of Blood (+50)
+start = 250              # [obs] full out of combat
+regen = 13.2             # [db2] 10 x 1.20 Motivated Murderer x 1.10 Vigor 2/2
+regen_hasted = true      # [obs] 18.8 energy/s over the fight at the gear's average haste
+
+[resources.combo_points]
+max = 7                  # [db2] 5 + Deeper Stratagem + Sanguine Stratagem
+start = 0
+
+[auto_attack]
+replace_with = "mh_swing"
+off_hand_replace_with = "oh_swing"
+wakes = false   # [simc] READY_TRIGGER: a waiting rogue re-checks on resources and every 100ms
+
+# Random gear procs retained by the core reference (weapons, rings, neck).
+# Fixed per-hit damage, scaled by spell power; calibration fits the scale.
+[[procs]]
+ability = "breath_of_corruption"   # Zatha'tek main hand [obs: 20 a fight]
+per_minute = 4.04
+
+[[procs]]
+ability = "searing_lightwood"      # off-hand enchant [obs: 51 a fight]
+per_minute = 9.72
+
+[[procs]]
+ability = "rune_of_unleashed_fire" # ring rune [obs: 33 a fight]
+per_minute = 9.2
+
+# Poison application. With Dragon-Tempered Blades the rogue runs two lethal
+# poisons (Deadly and Amplifying); each rolls separately on every direct hit.
+# chance = (0.30 base + 0.30 Envenom) x 0.70 DTB + 0.05 Improved Poisons
+# = 0.26 outside Envenom, 0.47 inside (Envenom uptime 95% [obs]: 0.47 average,
+# 657 procs against ~1213 eligible hits). Decimating while Deathmark ticks is a
+# second, independent roll for the same poison [simc sc_rogue.cpp rogue_poison_t::trigger].
+[[procs]]
+ability = "deadly_poison_instant"
+chance = 0.47
+on_hit = true
+
+[[procs]]
+ability = "deadly_poison_deathmark"
+chance = 0.47
+on_hit = true
+
+[[procs]]
+ability = "amplifying_poison"
+chance = 0.47
+on_hit = true
+
+[[procs]]
+ability = "amplifying_poison_deathmark"
+chance = 0.47
+on_hit = true
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "stealth"            # out of combat [db2 1784]; broken by the opener
+duration = 1e9
+
+[[buffs]]
+name = "vanish"             # [db2 11327: 3s]; broken by the next attack
+duration = 3
+
+[[buffs]]
+name = "improved_garrote"   # 6s after entering stealth: Garrote +50% [db2 392401 #1, simc]
+duration = 6
+ability_pct = { garrote = 50 }
+
+[[buffs]]
+name = "improved_garrote_dot"   # marker: the last Garrote was cast improved (SimC's pmultiplier > 1)
+duration = 24
+
+[[buffs]]
+name = "slice_and_dice"     # +50% attack speed [db2 315496]; Swift Slasher adds haste [db2 381988]
+duration = 1e9
+attack_speed_pct = 50
+attack_speed_per_haste = 1
+
+[[buffs]]
+name = "gear_haste"         # [obs] time-averaged haste of the core kit's gear procs
+duration = 1e9              # Rune of Burning Haste 81% uptime and Venomcursed Haste 34%,
+haste_pct = 8.77            # from 5,647.6 energy regenerated over 300s (18.83/s vs 13.2 x 1.31114)
+
+[[buffs]]
+name = "envenom"            # [db2 32645 #1: +30% poison chance]; duration = combo points spent
+duration = 6                # [simc] Envenom's own buff, refreshed by every Envenom
+max_stacks = 1
+
+[[buffs]]
+name = "inspiring_strike"   # Envenom while Envenom is up: +5% Envenom damage [db2 1250036, simc]
+duration = 6
+ability_pct = { envenom = 5 }
+
+[[buffs]]
+name = "deadly_precision"   # +5% crit to builders and bleeds [db2 381542 #0, #1 label]
+duration = 1e9
+ability_crit_pct = { garrote = 5, mutilate_mh = 5, mutilate_oh = 5, fan_of_knives = 5, shiv = 5, kingsbane = 5, ambush = 5 }
+
+[[buffs]]
+name = "cold_blood"         # a builder crit: +10% Envenom crit, consumed by Envenom [db2 1264297, simc]
+duration = 6
+ability_crit_pct = { envenom = 10 }
+
+[[buffs]]
+name = "darkest_night"      # last Mark stack spent: next 5+ point Envenom +35% and crits [db2 457280]
+duration = 30
+ability_pct = { envenom = 35 }
+ability_crit_pct = { envenom = 100 }
+
+[[buffs]]
+name = "deathstalkers_mark" # target debuff, 3 stacks [db2 457129: 60s]
+duration = 60
+max_stacks = 3
+
+[[buffs]]
+name = "unshakeable_drive"  # each Mark stack spent; +50% Mutilate damage [db2 1248775]
+duration = 12               # stacks only count uses, so the bonus applies once (flat)
+max_stacks = 3
+flat = true
+
+[[buffs]]
+name = "finish_the_job"     # Deathmark's cast: +10% to most abilities for 16s [db2 1249810, simc]
+duration = 16
+
+[[buffs]]
+name = "deathmark"          # Deathmark's target debuff: +75% bleed and poison damage [db2 360194 #1]
+duration = 16
+ability_pct = { garrote = 75, rupture = 75, deadly_poison_dot = 75, deadly_poison_instant = 75, amplifying_poison = 75 }
+on_expire = [{ type = "buff", buff = "lingering_darkness" }]
+
+[[buffs]]
+name = "lingering_darkness" # 30s after Deathmark ends: +30% to Envenom, Kingsbane, poisons, Mark [db2 457273]
+duration = 30
+
+[[buffs]]
+name = "kingsbane"          # lethal poison hits while Kingsbane ticks stack it [db2 394095: 14s]
+duration = 14               # +20% Kingsbane damage per stack, up to 50 stacks [db2 394095 #0]
+max_stacks = 50
+ability_pct = { kingsbane = 20 }
+
+[[buffs]]
+name = "regicides_reward"   # Kingsbane ends with 5+ stacks: +2% haste per 5 stacks for 20s [db2 1250331]
+duration = 20
+max_stacks = 10
+haste_pct = 2
+
+[[buffs]]
+name = "amplifying_poison"  # stack debuff; Envenom consumes 10 for +35% damage [db2 381664 #0/#1]
+duration = 12
+max_stacks = 20
+
+# ---------------------------------------------------------------- stealth and shared procs
+
+[[abilities]]
+name = "stealth_open"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "stealth" },
+  { type = "buff", buff = "improved_garrote" },   # the aura arms the 6s window [simc]
+]
+
+[[abilities]]
+name = "slice_and_dice_open"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "slice_and_dice" },
+  { type = "buff", buff = "gear_haste" },
+  { type = "buff", buff = "deadly_precision" },
+]
+
+[[abilities]]
+name = "break_stealth"      # attacks break Stealth and Vanish [simc rogue_t::break_stealth]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "consume", buff = "stealth" },
+  { type = "consume", buff = "vanish" },
+]
+
+[[abilities]]
+name = "seal_fate_proc"     # a builder crit: 1 combo point [db2 14190]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "combo_points", amount = 1 }]
+
+[[abilities]]
+name = "cold_blood_proc"    # a builder crit arms Cold Blood [db2 382245]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "cold_blood" }]
+
+# ---------------------------------------------------------------- Deathstalker
+
+[[abilities]]
+name = "dm_apply"           # Garrote applies 3 stacks [db2 457052 #0]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "deathstalkers_mark", stacks = 3 },
+  { type = "trigger", ability = "dm_consume", chance = 0.30 },   # Quietus Celeris [db2 1273017: 6 in 20]
+]
+
+[[abilities]]
+name = "dm_consume"         # a 5+ point finisher spends a stack [db2 457052 #1, simc]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.deathstalkers_mark.up", then = [
+  { type = "consume", buff = "deathstalkers_mark" },
+  { type = "trigger", ability = "deathstalkers_mark_damage" },
+  { type = "buff", buff = "unshakeable_drive" },
+  { type = "if", if = "!buff.deathstalkers_mark.up", then = [
+    { type = "gain", resource = "energy", amount = 30 },   # [db2 457280 #0]
+    { type = "buff", buff = "darkest_night" },
+  ] },
+] }]
+
+[[abilities]]
+name = "deathstalkers_mark_damage"   # [db2 457157]
+spell_id = 457157
+source = "deathstalkers_mark"
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { ap_coeff = 1.56, school = "shadowstorm", mastery = true }
+
+[[abilities]]
+name = "hunt_them_down"     # every auto-attack hit on a Marked target [db2 457193, simc melee_t]
+spell_id = 457193
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { ap_coeff = 0.1, school = "shadowstorm", mastery = true }
+
+[[abilities]]
+name = "regicides_reward_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "regicides_reward", set = "buff.kingsbane.stack/5" }]
+
+# ---------------------------------------------------------------- auto attacks
+# 16.0% of main-hand swings miss and 20.76% of off-hand swings [obs]; Skyfury
+# repeats an attack 16% of the time [obs 67+68 procs a fight].
+
+[[abilities]]
+name = "mh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_mh", chance = 0.84 },
+  { type = "trigger", ability = "mh_repeat", chance = 0.16 },
+]
+
+[[abilities]]
+name = "mh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_mh" }]
+
+[[abilities]]
+name = "oh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_oh", chance = 0.7924 },
+  { type = "trigger", ability = "oh_repeat", chance = 0.16 },
+]
+
+[[abilities]]
+name = "oh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_oh" }]
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+damage = { ap_coeff = 0.3, school = "physical" }    # dagger 1.8s, AP/6 x speed; scale from calibration
+on_cast = [{ type = "if", if = "buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "hunt_them_down" }] }]
+
+[[abilities]]
+name = "auto_attack_oh"
+triggered_only = true
+damage = { ap_coeff = 0.15, school = "physical" }   # half damage off hand
+on_cast = [{ type = "if", if = "buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "hunt_them_down" }] }]
+
+# ---------------------------------------------------------------- poisons
+# Deadly Poison: instant damage and a 12s bleed [db2 113780, 2818].
+# Amplifying Poison: instant damage and a stack of the consuming debuff [db2 383414].
+
+[[abilities]]
+name = "deadly_poison_instant"
+spell_id = 113780
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [
+  { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+]
+[abilities.dot]
+name = "deadly_poison_dot"
+spell_id = 2818
+ap_coeff = 0.11374
+tick_time = 2.0
+duration = 12.0
+school = "nature"
+mastery = true
+refresh = "pandemic"
+
+[[abilities]]
+name = "deadly_poison_deathmark"   # Deathmark's second lethal poison roll [simc]
+triggered_only = true
+gcd = 0
+no_procs = true
+requires_buff = "deathmark"
+source = "deadly_poison_instant"
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [{ type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] }]
+
+[[abilities]]
+name = "amplifying_poison"
+spell_id = 383414
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [
+  { type = "buff", buff = "amplifying_poison" },
+  { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+]
+
+[[abilities]]
+name = "amplifying_poison_deathmark"
+triggered_only = true
+gcd = 0
+no_procs = true
+requires_buff = "deathmark"
+source = "amplifying_poison"
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [
+  { type = "buff", buff = "amplifying_poison" },
+  { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+]
+
+# ---------------------------------------------------------------- builders
+
+[[abilities]]
+name = "garrote"            # stealth opener / bleed refresh [db2 703]
+spell_id = 703
+cost = { energy = 45 }      # [db2] not reduced by Tight Spender
+gain = { combo_points = 1 } # [db2 703 #2]
+cooldown = 6                # [db2] nulled when cast from stealth or Improved Garrote [simc garrote_t]
+gcd = 1.0045             # 1s [db2] + SimC's action spacing [obs: 1.004-1.008s]
+gcd_hasted = false
+on_cast = [
+  # Shrouded Suffocation: +2 combo points when cast from Stealth/Vanish [db2 385478 #1]
+  { type = "if", if = "buff.stealth.up|buff.vanish.up", then = [{ type = "gain", resource = "combo_points", amount = 2 }] },
+  # Improved Garrote: +50% for the dot when stealthed or within the 6s window [db2 392401]
+  { type = "if", if = "buff.stealth.up|buff.vanish.up|buff.improved_garrote.up", then = [{ type = "buff", buff = "improved_garrote_dot" }] },
+  # Garrote applies Deathstalker's Mark if the target has none [simc garrote_t::execute]
+  { type = "if", if = "!buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "dm_apply" }] },
+  # a stealth/Early Improved Garrote cast does not start the cooldown [simc garrote_t::update_ready]
+  { type = "if", if = "buff.stealth.up|buff.vanish.up|buff.improved_garrote.up", then = [{ type = "reset_cooldown", ability = "garrote" }] },
+  # direct hit for 0 damage in SimC: poisons still roll [obs 71% per cast]
+  { type = "trigger", ability = "deadly_poison_instant", chance = 0.47 },
+  { type = "trigger", ability = "amplifying_poison", chance = 0.47 },
+  { type = "if", if = "buff.deathmark.up", then = [
+    { type = "trigger", ability = "deadly_poison_deathmark", chance = 0.47 },
+    { type = "trigger", ability = "amplifying_poison_deathmark", chance = 0.47 },
+  ] },
+  # a 0-damage hit still rolls a crit for Seal Fate and Cold Blood
+  { type = "trigger", ability = "seal_fate_proc", chance = 0.33565 },
+  { type = "trigger", ability = "cold_blood_proc", chance = 0.33565 },
+  { type = "trigger", ability = "break_stealth" },
+]
+[abilities.dot]
+name = "garrote"
+spell_id = 703
+ap_coeff = 0.4515          # [db2] per 2s
+tick_time = 2.0
+duration = 24.0            # [db2] 18s + Razor Wire 6s [db2 1249802]
+school = "physical"
+mastery = true
+crit_damage_bonus = 0.2    # Lethality [db2 382238 #2]
+on_tick = [{ type = "if", if = "dot.deadly_poison_dot.ticking", then = [{ type = "gain", resource = "energy", amount = 3 }] }]   # [db2 79134, simc Venomous Wounds]
+
+[[abilities]]
+name = "rupture"            # [db2 1943]
+spell_id = 1943
+cost = { energy = 23.5, combo_points = 1 }   # [db2] 25 less Tight Spender 6%
+cost_max = { combo_points = 7 }
+gcd = 1.0045
+gcd_hasted = false
+on_cast = [
+  { type = "trigger", ability = "internal_bleeding_apply" },
+  { type = "if", if = "spent.combo_points>=5&!buff.darkest_night.up", then = [{ type = "trigger", ability = "dm_consume" }] },
+  { type = "trigger", ability = "deadly_poison_instant", chance = 0.47 },
+  { type = "trigger", ability = "amplifying_poison", chance = 0.47 },
+  { type = "if", if = "buff.deathmark.up", then = [
+    { type = "trigger", ability = "deadly_poison_deathmark", chance = 0.47 },
+    { type = "trigger", ability = "amplifying_poison_deathmark", chance = 0.47 },
+  ] },
+  { type = "trigger", ability = "break_stealth" },
+]
+[abilities.dot]
+name = "rupture"
+spell_id = 1943
+ap_coeff = 0.336574        # [db2] per 2s
+tick_time = 2.0
+duration = 24.0
+duration_expr = "4*(1+spent.combo_points)"   # [db2 1943 duration 4s, simc composite_dot_duration]
+school = "physical"
+mastery = true
+on_tick = [{ type = "if", if = "dot.deadly_poison_dot.ticking", then = [{ type = "gain", resource = "energy", amount = 3 }] }]
+
+[[abilities]]
+name = "internal_bleeding_apply"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "dot_stack", dot = "internal_bleeding", set = "spent.combo_points" }]
+[abilities.dot]
+name = "internal_bleeding"  # [db2 381628: 0.0717 AP per 1s, 6s, x combo points]
+spell_id = 381628
+ap_coeff = 0.0717
+tick_time = 1.0
+duration = 6.0
+school = "physical"
+mastery = true
+max_stacks = 7
+per_stack = true
+
+[[abilities]]
+name = "mutilate"           # [db2 1329]
+spell_id = 5374
+source = "mutilate_mh"
+cost = { energy = 50 }      # [db2]
+gain = { combo_points = 2 } # [db2 1329 #1]
+gcd = 1.0045
+gcd_hasted = false
+damage = { ap_coeff = 1.15, school = "physical", crit_damage_bonus = 0.2, feed = [{ dot = "mutilated_flesh", pct = 25 }] }   # [db2 5374, Lethality]
+on_cast = [
+  { type = "trigger", ability = "mutilate_oh" },
+  { type = "trigger", ability = "break_stealth" },
+]
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+[abilities.dot]
+name = "mutilated_flesh"    # Doomblade: 25% of Mutilate strikes rolled into a bleed [db2 381673/394021]
+spell_id = 394021
+banked = true
+tick_time = 3.0
+duration = 6.0
+hasted = false
+school = "physical"
+
+[[abilities]]
+name = "mutilate_oh"
+spell_id = 27576
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.575, school = "physical", crit_damage_bonus = 0.2, feed = [{ dot = "mutilated_flesh", pct = 25 }] }   # [db2] 1.15 x off-hand 0.5
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+
+[[abilities]]
+name = "fan_of_knives"      # [db2 51723]
+spell_id = 51723
+cost = { energy = 35 }      # [db2]
+gain = { combo_points = 1 } # [db2 51723 #1]
+gcd = 1.0045
+gcd_hasted = false
+damage = { ap_coeff = 1.0588, school = "physical", crit_damage_bonus = 0.2 }
+on_cast = [{ type = "trigger", ability = "break_stealth" }]
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+
+[[abilities]]
+name = "shiv"               # [db2 5938: 1.254 AP, 1 combo point]
+spell_id = 5938
+cost = { energy = 10 }      # [obs] the sim's Shiv costs 10, not the table's 30
+gain = { combo_points = 1 } # [db2 5938 #2]
+cooldown = 20               # [obs] 15.3s apart at 1.31 haste: 20s, hasted
+cooldown_hasted = true
+gcd = 1.0045
+gcd_hasted = false
+damage = { ap_coeff = 1.254, school = "physical", crit_damage_bonus = 0.2 }
+on_cast = [{ type = "trigger", ability = "break_stealth" }]
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+
+[[abilities]]
+name = "ambush"             # stealth only (rotation); [db2 8676]
+spell_id = 8676
+cost = { energy = 50 }      # [db2]
+gain = { combo_points = 2 } # [db2 8676 #1]
+gcd = 1.0045
+gcd_hasted = false
+damage = { ap_coeff = 2.78, school = "physical", crit_damage_bonus = 0.2 }
+on_cast = [{ type = "trigger", ability = "break_stealth" }]
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+
+# ---------------------------------------------------------------- finishers / cooldowns
+
+[[abilities]]
+name = "envenom"            # [db2 32645]
+spell_id = 32645
+cost = { energy = 32.9, combo_points = 1 }   # [db2] 35 less Tight Spender 6%
+cost_max = { combo_points = 7 }
+gcd = 1.0045
+gcd_hasted = false
+# 0.395 AP per combo point [db2]; Rapid Injection 2/2 multiplies it by 1.40 while
+# Envenom's own buff is up (it is triggered before the hit) [db2 455072, simc].
+# Amplifying Poison: 10+ stacks are consumed for +35% [db2 381664 #0/#1].
+damage = { ap_coeff = 0.553, school = "nature", mastery = true, scale = "spent.combo_points*(1+0.35*(buff.amplifying_poison.stack>=10))" }
+on_begin = [
+  { type = "if", if = "buff.envenom.up", then = [{ type = "buff", buff = "inspiring_strike", duration = 6 }] },
+]
+on_start = [
+  { type = "if", if = "spent.combo_points>=7", then = [{ type = "buff", buff = "envenom", duration = 7 }] },
+  { type = "if", if = "spent.combo_points>=6&spent.combo_points<7", then = [{ type = "buff", buff = "envenom", duration = 6 }] },
+  { type = "if", if = "spent.combo_points<6", then = [{ type = "buff", buff = "envenom", duration = 5 }] },
+]
+on_cast = [
+  { type = "gain", resource = "energy", amount_expr = "2*spent.combo_points" },   # Implacable [db2 1298870, simc]
+  { type = "if", if = "buff.amplifying_poison.stack>=10", then = [{ type = "buff", buff = "amplifying_poison", set = "buff.amplifying_poison.stack-10" }] },
+  { type = "consume", buff = "cold_blood" },
+  { type = "if", if = "spent.combo_points>=5&buff.darkest_night.up", then = [
+    { type = "consume", buff = "darkest_night" },
+    { type = "if", if = "!buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "dm_apply" }] },
+  ], else = [
+    { type = "if", if = "spent.combo_points>=5", then = [{ type = "trigger", ability = "dm_consume" }] },
+  ] },
+  { type = "trigger", ability = "break_stealth" },
+]
+
+[[abilities]]
+name = "kingsbane"          # [db2 385627]
+spell_id = 385627
+cost = { energy = 35 }      # [db2]
+gain = { combo_points = 1 } # [db2]
+cooldown = 60               # [db2] unhasted [obs 61s apart]
+gcd = 1.0045
+gcd_hasted = false
+no_procs = true             # [obs] Kingsbane hits do not roll poisons
+damage = { ap_coeff = 1.469, school = "nature", mastery = true, crit_damage_bonus = 0.2 }
+on_cast = [
+  { type = "trigger", ability = "implacable_strikes_apply" },
+  { type = "trigger", ability = "break_stealth" },
+]
+[abilities.dot]
+name = "kingsbane"
+spell_id = 385627
+ap_coeff = 0.29            # [db2] per 2s
+tick_time = 2.0
+duration = 14.0            # [db2] unhasted [obs: 7 ticks, 2.0s apart]
+hasted = false
+school = "nature"
+mastery = true
+on_expire = [
+  { type = "if", if = "buff.kingsbane.stack>=5", then = [{ type = "trigger", ability = "regicides_reward_proc" }] },
+  { type = "consume", buff = "kingsbane" },
+]
+
+[[abilities]]
+name = "implacable_strikes_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "implacable_strikes" # [db2 1265787: 5 ticks of 0.2s]
+spell_id = 1265787
+tick_time = 0.2
+duration = 1.0
+hasted = false
+whole_ticks = true
+school = "physical"
+on_tick = [
+  { type = "trigger", ability = "implacable_strikes_nature" },
+  { type = "trigger", ability = "implacable_strikes_physical" },
+]
+
+[[abilities]]
+name = "implacable_strikes_nature"   # [db2 1265794]
+spell_id = 1265794
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { ap_coeff = 2.07, school = "nature", mastery = true, crit_damage_bonus = 0.1 }
+
+[[abilities]]
+name = "implacable_strikes_physical" # [db2 1265795: 1 combo point on hit]
+spell_id = 1265795
+triggered_only = true
+gcd = 0
+gain = { combo_points = 1 } # [db2 1265795 #1]
+damage = { ap_coeff = 3.0, school = "physical", crit_damage_bonus = 0.1 }
+on_crit = [
+  { type = "trigger", ability = "seal_fate_proc" },
+  { type = "trigger", ability = "cold_blood_proc" },
+]
+
+[[abilities]]
+name = "deathmark"          # [db2 360194]
+spell_id = 360194
+cooldown = 120              # [db2] unhasted [obs 121s apart]
+gcd = 1.0045
+gcd_hasted = false
+on_cast = [
+  { type = "buff", buff = "deathmark" },
+  { type = "buff", buff = "finish_the_job" },
+  { type = "trigger", ability = "break_stealth" },
+]
+[abilities.dot]
+name = "deathmark"
+spell_id = 360194
+ap_coeff = 0.4            # [db2] per 2s
+tick_time = 2.0
+duration = 16.0
+school = "physical"
+mastery = true
+on_tick = [{ type = "gain", resource = "energy", amount = 7.27 }]   # [db2 360194 #2: 80 over ~11 ticks]
+
+[[abilities]]
+name = "vanish"             # [db2 1856]
+spell_id = 1856
+cooldown = 120              # [db2]
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "vanish" },
+  { type = "buff", buff = "improved_garrote" },   # [simc] the stealth aura arms the window
+]
+
+[[abilities]]
+name = "thistle_tea"        # [db2 381623: 3 charges, 60s, 100 energy]
+spell_id = 469779
+gcd = 0
+cooldown = 60
+charges = 3
+on_cast = [{ type = "gain", resource = "energy", amount = 100 }]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "breath_of_corruption"
+spell_id = 1305395
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { sp_coeff = 60.0, school = "nature" }     # weapon proc, fixed damage; scale from calibration
+
+[[abilities]]
+name = "searing_lightwood"
+spell_id = 1296735
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { sp_coeff = 14.8, school = "holy" }       # off-hand enchant; scale from calibration
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+gcd = 0
+no_procs = true
+damage = { sp_coeff = 14.2, school = "fire", crit_bonus = -2.0 }   # never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 0.88
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Assassination APL, single target, Deathstalker.
+
+[[rotation]]
+action = "thistle_tea"
+if = "energy.pct<30|fight_remains<=10"
+
+# Cooldowns: Deathmark right before Kingsbane, once both bleeds are up.
+[[rotation]]
+action = "deathmark"
+if = "dot.garrote.ticking&dot.rupture.ticking&cooldown.kingsbane.remains<=2&buff.envenom.remains>2"
+
+[[rotation]]
+action = "kingsbane"
+if = "dot.garrote.ticking&dot.rupture.ticking&(buff.deathmark.up|cooldown.deathmark.remains>52)&buff.envenom.up"
+
+# Vanish for an Ambush and a stealth Garrote, only when the current Garrote is
+# not already an improved one (our marker for SimC's dot pmultiplier > 1).
+[[rotation]]
+action = "vanish"
+if = "!buff.stealth.up&!buff.vanish.up&!buff.improved_garrote_dot.up&(buff.deathmark.up|cooldown.deathmark.remains>fight_remains-10)"
+
+# Bleeds.
+[[rotation]]
+action = "garrote"
+if = "buff.stealth.up|buff.vanish.up"
+
+[[rotation]]
+action = "garrote"
+if = "buff.improved_garrote.up&dot.garrote.remains<=20"
+
+[[rotation]]
+action = "garrote"
+if = "(!dot.garrote.ticking|dot.garrote.remains<=7)&combo_points<7"
+
+[[rotation]]
+action = "rupture"
+if = "combo_points>=5&dot.rupture.remains<=7&(!buff.darkest_night.up|!dot.rupture.ticking)"
+
+# Spend: keep Envenom up, dump at high energy, and at 7 points for Darkest Night.
+[[rotation]]
+action = "envenom"
+if = "combo_points>=5&(!buff.darkest_night.up|combo_points>=7)&(buff.envenom.remains<=1|buff.deathmark.up|energy.pct>70|fight_remains<=12)"
+
+# Build.
+[[rotation]]
+action = "fan_of_knives"
+if = "buff.darkest_night.up&combo_points=6"
+
+[[rotation]]
+action = "ambush"
+if = "(buff.stealth.up|buff.vanish.up)&energy>=50"
+
+[[rotation]]
+action = "shiv"
+if = "combo_points<5|buff.darkest_night.up&combo_points<7"
+
+[[rotation]]
+action = "mutilate"
+if = "combo_points<5|buff.darkest_night.up&combo_points<7"
