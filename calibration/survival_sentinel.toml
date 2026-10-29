@@ -71,6 +71,7 @@ mult = 0.794479
 crit_bonus = -0.330717
 
 [sources."rune_of_unleashed_fire_lingering"]
+derived = 1.000000
 mult = 0.793087
 crit_bonus = -0.330581
 
@@ -95,6 +96,7 @@ mult = 0.797103
 crit_bonus = +0.001894
 
 [sources."venomfang_burst"]
+derived = 1.000000
 mult = 1.142899
 crit_bonus = +0.000330
 

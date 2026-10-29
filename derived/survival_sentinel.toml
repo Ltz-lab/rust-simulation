@@ -38,6 +38,9 @@ derived = 1.332000
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
 
+[sources."rune_of_unleashed_fire_lingering"]
+derived = 1.000000
+
 [sources."sanctified_armaments"]
 derived = 1.000000
 
@@ -48,6 +51,9 @@ derived = 1.110000
 derived = 1.110000
 
 [sources."venomfang"]
+derived = 1.000000
+
+[sources."venomfang_burst"]
 derived = 1.000000
 
 [sources."void_eruption"]

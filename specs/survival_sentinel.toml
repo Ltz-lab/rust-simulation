@@ -281,6 +281,7 @@ whole_ticks = true
 school = "physical"
 mastery = true
 mastery_scale = 1.766
+
 # ---------------------------------------------------------------- Boomstick
 
 [[abilities]]
