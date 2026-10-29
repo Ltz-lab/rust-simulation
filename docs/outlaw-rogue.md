@@ -8,18 +8,17 @@
 
 | | reference | azsim |
 |---|---:|---:|
-| DPS | 162,375 | 155,630 (−4.2%) |
+| DPS | 162,375 | 158,651 (−2.3%) |
 | fight length | 300 s | 300 s ± 20% |
 
 `./target/release/azsim specs/outlaw_trickster.toml -n 10000 --seed 1 --calib calibration/outlaw_trickster.toml`
 
-Sources within ±5%: Between the Eyes (−0.6%), Dispatch (+7.2%), Pistol Shot
-(+4.3% / +4.5%), Main Gauche (−4.4%), Unseen Blade (−0.4%), Coup de Grace
-(+1.0%), Sinister Strike (+4.4%), the gear procs (±1%). The remaining gap is
-Killing Spree (−21.7%: 7.9 casts a fight instead of 9.95 because Adrenaline
-Rush comes back 10-15% slower), auto attacks (−7.5%, SimC's swing timer also
-resets on attack-speed changes), and Instant Poison (−12.7%), which follows
-the auto-attack count.
+Auto attacks (+0.1%), Between the Eyes (0.0%), Main Gauche (−0.8%), Coup de
+Grace (+0.8%) and Unseen Blade (−0.4%) match. The remaining gap is Killing
+Spree (−21.1%: 8 casts a fight instead of 9.95, because Adrenaline Rush comes
+back ~10% slower — the spec's Restless Blades chain is a little weaker) and
+Instant Poison (−9.0%, which follows the slightly lower hit counts); Dispatch
+(+8.4%), Sinister Strike (+5.2%) and Pistol Shot (+5.0%) run a little hot.
 
 ## Validation (stat probes)
 
@@ -27,9 +26,9 @@ Held out from calibration (`tools/validate_stats.py`, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
-| +500 crit rating | +9.71% | +9.53% | −0.18 |
-| +500 haste rating | +9.36% | +10.26% | +0.90 |
-| +500 mastery rating | +5.82% | +5.46% | −0.36 |
+| +500 crit rating | +9.71% | +9.56% | −0.15 |
+| +500 haste rating | +9.36% | +10.80% | +1.45 |
+| +500 mastery rating | +5.82% | +5.56% | −0.26 |
 | +500 versatility rating | +7.41% | +7.78% | +0.37 |
 | +200 agility | +5.87% | +5.97% | +0.10 |
 
@@ -74,9 +73,10 @@ Held out from calibration (`tools/validate_stats.py`, same calibration):
 - Killing Spree and Adrenaline Rush cadence (see above): the reference's
   Restless Blades chain is ~10% stronger. SimC rolls Killing Spree with
   `total_cp` including Supercharger; the spec does the same.
-- Auto attacks are ~7.5% short of the reference. The engine does not shorten a
-  swing in progress when haste changes, which is where SimC's extra swings
-  come from.
+- Auto attacks are right at the reference rate (0.1%), but the haste probe
+  still over-responds by ~1.5 points: haste scales the auto-attack speed
+  through Slice and Dice and the engine and SimC do not apply identical
+  diminishing returns at 45% haste.
 - Unseen Blade is a flat 13.4 procs/min rather than the real lockout:
   20 s after each proc, cleared early by Thousand Cuts and Disorienting
   Strikes. Its damage and Fazed refresh are right; the timing is smoothed.

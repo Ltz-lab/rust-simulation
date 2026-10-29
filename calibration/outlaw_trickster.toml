@@ -3,106 +3,106 @@
 # residual fitted to observed logs on top. Hit counts are NOT fitted.
 
 [sources."auto_attack_mh"]
-mult = 11.050171
-crit_bonus = +0.034292
+mult = 11.051332
+crit_bonus = +0.034752
 
 [sources."auto_attack_oh"]
 derived = 1.000000
-mult = 7.022956
-crit_bonus = +0.032588
+mult = 7.022887
+crit_bonus = +0.032615
 
 [sources."between_the_eyes"]
 derived = 2.329353
-mult = 1.378415
-crit_bonus = -0.004229
+mult = 1.371372
+crit_bonus = -0.009658
 
 [sources."coup_de_grace"]
 derived = 1.000000
-mult = 2.774463
-crit_bonus = -0.032364
+mult = 2.771058
+crit_bonus = -0.033555
 
 [sources."dispatch"]
 derived = 1.941128
-mult = 1.290745
-crit_bonus = -0.036391
+mult = 1.293039
+crit_bonus = -0.037601
 
 [sources."instant_poison"]
 derived = 2.823700
-mult = 1.351968
-crit_bonus = -0.034217
+mult = 1.351932
+crit_bonus = -0.034134
 
 [sources."killing_spree_mh"]
 derived = 1.941128
-mult = 1.388479
-crit_bonus = -0.036007
+mult = 1.388578
+crit_bonus = -0.035269
 
 [sources."killing_spree_oh"]
 derived = 1.941128
-mult = 1.386267
-crit_bonus = -0.037126
+mult = 1.386440
+crit_bonus = -0.037058
 
 [sources."main_gauche"]
 derived = 1.510000
-mult = 1.251316
-crit_bonus = -0.035922
+mult = 1.251322
+crit_bonus = -0.036194
 
 [sources."pistol_shot"]
 derived = 2.083800
-mult = 1.401351
-crit_bonus = -0.035142
+mult = 1.401168
+crit_bonus = -0.035372
 
 [sources."pistol_shot_fan_the_hammer"]
 derived = 2.083800
-mult = 2.067201
-crit_bonus = -0.033879
+mult = 2.063824
+crit_bonus = -0.033832
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.870682
+mult = 0.870637
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.890459
+mult = 0.890392
 crit_bonus = +0.000000
 
 [sources."scoundrel_strike_coup_de_grace"]
 derived = 1.510000
-mult = 2.816955
-crit_bonus = -0.028379
+mult = 2.817057
+crit_bonus = -0.028431
 
 [sources."scoundrel_strike_dispatch"]
 derived = 1.510000
-mult = 2.735807
-crit_bonus = -0.034432
+mult = 2.736010
+crit_bonus = -0.034022
 
 [sources."searing_lightwood"]
 derived = 1.000000
-mult = 0.871379
-crit_bonus = -0.033940
+mult = 0.871204
+crit_bonus = -0.034335
 
 [sources."sinister_strike"]
 derived = 1.736500
-mult = 1.372768
-crit_bonus = -0.034780
+mult = 1.372871
+crit_bonus = -0.035253
 
 [sources."sinister_strike_extra_attack"]
 derived = 1.736500
-mult = 1.529626
-crit_bonus = -0.034791
+mult = 1.529526
+crit_bonus = -0.034663
 
 [sources."unseen_blade"]
 derived = 2.265000
-mult = 1.400788
-crit_bonus = -0.034112
+mult = 1.400738
+crit_bonus = -0.034468
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 1.257960
+mult = 1.257921
 crit_bonus = +1.422836
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.870721
-crit_bonus = -0.037199
+mult = 0.870774
+crit_bonus = -0.037386
 

@@ -120,7 +120,7 @@ duration = 45
 name = "slice_and_dice"     # [db2 315496: 6s] +50% attack speed, +10% Thousand Cuts
 duration = 6
 attack_speed_pct = 60
-attack_speed_per_haste = 1  # Swift Slasher: plus your haste [db2 381988, simc]
+attack_speed_per_haste = 1.45  # Swift Slasher: Slice and Dice's 60% also scales with haste (SimC builds it into the attack-speed multiplier: 0.908s swings at 33.9% versus 1.001s without), fitted to the observed swing counts [simc, obs]
 
 [[buffs]]
 name = "roll_the_bones"     # container buff [db2 1214909: 30s]
@@ -407,7 +407,7 @@ spell_id = 441776
 requires_buff = "escalating_blade"
 cost = { energy = 32.9, combo_points = 1 }   # 35 - Tight Spender
 cost_max = { combo_points = 7 }
-gcd = 1.2                   # [db2]
+gcd = 1.2                   # [db2] Coup de Grace's 1.2s GCD
 on_cast = [
   { type = "trigger", ability = "coup_de_grace_damage_1" },
   { type = "trigger", ability = "coup_de_grace_damage_2" },
