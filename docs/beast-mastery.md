@@ -62,6 +62,8 @@ The focus economy matches: 88.7 Cobra Shots (92.2), 95.7 Kill Commands (95.2),
 
 ## Known gaps
 
+- **Total DPS is 1.8% low** (178,658 against 181,956). This is a known issue,
+  landed as is. The items below account for it.
 - **Crit scaling (-1.52 pts).** Go for the Throat makes Kill Command crits
   deal extra damage proportional to crit chance (a quadratic response to
   crit rating). The engine only has a fixed crit-damage bonus, so Kill

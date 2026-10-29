@@ -209,9 +209,7 @@ if = "self.energy>=20"
   microsecond later: the event clock is whole microseconds, so a zero-length
   wait would spin at one timestamp.
   Without regeneration, an instance whose energy can't pay for any action leaves
-  right away and runs `on_expire`; with regeneration it waits for energy,
-  waking a microsecond past the moment it can pay (the event clock's
-  resolution, so a pet never stalls on its own timestamp).
+  right away and runs `on_expire`; with regeneration it waits for energy.
   `melee.pause_while_casting = true` restarts the swing timer after a cast
   that overlaps a scheduled swing. A rotation ability needs a GCD, cast time, cooldown or
   cost, so the loop always advances.
