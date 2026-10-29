@@ -1,0 +1,549 @@
+# Destruction Warlock — Hellcaller, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Warlock_Destruction.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py, incl.
+#          the Spell table's tooltip text for what a talent does
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (class module or APL)
+# Damage coefficients are spell-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, target debuffs) live in a
+# separate calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# The spec runs on Soul Shards: Incinerate, Conflagrate, Wither ticks, Soul
+# Fire and the summoned demons generate them, Chaos Bolt (2) and Shadowburn (1)
+# spend them. Both spenders always crit and grow with crit chance, and each
+# adds a stack to Wither (Blackened Soul). At 8 stacks (or by chance) Wither
+# collapses, burning one stack a second as Blackened Soul until one is left.
+
+name = "Destruction Warlock (Hellcaller, core kit)"
+
+# Imp out, then a precast Soul Fire (applies Wither, summons an Overfiend) [simc APL]
+precombat = ["summon_imp", "soul_fire"]
+
+[player]
+spell_power = 3413       # [obs] buffed 3375 + time-averaged gear procs
+# Final stats = buffed snapshot + the time-averaged gear stat procs (rituals,
+# rites, Rune of Critical Power, Soul Fang, Venomcursed, Arcanoweave) [obs: 24
+# logged fights, 187 crit / 103 haste / 208 mastery / 21 vers rating and 34
+# intellect on average, converted with the probes' rating -> stat deltas].
+crit = 0.3982            # 0.3598 + 0.0384
+haste = 0.2226           # 0.1987 + 0.0239
+versatility = 0.0567     # 0.0528 + 0.0039
+mastery = 0.8240         # 0.7357 + 0.0883: Chaotic Energies, up to this much damage [db2 77220]
+crit_multiplier = 2.466  # [obs] Incinerate crit/non-crit (Ruin +15% crit damage [db2 387103])
+
+[fight]
+duration = 300
+variance = 0.2
+
+[resources.soul_shard]
+max = 5                  # [db2]
+start = 3                # [obs] 3 out of combat, 4 after the precast Soul Fire
+
+# Random procs, as Poisson rates [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.0
+
+[[procs]]
+ability = "reverse_entropy"        # RPPM 2.5 [db2 205148]; 2.78/min observed with bad-luck protection
+per_minute = 2.78
+
+[[procs]]
+ability = "devil_fruit"            # RPPM 1 on Wither ticks [db2 1266805]; 1.37/min observed
+per_minute = 1.37
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "backdraft"          # Conflagrate: next Incinerate/Chaos Bolt/Soul Fire casts 30% faster [db2 117828: 10s, 2 charges 196406]
+duration = 10
+max_stacks = 2
+flat = true
+cast_time_pct = { incinerate = 30, chaos_bolt = 30, soul_fire = 30 }
+
+[[buffs]]
+name = "chaotic_inferno"    # Chaos Bolt 25%: next Incinerate instant [db2 1244788, 1244860: 30s]
+duration = 30
+
+[[buffs]]
+name = "fiendish_cruelty"   # next Shadowburn free and usable at any health [db2 1245664: 30s]
+duration = 30
+
+[[buffs]]
+name = "crashing_chaos"     # Summon Infernal: next 8 Chaos Bolts +25% [db2 417234, 417282: 45s]
+duration = 45
+max_stacks = 8
+flat = true
+ability_pct = { chaos_bolt = 25 }
+
+[[buffs]]
+name = "malevolence"        # 20s, +8% haste +4% Alzzin's Iniquity [db2 442726, 1266803]
+duration = 20
+refresh_extend = true       # casts and Devil Fruit add to what's left [obs]
+haste_pct = 12
+ability_pct = { chaos_bolt = 25.93 }  # Through the Felvine's +35% Chaos Bolt doubled: x1.70/1.35 [db2 1266799 #3, simc]
+
+[[buffs]]
+name = "reverse_entropy"    # +15% haste for 8s [db2 266030]
+duration = 8
+haste_pct = 15
+
+[[buffs]]
+name = "flashpoint"         # +2% haste per stack [db2 387263: 10s, 3 stacks]
+duration = 10
+max_stacks = 3
+haste_pct = 2
+
+[[buffs]]
+name = "vision_of_nihilam"  # every Echo of Sargeras: haste and crit for 6s [db2 1265939] value 0.08 [obs]
+duration = 6
+haste_pct = 8
+crit_pct = 8
+
+[[buffs]]
+name = "infernal"           # the Infernal is out [db2 111685: 30s] +0-0.82s [simc]
+duration = 30.41
+
+# ---------------------------------------------------------------- spenders
+
+[[abilities]]
+name = "chaos_bolt"
+spell_id = 116858
+cast_time = 2.5             # [db2 3s] -0.5s Improved Chaos Bolt [db2 456951]
+cost = { soul_shard = 2 }   # [db2]
+# always crits, damage further increased by crit chance [db2 tooltip]; Chaos
+# Incarnate: at least 70% of mastery, 85% on average [db2 387275, simc]
+damage = { sp_coeff = 4.29049, school = "chromatic", mastery = true, mastery_scale = 0.85, crit_bonus = 10, crit_scaling = true }
+on_cast = [
+  { type = "consume", buff = "backdraft" },
+  { type = "consume", buff = "crashing_chaos" },
+  { type = "trigger", ability = "wither_stack" },
+  { type = "trigger", ability = "echo_of_sargeras_cb" },
+  { type = "buff", buff = "fiendish_cruelty", chance = 0.10 },              # [db2 1245633] (PRD in game)
+  { type = "trigger", ability = "chaotic_inferno_proc", chance = 0.25, delay = 0.01 },   # [db2 1244788 #1]; lands just after [simc]
+]
+
+[[abilities]]
+name = "shadowburn"
+spell_id = 17877
+cost = { soul_shard = 1 }   # [db2]
+free_with = "fiendish_cruelty"
+damage = { sp_coeff = 4.968, school = "shadowflame", mastery = true, mastery_scale = 0.85, crit_bonus = 10, crit_scaling = true }   # Conflagration of Chaos [db2 387108]
+on_cast = [
+  { type = "trigger", ability = "wither_stack" },
+  { type = "trigger", ability = "echo_of_sargeras_sb" },
+]
+
+# ---------------------------------------------------------------- generators
+
+[[abilities]]
+name = "incinerate"
+spell_id = 29722
+cast_time = 1.6             # [db2 2s] -20% Emberstorm [db2 454744]
+gain = { soul_shard = 0.4 } # 2 fragments x2 Diabolic Embers [db2 387173]
+damage = { sp_coeff = 4.38084, school = "fire", mastery = true, mastery_scale = 0.75 }   # Chaotic Energies: 50-100% of mastery [simc]
+on_crit = [
+  { type = "gain", resource = "soul_shard", amount = 0.2 },     # 1 more fragment, x2 Diabolic Embers [db2 tooltip]
+  { type = "buff", buff = "fiendish_cruelty", chance = 0.10 },  # [db2 1245633]
+]
+on_cast = [
+  # Backdraft isn't spent while Chaotic Inferno is up [simc]
+  { type = "if", if = "!buff.chaotic_inferno.up", then = [{ type = "consume", buff = "backdraft" }] },
+  { type = "trigger", ability = "echo_of_sargeras", chance = 0.10 },   # Embers of Nihilam [db2 1265770]
+]
+
+[[abilities]]
+name = "incinerate_instant"   # Chaotic Inferno: instant, spends only that buff [db2 1244860, simc]
+source = "incinerate"
+spell_id = 29722
+requires_buff = "chaotic_inferno"
+gain = { soul_shard = 0.4 }
+damage = { sp_coeff = 4.38084, school = "fire", mastery = true, mastery_scale = 0.75 }
+on_crit = [
+  { type = "gain", resource = "soul_shard", amount = 0.2 },
+  { type = "buff", buff = "fiendish_cruelty", chance = 0.10 },
+]
+on_cast = [
+  { type = "consume", buff = "chaotic_inferno" },
+  { type = "trigger", ability = "echo_of_sargeras", chance = 0.10 },
+]
+
+[[abilities]]
+name = "conflagrate"
+spell_id = 17962
+cooldown = 10.96            # [db2 12.96s recharge] -2s Explosive Potential [db2 388827]
+cooldown_hasted = true
+charges = 2
+gain = { soul_shard = 0.5 } # [db2 tooltip]
+damage = { sp_coeff = 3.59309, school = "fire", mastery = true, mastery_scale = 0.75, crit_bonus = 10, crit_scaling = true }   # Conflagration of Chaos [db2 387108]
+on_cast = [
+  { type = "buff", buff = "backdraft" },
+  { type = "buff", buff = "fiendish_cruelty", chance = 0.10 },
+]
+
+[[abilities]]
+name = "soul_fire"
+spell_id = 6353
+cooldown = 45               # [db2]
+cast_time = 3.0             # [db2]
+gain = { soul_shard = 1 }   # [db2 tooltip]
+damage = { sp_coeff = 38.674, school = "fire", mastery = true, mastery_scale = 0.75 }
+on_cast = [
+  { type = "consume", buff = "backdraft" },
+  { type = "trigger", ability = "wither_apply" },        # applies Wither [db2 6353 tooltip]
+  { type = "trigger", ability = "summon_overfiend" },    # Avatar of Destruction [db2 1245089]
+]
+
+# ---------------------------------------------------------------- Wither and Blackened Soul
+
+[[abilities]]
+name = "wither_direct"
+spell_id = 445468
+damage = { sp_coeff = 0.247969, school = "shadowflame", mastery = true, mastery_scale = 0.75 }
+on_cast = [{ type = "trigger", ability = "wither_apply" }]
+
+[[abilities]]
+name = "wither_apply"
+triggered_only = true
+[abilities.dot]
+name = "wither"             # [db2 445474: 0.4119 per tick, 18s] +3s Scalding Flames [db2 388832]
+sp_coeff = 0.411866
+tick_time = 3.0             # [obs] 2.5s ticks at 1.2 haste; DB2 lists a 2s period
+duration = 21.0
+school = "shadowflame"
+mastery = true
+mastery_scale = 0.75
+crit_damage_bonus = 0.218   # [obs] crit ratio 2.684 (Mark of Peroth'arn [db2 440045])
+max_stacks = 99             # stacks only count, for Blackened Soul; refreshing keeps them [simc]
+per_stack = false           # [simc dot_ignore_stack]
+on_tick = [
+  { type = "gain", resource = "soul_shard", amount = 0.1 },   # [db2 445468 tooltip]
+  { type = "trigger", ability = "seeds_check" },
+]
+on_crit = [{ type = "gain", resource = "soul_shard", amount = 0.1, chance = 0.5 }]   # [db2 445468 #1]
+
+[[abilities]]
+name = "wither_stack"       # Blackened Soul: Chaos Bolt/Shadowburn add a Wither stack [db2 440043]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.ticking", then = [
+  { type = "dot_stack", dot = "wither", stacks = 1 },
+  { type = "if", if = "buff.malevolence.up", then = [{ type = "dot_stack", dot = "wither", stacks = 1 }] },   # [db2 442726 #2]
+  { type = "trigger", ability = "bleakheart_tactics", chance = 0.15 },   # chance [simc]
+  # Seeds of Their Demise collapses at 8 stacks [db2 440055]; otherwise a chance per stack gained [simc 23%]
+  { type = "if", if = "dot.wither.stack>=8|target.health.pct<=20", then = [{ type = "trigger", ability = "seeds_check" }], else = [
+    { type = "if", if = "!dot.blackened_soul.ticking", then = [{ type = "trigger", ability = "blackened_soul_collapse", chance = 0.23 }] },
+  ] },
+] }]
+
+[[abilities]]
+name = "bleakheart_tactics"   # an extra Wither stack [db2 440051]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "dot_stack", dot = "wither", stacks = 1 }]
+
+[[abilities]]
+name = "seeds_check"        # Seeds of Their Demise: collapse at 8 stacks or below 20% health [db2 440055]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.stack>=8|(target.health.pct<=20&dot.wither.stack>1)", then = [{ type = "trigger", ability = "blackened_soul_collapse" }] }]
+
+[[abilities]]
+name = "blackened_soul_collapse"   # the collapse counts down from Wither's current stacks [simc]
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "if", if = "!dot.blackened_soul.ticking", then = [{ type = "trigger", ability = "blackened_soul_holder" }] },
+  { type = "dot_stack", dot = "blackened_soul", set = "dot.wither.stack" },
+]
+
+[[abilities]]
+name = "blackened_soul_holder"
+triggered_only = true
+[abilities.dot]
+name = "blackened_soul"     # [db2 445731: 1s ticks; 445736: 1.4447]
+sp_coeff = 1.44468
+tick_time = 1.0
+duration = 1e9
+hasted = false
+school = "shadowflame"
+mastery = true
+mastery_scale = 0.75
+crit_damage_bonus = 0.378   # [obs] crit ratio 2.844 (Mark of Peroth'arn [db2 440045])
+max_stacks = 99
+per_stack = false
+refresh = "reset"
+on_tick = [
+  # each hit burns a Wither stack; stops when one is left or its own count runs out [simc]
+  { type = "dot_stack", dot = "wither", stacks = -1, min = 1 },
+  { type = "if", if = "dot.wither.stack<=1", then = [{ type = "cancel_dot", dot = "blackened_soul" }], else = [{ type = "dot_stack", dot = "blackened_soul", stacks = -1 }] },
+  # Seeds of Their Demise: 2 Flashpoint stacks [db2 440055 #2]; a threshold roll that
+  # never lands while Flashpoint is up, 6.9 per fight at 22.6% uptime [obs]
+  { type = "if", if = "!buff.flashpoint.up", then = [{ type = "buff", buff = "flashpoint", stacks = 2, chance = 0.048 }] },
+]
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "malevolence"
+spell_id = 442726
+cooldown = 60
+on_cast = [
+  { type = "buff", buff = "malevolence" },
+  # Wither +6 stacks +2 Alzzin's Iniquity [db2 430014, 1266803] and a hit
+  { type = "if", if = "dot.wither.ticking", then = [
+    { type = "dot_stack", dot = "wither", stacks = 8 },
+    { type = "trigger", ability = "malevolence_proc" },
+    { type = "trigger", ability = "seeds_check" },
+  ] },
+]
+
+[[abilities]]
+name = "malevolence_proc"
+spell_id = 446285
+triggered_only = true
+damage = { sp_coeff = 12.6551, school = "shadowflame" }
+
+[[abilities]]
+name = "devil_fruit"        # Wither ticks can grant Malevolence for 8s [db2 1266805]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.wither.ticking", then = [{ type = "buff", buff = "malevolence", duration = 8 }] }]
+
+[[abilities]]
+name = "summon_infernal"
+spell_id = 1122
+cooldown = 90               # [db2 120s] -30s Inferno [db2 1280483]
+on_cast = [
+  { type = "buff", buff = "crashing_chaos", stacks = 8 },
+  { type = "trigger", ability = "infernal_awakening", delay = 1.0 },   # [obs] lands 1s later
+]
+
+[[abilities]]
+name = "reverse_entropy"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "reverse_entropy" }]
+
+[[abilities]]
+name = "chaotic_inferno_proc"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "chaotic_inferno" }]
+
+# ---------------------------------------------------------------- Echo of Sargeras (Embers of Nihilam)
+
+[[abilities]]
+name = "echo_of_sargeras"   # Incinerate's 10% echo [db2 1265884]
+spell_id = 1265884
+triggered_only = true
+damage = { sp_coeff = 1.875, school = "shadowflame", mastery = true, mastery_scale = 0.75 }
+on_cast = [{ type = "buff", buff = "vision_of_nihilam" }]
+
+[[abilities]]
+name = "echo_of_sargeras_cb"   # every Chaos Bolt; 50% per the tooltip [db2 1265774 #0], full damage in game [simc bug flag]
+spell_id = 1265884
+triggered_only = true
+damage = { sp_coeff = 1.875, school = "shadowflame", mastery = true, mastery_scale = 0.75 }
+on_cast = [{ type = "buff", buff = "vision_of_nihilam" }]
+
+[[abilities]]
+name = "echo_of_sargeras_sb"   # every Shadowburn; 50% per the tooltip [db2 1265774 #1], full damage in game [simc bug flag]
+spell_id = 1265884
+triggered_only = true
+damage = { sp_coeff = 1.875, school = "shadowflame", mastery = true, mastery_scale = 0.75 }
+on_cast = [{ type = "buff", buff = "vision_of_nihilam" }]
+
+# ---------------------------------------------------------------- Overfiend (Soul Fire, 8s)
+
+[[abilities]]
+name = "summon_overfiend"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "overfiend_caster" },
+  { type = "trigger", ability = "overfiend_shards_apply" },
+]
+
+[[abilities]]
+name = "overfiend_caster"
+triggered_only = true
+[abilities.dot]
+name = "overfiend_casts"    # Chaos Bolt casts, 3s hasted [db2 434589] for 8s [db2 434587]
+tick_time = 3.0
+duration = 8.0
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "trigger", ability = "overfiend_chaos_bolt", delay = 1.5 }]   # 1.5s flight [obs]
+
+[[abilities]]
+name = "overfiend_shards_apply"
+triggered_only = true
+[abilities.dot]
+name = "overfiend_shards"   # a shard fragment a second [db2 457578]
+tick_time = 1.0
+duration = 8.0
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "soul_shard", amount = 0.1 }]
+
+[[abilities]]
+name = "overfiend_chaos_bolt"
+spell_id = 434589
+triggered_only = true
+# Chaos Bolt at 80% [db2 456975]: always crits, grows with crit chance [simc]
+damage = { sp_coeff = 3.43239, school = "fire", mastery = true, mastery_scale = 0.85, crit_bonus = 10, crit_scaling = true }
+
+# ---------------------------------------------------------------- Infernal (30s)
+
+[[abilities]]
+name = "infernal_awakening"
+spell_id = 22703
+triggered_only = true
+damage = { sp_coeff = 0.6, school = "fire" }
+on_cast = [
+  { type = "buff", buff = "infernal" },
+  { type = "trigger", ability = "infernal_shards_apply", delay = 0.936 },     # timings [obs]
+  { type = "trigger", ability = "infernal_melee_apply", delay = 0.936 },
+  { type = "trigger", ability = "infernal_immolation_apply", delay = 1.59 },
+]
+
+[[abilities]]
+name = "infernal_shards_apply"
+triggered_only = true
+[abilities.dot]
+name = "infernal_embers"    # a shard fragment a second [db2 264364, 264365]
+tick_time = 1.0
+duration = 29.47
+hasted = false
+whole_ticks = true
+tick_on_apply = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "soul_shard", amount = 0.1 }]
+
+[[abilities]]
+name = "infernal_melee_apply"
+triggered_only = true
+[abilities.dot]
+name = "infernal_melee"     # pet swings, hasted [obs]
+sp_coeff = 1.0              # scale from calibration
+tick_time = 2.0
+duration = 29.47
+whole_ticks = true
+tick_on_apply = true
+refresh = "reset"
+school = "physical"
+
+[[abilities]]
+name = "infernal_immolation_apply"
+triggered_only = true
+[abilities.dot]
+name = "infernal_immolation"   # [db2 19483: 2s] -10% Destructive Rapidity [db2 1244928], hasted [obs]
+sp_coeff = 0.55
+tick_time = 1.8
+duration = 28.82
+whole_ticks = true
+refresh = "reset"
+school = "fire"
+
+# ---------------------------------------------------------------- Imp
+
+[[abilities]]
+name = "summon_imp"
+triggered_only = true
+on_cast = [
+  # spends its 200 energy pool, then casts as fast as 10 energy/s allows [obs]
+  { type = "trigger", ability = "imp_firebolt", delay = 3.335 },
+  { type = "trigger", ability = "imp_firebolt", delay = 4.80 },
+  { type = "trigger", ability = "imp_firebolt", delay = 6.27 },
+  { type = "trigger", ability = "imp_firebolt", delay = 7.57 },
+  { type = "trigger", ability = "imp_firebolt", delay = 8.88 },
+  { type = "trigger", ability = "imp_firebolt", delay = 10.19 },
+  { type = "trigger", ability = "imp_caster", delay = 6.64 },
+]
+
+[[abilities]]
+name = "imp_caster"
+triggered_only = true
+[abilities.dot]
+name = "imp_casts"          # one Firebolt every 4s [obs]
+tick_time = 4.0
+duration = 1e9
+hasted = false
+on_tick = [{ type = "trigger", ability = "imp_firebolt", delay = 1.875 }]   # flight [obs]
+
+[[abilities]]
+name = "imp_firebolt"
+spell_id = 3110
+triggered_only = true
+damage = { sp_coeff = 0.4, school = "fire", crit_damage_bonus = -0.329 }   # [db2]; scale from calibration; crit ratio 2.137 [obs]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+sp_coeff = 0.12
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Destruction APL, single target, Hellcaller.
+
+[[rotation]]
+action = "soul_fire"
+if = "soul_shard<=4"
+
+[[rotation]]
+action = "conflagrate"
+if = "cooldown.conflagrate.charges>=2"
+
+[[rotation]]
+action = "conflagrate"
+if = "soul_shard<=4.2&buff.backdraft.stack<1"
+
+[[rotation]]
+action = "summon_infernal"
+
+[[rotation]]
+action = "malevolence"
+
+# Shadowburn needs the target below 20% or Fiendish Cruelty
+[[rotation]]
+action = "shadowburn"
+if = "(target.health.pct<=20|buff.fiendish_cruelty.up)&(soul_shard>=4|buff.malevolence.up|buff.infernal.up|fight_remains<=15)"
+
+# Wither in its pandemic window, unless Soul Fire will refresh it first
+[[rotation]]
+action = "wither_direct"
+if = "dot.wither.remains<6.3&cooldown.soul_fire.remains+2.5>dot.wither.remains&fight_remains>8"
+
+[[rotation]]
+action = "conflagrate"
+if = "soul_shard<=4.4&buff.backdraft.stack<1"
+
+[[rotation]]
+action = "chaos_bolt"
+if = "soul_shard>=4|buff.malevolence.up|buff.infernal.up|fight_remains<=15"
+
+[[rotation]]
+action = "incinerate_instant"
+
+[[rotation]]
+action = "incinerate"

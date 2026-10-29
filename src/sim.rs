@@ -55,13 +55,15 @@ fn stream_key(name: &str) -> u64 {
 #[derive(Debug, Clone)]
 enum CEffect {
     // `rid`: this effect's own random stream for its chance roll
-    Buff { buff: usize, stacks: u32, chance: f64, rid: usize },
+    Buff { buff: usize, stacks: u32, chance: f64, dur: Option<f64>, rid: usize },
     Consume { buff: usize, all: bool },
     Reset { ab: usize, chance: f64, rid: usize },
     Reduce { ab: usize, secs: f64, chance: f64, rid: usize },
     Gain { res: usize, amt: f64, chance: f64, rid: usize },
     Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, rid: usize },
     ExtendDot { dot: usize, secs: f64 },
+    DotStack { dot: usize, add: i32, set: Option<Expr>, min: u32 },
+    CancelDot { dot: usize },
     ExtendBuff { buff: usize, secs: f64 },
     If { cond: Expr, then: Vec<CEffect>, otherwise: Vec<CEffect> },
 }
@@ -100,6 +102,8 @@ struct CAbility {
     cd_rate: Vec<(usize, f64)>,
     /// (buff, fraction per stack) bonuses that apply to this ability's direct damage.
     buff_mods: Vec<(usize, f64)>,
+    /// (buff, fraction per stack) cast time reductions.
+    cast_mods: Vec<(usize, f64)>,
     physical: bool,
 }
 
@@ -107,6 +111,7 @@ struct CAbility {
 struct CDot {
     def: DotDef,
     on_tick: Vec<CEffect>,
+    on_crit: Vec<CEffect>,
     buff_mods: Vec<(usize, f64)>,
     crit_mods: Vec<(usize, f64)>,
     physical: bool,
@@ -192,6 +197,7 @@ impl<'a> Resolver for Names<'a> {
                 match *f {
                     "ticking" | "up" => Var::DotTicking(i),
                     "remains" => Var::DotRemains(i),
+                    "stack" | "stacks" => Var::DotStack(i),
                     _ => return Err(format!("unknown dot field '{f}'")),
                 }
             }
@@ -231,8 +237,8 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
         rolls.len() - 1
     };
     Ok(match e {
-        Effect::Buff { buff: b, stacks, chance } => {
-            CEffect::Buff { buff: get(n.buff, "buff", b)?, stacks: *stacks, chance: *chance, rid: rid() }
+        Effect::Buff { buff: b, stacks, chance, duration } => {
+            CEffect::Buff { buff: get(n.buff, "buff", b)?, stacks: *stacks, chance: *chance, dur: *duration, rid: rid() }
         }
         Effect::Consume { buff: b, all } => CEffect::Consume { buff: get(n.buff, "buff", b)?, all: *all },
         Effect::ResetCooldown { ability, chance } => {
@@ -245,6 +251,13 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             CEffect::Gain { res: get(n.res, "resource", resource)?, amt: *amount, chance: *chance, rid: rid() }
         }
         Effect::ExtendDot { dot: d, seconds } => CEffect::ExtendDot { dot: get(n.dot, "dot", d)?, secs: *seconds },
+        Effect::DotStack { dot: d, stacks, set, min } => CEffect::DotStack {
+            dot: get(n.dot, "dot", d)?,
+            add: *stacks,
+            set: set.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("dot_stack set '{e}': {err}"))).transpose()?,
+            min: *min,
+        },
+        Effect::CancelDot { dot: d } => CEffect::CancelDot { dot: get(n.dot, "dot", d)? },
         Effect::ExtendBuff { buff: b, seconds } => {
             CEffect::ExtendBuff { buff: get(n.buff, "buff", b)?, secs: *seconds }
         }
@@ -339,6 +352,7 @@ impl Compiled {
                 Some(d) => {
                     dots.push(CDot {
                         on_tick: effects(&d.on_tick, &format!("{}/on_tick", d.name)).map_err(ctx)?,
+                        on_crit: effects(&d.on_crit, &format!("{}/on_crit", d.name)).map_err(ctx)?,
                         // banked damage already carries the hit's buffs: only buffs naming the DoT apply
                         buff_mods: if d.banked {
                             per_buff(&spec.buffs, |b| b.ability_pct.get(&d.name).copied().unwrap_or(0.0))
@@ -386,6 +400,7 @@ impl Compiled {
                     .transpose()
                     .map_err(ctx)?,
                 buff_mods: buff_mods(&spec.buffs, &a.name, a.source.as_deref().unwrap_or(&a.name), school),
+                cast_mods: per_buff(&spec.buffs, |b| keyed(&b.cast_time_pct, &a.name, a.source.as_deref().unwrap_or(&a.name))),
                 cd_rate: spec
                     .buffs
                     .iter()
@@ -580,6 +595,7 @@ struct State<'a> {
     dot_exp: Vec<f64>,
     dot_gen: Vec<u32>,
     dot_last: Vec<f64>,
+    dot_stk: Vec<u32>,
     /// Damage waiting to be dealt by banked DoTs.
     bank: Vec<f64>,
     gcd_ready: f64,
@@ -620,6 +636,7 @@ impl<'a> Env for State<'a> {
             Var::BuffStack(i) => self.stacks(i),
             Var::DotTicking(i) => b(self.dot_exp[i] > self.now),
             Var::DotRemains(i) => (self.dot_exp[i] - self.now).max(0.0),
+            Var::DotStack(i) => if self.dot_exp[i] > self.now { self.dot_stk[i] as f64 } else { 0.0 },
             Var::Const(x) => x,
         }
     }
@@ -650,6 +667,7 @@ impl<'a> State<'a> {
             dot_exp: vec![-1.0; c.dots.len()],
             dot_gen: vec![0; c.dots.len()],
             dot_last: vec![0.0; c.dots.len()],
+            dot_stk: vec![0; c.dots.len()],
             bank: vec![0.0; c.dots.len()],
             gcd_ready: 0.0,
             cast_end: 0.0,
@@ -698,9 +716,14 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Stacks a buff's bonuses count: at most one for `flat` buffs.
+    fn mod_stacks(&self, i: usize) -> f64 {
+        if self.c.buffs[i].flat { self.stacks(i).min(1.0) } else { self.stacks(i) }
+    }
+
     /// Sum of `pct x stacks` over a list of (buff, pct) modifiers.
     fn buff_sum(&self, mods: &[(usize, f64)]) -> f64 {
-        mods.iter().map(|&(b, p)| p * self.stacks(b)).sum()
+        mods.iter().map(|&(b, p)| p * self.mod_stacks(b)).sum()
     }
 
     fn mastery(&self) -> f64 { self.c.spec.player.mastery + self.buff_sum(&self.c.mastery_buffs) }
@@ -708,7 +731,7 @@ impl<'a> State<'a> {
     fn haste_mult(&self) -> f64 {
         let mut h = 1.0 + self.c.spec.player.haste;
         for &(b, p) in &self.c.haste_buffs {
-            h *= 1.0 + p * self.stacks(b);
+            h *= 1.0 + p * self.mod_stacks(b);
         }
         h
     }
@@ -719,14 +742,18 @@ impl<'a> State<'a> {
         }
         let mut g = self.haste_mult();
         for &(b, p) in &self.c.gcd_buffs {
-            g *= 1.0 + p * self.stacks(b);
+            g *= 1.0 + p * self.mod_stacks(b);
         }
         (base / g).max(0.75)
     }
 
     fn cast_time(&self, i: usize) -> f64 {
-        let d = &self.c.abilities[i].def;
-        if d.cast_hasted { d.cast_time / self.haste_mult() } else { d.cast_time }
+        let a = &self.c.abilities[i];
+        let mut ct = if a.def.cast_hasted { a.def.cast_time / self.haste_mult() } else { a.def.cast_time };
+        for &(b, p) in &a.cast_mods {
+            ct *= (1.0 - p * self.mod_stacks(b)).max(0.0);
+        }
+        ct
     }
 
     fn charges_now(&self, i: usize) -> u32 {
@@ -744,7 +771,7 @@ impl<'a> State<'a> {
         let d = &self.c.abilities[i].def;
         let mut len = if d.cooldown_hasted { d.cooldown / self.haste_mult() } else { d.cooldown };
         for &(b, p) in &self.c.abilities[i].cd_rate {
-            len /= 1.0 + p * self.stacks(b);
+            len /= 1.0 + p * self.mod_stacks(b);
         }
         len
     }
@@ -843,12 +870,13 @@ impl<'a> State<'a> {
 
     fn apply(&mut self, e: &CEffect) {
         match *e {
-            CEffect::Buff { buff, stacks, chance, rid } => {
+            CEffect::Buff { buff, stacks, chance, dur, rid } => {
                 if !self.roll(rid, chance) {
                     return;
                 }
-                let k0 = self.stacks(buff);
+                let k0 = self.mod_stacks(buff);
                 let def = &self.c.buffs[buff];
+                let dur = dur.unwrap_or(def.duration);
                 if self.c.buff_kind[buff] == BuffKind::Overlap {
                     let now = self.now;
                     let v = &mut self.ov_exp[buff];
@@ -859,28 +887,28 @@ impl<'a> State<'a> {
                             let k = (0..v.len()).min_by(|&a, &b| v[a].total_cmp(&v[b])).unwrap();
                             v.swap_remove(k);
                         }
-                        v.push(now + def.duration);
+                        v.push(now + dur);
                     }
-                    self.buff_exp[buff] = now + def.duration;
+                    self.buff_exp[buff] = now + dur;
                 } else {
                     let cur = if self.buff_up(buff) { self.buff_stk[buff] } else { 0 };
                     if cur == 0 {
                         self.stored[buff] = 0.0;
                     }
                     self.buff_stk[buff] = (cur + stacks).min(def.max_stacks);
-                    self.buff_exp[buff] = self.now + def.duration;
+                    self.buff_exp[buff] = if def.refresh_extend && cur > 0 { self.buff_exp[buff] + dur } else { self.now + dur };
                     self.watch_expiry(buff);
                 }
                 if self.log {
                     println!("{:8.3} buff {} -> {}", self.now, def.name, self.stacks(buff));
                 }
-                self.rescale_recharges(buff, k0, self.stacks(buff));
+                self.rescale_recharges(buff, k0, self.mod_stacks(buff));
             }
             CEffect::Consume { buff, all } => {
                 if !self.buff_up(buff) {
                     return;
                 }
-                let k0 = self.stacks(buff);
+                let k0 = self.mod_stacks(buff);
                 if self.c.buff_kind[buff] == BuffKind::Overlap {
                     let now = self.now;
                     let v = &mut self.ov_exp[buff];
@@ -896,7 +924,7 @@ impl<'a> State<'a> {
                 } else {
                     self.buff_stk[buff] -= 1;
                 }
-                self.rescale_recharges(buff, k0, self.stacks(buff));
+                self.rescale_recharges(buff, k0, self.mod_stacks(buff));
             }
             CEffect::Reset { ab, chance, rid } => {
                 if !self.roll(rid, chance) {
@@ -933,6 +961,26 @@ impl<'a> State<'a> {
                     self.dot_exp[dot] += secs;
                 }
             }
+            CEffect::DotStack { dot, add, ref set, min } => {
+                if self.dot_exp[dot] <= self.now {
+                    return;
+                }
+                let cur = self.dot_stk[dot] as i64;
+                let n = match set {
+                    Some(e) => e.eval(self).round() as i64,
+                    None => (cur + add as i64).max(cur.min(min as i64)),
+                };
+                let n = n.min(self.c.dots[dot].def.max_stacks as i64);
+                if n <= 0 {
+                    self.cancel_dot(dot);
+                } else {
+                    self.dot_stk[dot] = n as u32;
+                }
+                if self.log {
+                    println!("{:8.3} dot {} stacks -> {}", self.now, self.c.dots[dot].def.name, self.dot_stk[dot]);
+                }
+            }
+            CEffect::CancelDot { dot } => self.cancel_dot(dot),
             CEffect::ExtendBuff { buff, secs } => {
                 if !self.buff_up(buff) {
                     return;
@@ -972,7 +1020,7 @@ impl<'a> State<'a> {
     fn crit_chance(&self, bonus: f64, mods: &[(usize, f64)]) -> f64 {
         let mut c = self.c.spec.player.crit + bonus;
         for &(b, p) in &self.c.crit_buffs {
-            c += p * self.stacks(b);
+            c += p * self.mod_stacks(b);
         }
         c + self.buff_sum(mods)
     }
@@ -998,18 +1046,22 @@ impl<'a> State<'a> {
 
     /// Shared damage roll for every source. Returns whether it crit, and the damage.
     /// `raw`: base is already final damage (e.g. a stored-damage burst) —
-    /// skip versatility, armor and buff multipliers.
+    /// skip versatility, armor and buff multipliers. `crit_scaling`: damage
+    /// also grows with the player's crit chance.
     #[allow(clippy::too_many_arguments)]
-    fn hit(&mut self, src: usize, base: f64, mult: f64, mods: &[(usize, f64)], crit_mods: &[(usize, f64)], physical: bool, crit_bonus: f64, crit_dmg: f64, raw: bool) -> (bool, f64) {
+    fn hit(&mut self, src: usize, base: f64, mult: f64, mods: &[(usize, f64)], crit_mods: &[(usize, f64)], physical: bool, crit_bonus: f64, crit_dmg: f64, crit_scaling: bool, raw: bool) -> (bool, f64) {
         let p = &self.c.spec.player;
         let mut m = mult;
+        if crit_scaling {
+            m *= 1.0 + self.crit_chance(0.0, &[]);
+        }
         if !raw {
             m *= p.global_mult * (1.0 + p.versatility);
             if physical {
                 m *= self.c.spec.fight.physical_mult;
             }
             for &(b, pct) in mods {
-                m *= 1.0 + pct * self.stacks(b);
+                m *= 1.0 + pct * self.mod_stacks(b);
             }
         }
         let crit = self.rng.f64(self.c.crit_stream(src)) < self.crit_chance(crit_bonus, crit_mods);
@@ -1060,11 +1112,19 @@ impl<'a> State<'a> {
                 _ => 0.0,
             };
         if !was {
+            self.dot_stk[di] = 1;
             if def.tick_on_apply {
                 self.dot_tick(di, 1.0);
             }
             self.start_ticking(di);
         }
+    }
+
+    fn cancel_dot(&mut self, di: usize) {
+        self.dot_exp[di] = -1.0;
+        self.dot_gen[di] += 1;
+        self.dot_stk[di] = 0;
+        self.bank[di] = 0.0;
     }
 
     /// Add damage to a banked DoT and (re)start its full duration.
@@ -1088,15 +1148,23 @@ impl<'a> State<'a> {
             self.bank[di] -= part;
             let mut m = d.def.mult;
             for &(b, pct) in &d.buff_mods {
-                m *= 1.0 + pct * self.stacks(b);
+                m *= 1.0 + pct * self.mod_stacks(b);
             }
             self.record(d.src, part * m, false);
         } else if d.def.ap_coeff != 0.0 || d.def.sp_coeff != 0.0 {
-            let mastery = if d.def.mastery { 1.0 + self.mastery() } else { 1.0 };
-            let base = (d.def.ap_coeff * self.ap() + d.def.sp_coeff * self.sp()) * frac;
-            let (crit, _) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, false);
+            let mastery = if d.def.mastery { 1.0 + d.def.mastery_scale * self.mastery() } else { 1.0 };
+            let mut base = (d.def.ap_coeff * self.ap() + d.def.sp_coeff * self.sp()) * frac;
+            if d.def.per_stack && d.def.max_stacks > 1 {
+                base *= self.dot_stk[di] as f64;
+            }
+            let (crit, _) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_scaling, false);
             if crit && d.def.extend_on_crit > 0.0 && self.dot_exp[di] > self.now {
                 self.dot_exp[di] += d.def.extend_on_crit;
+            }
+            if crit {
+                for e in &d.on_crit {
+                    self.apply(e);
+                }
             }
         }
         for e in &d.on_tick {
@@ -1153,8 +1221,8 @@ impl<'a> State<'a> {
                     None => d.ap_coeff * ap + d.sp_coeff * sp + w,
                 };
                 let raw = a.stored_from.is_some();
-                let mastery = if d.mastery && !raw { 1.0 + self.mastery() } else { 1.0 };
-                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, raw);
+                let mastery = if d.mastery && !raw { 1.0 + d.mastery_scale * self.mastery() } else { 1.0 };
+                let (crit, dmg) = self.hit(a.src, base, d.mult * mastery, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_scaling, raw);
                 for &(di, pct, per_mastery) in &a.feeds {
                     let share = pct + per_mastery * self.mastery();
                     self.feed(di, dmg * share);
@@ -1221,7 +1289,7 @@ impl<'a> State<'a> {
                         Some(i) => self.execute(i, true),
                         None => {
                             let base = self.weapon_roll(auto_src);
-                            self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false);
+                            self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, false);
                             self.out.casts[auto_src] += 1;
                         }
                     }
@@ -1246,7 +1314,7 @@ impl<'a> State<'a> {
                     self.dot_last[di] = self.now;
                     if self.now + tick <= self.dot_exp[di] + 1e-6 {
                         self.push(self.now + tick, Ev::DotTick(di as u32, g));
-                    } else if self.dot_exp[di] > self.now + 1e-6 {
+                    } else if !d.whole_ticks && self.dot_exp[di] > self.now + 1e-6 {
                         // shortened final tick at expiry, like the real game
                         self.push(self.dot_exp[di], Ev::DotTick(di as u32, g));
                     }
@@ -1265,7 +1333,8 @@ impl<'a> State<'a> {
                     let b = b as usize;
                     // stale if the buff was refreshed, extended or consumed since
                     if (self.buff_exp[b] - self.now).abs() < 1e-6 && self.buff_stk[b] > 0 {
-                        let k0 = self.buff_stk[b] as f64;
+                        let k = self.buff_stk[b] as f64;
+                        let k0 = if c.buffs[b].flat { k.min(1.0) } else { k };
                         self.buff_stk[b] = 0;
                         self.rescale_recharges(b, k0, 0.0);
                         if self.log {

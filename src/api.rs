@@ -22,6 +22,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/fire_mage.toml"),
         include_str!("../calibration/fire_mage.toml"),
     ),
+    (
+        "destruction_hellcaller",
+        include_str!("../specs/destruction_hellcaller.toml"),
+        include_str!("../calibration/destruction_hellcaller.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
@@ -339,5 +344,18 @@ mod tests {
         // Fire without gear lines still sims
         let out = run_json(r#"{"spec":"fire_mage","iterations":100}"#).unwrap();
         assert!(out.contains("\"dps\""));
+    }
+
+    #[test]
+    fn destruction_wither_stacks_collapse() {
+        let b = builtin("destruction_hellcaller").unwrap();
+        let mut s: spec::Spec = toml::from_str(b.1).unwrap();
+        s.apply_calibration(&toml::from_str(b.2).unwrap()).unwrap();
+        let c = sim::Compiled::new(s).unwrap();
+        let r = sim::run_iteration(&c, 7, false);
+        let hits = |n: &str| r.hits[c.source_names().iter().position(|s| s == n).unwrap()];
+        // Chaos Bolt and Shadowburn stack Wither, which collapses into Blackened Soul hits
+        assert!(hits("chaos_bolt") > 30 && hits("shadowburn") > 15);
+        assert!(hits("blackened_soul") > 100, "blackened_soul hits: {}", hits("blackened_soul"));
     }
 }

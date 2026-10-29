@@ -6,6 +6,7 @@
 #
 #   tools/make_reference.sh ret  $SIMC/profiles/MID2/MID2_Paladin_Retribution.simc strength  $SIMC/build/simc
 #   tools/make_reference.sh fire $SIMC/profiles/MID2/MID2_Mage_Fire.simc         intellect $SIMC/build/simc
+#   tools/make_reference.sh destro $SIMC/profiles/MID2/MID2_Warlock_Destruction.simc intellect $SIMC/build/simc
 #
 # Writes reference/<prefix>_core_observations.json plus stat probes
 # (+500 crit/haste/mastery/vers rating, +200 primary stat).
