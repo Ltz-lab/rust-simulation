@@ -1,0 +1,394 @@
+{
+ "player": "MID2_Mage_Frost_Spellslinger",
+ "dps": 149542.40436496324,
+ "fight_length": 299.994556111222,
+ "buffed_stats": {
+  "attributes": null,
+  "stats": {
+   "spell_power": 3319.0,
+   "spell_crit": 0.2973913043478261,
+   "attack_crit": 0.2973913043478261,
+   "spell_haste": 0.7918477973511755,
+   "attack_haste": 0.7918477973511755,
+   "spell_cast_speed": 0.7918477973511755,
+   "auto_attack_speed": 0.7918477973511755,
+   "mastery_value": 0.5620869565217391,
+   "damage_versatility": 0.05277777777777777,
+   "heal_versatility": 0.05277777777777777,
+   "mitigation_versatility": 0.026388888888888885,
+   "crit_rating": 1046.0,
+   "crit_pct": 0.2973913043478261,
+   "haste_rating": 889.0,
+   "haste_pct": 0.26286895454545456,
+   "mastery_rating": 1018.0,
+   "mastery_pct": 0.5620869565217391,
+   "versatility_rating": 123.0,
+   "versatility_pct": 0.05277777777777777,
+   "avoidance_rating": 148.0,
+   "avoidance_pct": 0.040216817220210484,
+   "leech_rating": 28.0,
+   "leech_pct": 0.004057913089253662,
+   "speed_pct": 7.0,
+   "manareg_per_second": 5000.0,
+   "armor": 733.0,
+   "dodge": 0.03
+  }
+ },
+ "sources": {
+  "shatter_ice_lance": {
+   "spell_id": 1246949,
+   "school": "frost",
+   "dps": 46448.09218521611,
+   "share": 0.31074326727214957,
+   "executes": 124.38587717543508,
+   "direct_hits": 124.38587717543508,
+   "direct_noncrit_avg": 65968.68577171708,
+   "direct_crit_rate": 0.505306325938196,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "frost_splinter": {
+   "spell_id": 443722,
+   "school": "frost",
+   "dps": 21382.97600406136,
+   "share": 0.14305465552832553,
+   "executes": 1305.72674534907,
+   "direct_hits": 1300.25625125025,
+   "direct_noncrit_avg": 3529.1821974648947,
+   "direct_crit_rate": 0.3357319044471053,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "ray_of_frost": {
+   "spell_id": 205021,
+   "school": "frost",
+   "dps": 20149.48774247056,
+   "share": 0.13480247218740096,
+   "executes": 7.9693938787757554,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 63.51990398079616,
+   "tick_noncrit_avg": 68136.15510852048,
+   "tick_crit_rate": 0.3342109241156908
+  },
+  "frozen_orb_bolt": {
+   "spell_id": 84721,
+   "school": "frost",
+   "dps": 13293.762972107601,
+   "share": 0.08893685716566568,
+   "executes": 338.19423884776955,
+   "direct_hits": 338.19423884776955,
+   "direct_noncrit_avg": 8432.930143018411,
+   "direct_crit_rate": 0.3361900542577839,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "flurry_bolt": {
+   "spell_id": 228354,
+   "school": "frost",
+   "dps": 12800.649857590535,
+   "share": 0.08563787171479391,
+   "executes": 161.0620124024805,
+   "direct_hits": 161.0620124024805,
+   "direct_noncrit_avg": 16118.300043567948,
+   "direct_crit_rate": 0.3362520477576201,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "glacial_spike": {
+   "spell_id": 199786,
+   "school": "frost",
+   "dps": 11974.248112233636,
+   "share": 0.08010914563907909,
+   "executes": 14.707141428285658,
+   "direct_hits": 14.692738547709542,
+   "direct_noncrit_avg": 151299.6377157092,
+   "direct_crit_rate": 0.4328854034772427,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "ice_lance": {
+   "spell_id": 30455,
+   "school": "frost",
+   "dps": 8258.458435158846,
+   "share": 0.055250070262074485,
+   "executes": 124.47429485897179,
+   "direct_hits": 124.3858771754351,
+   "direct_noncrit_avg": 14247.943934076855,
+   "direct_crit_rate": 0.3358464470372544,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "hand_of_frost": {
+   "spell_id": 1262769,
+   "school": "frost",
+   "dps": 6876.189113207494,
+   "share": 0.046002523912045144,
+   "executes": 62.29565913182636,
+   "direct_hits": 62.21844368873775,
+   "direct_noncrit_avg": 23695.996633466286,
+   "direct_crit_rate": 0.3353567180014789,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "frostbolt": {
+   "spell_id": 116,
+   "school": "frost",
+   "dps": 5405.784440319532,
+   "share": 0.03616534157001402,
+   "executes": 34.60232046409282,
+   "direct_hits": 35.57191438287657,
+   "direct_noncrit_avg": 28185.848281806546,
+   "direct_crit_rate": 0.4328324635594746,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire": {
+   "spell_id": 1286970,
+   "school": "fire",
+   "dps": 1033.4811551309106,
+   "share": 0.006914111983953387,
+   "executes": 50.319263852770554,
+   "direct_hits": 50.319263852770554,
+   "direct_noncrit_avg": 6161.482353768868,
+   "direct_crit_rate": 0.0,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "void_eruption": {
+   "spell_id": 1310209,
+   "school": "shadow",
+   "dps": 771.1856378324078,
+   "share": 0.005159323741819344,
+   "executes": 28.93238647729546,
+   "direct_hits": 28.93238647729546,
+   "direct_noncrit_avg": 5795.419523648804,
+   "direct_crit_rate": 0.33511715860142566,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "acidbrood_scourge": {
+   "spell_id": 1310088,
+   "school": "nature",
+   "dps": 766.6921567733161,
+   "share": 0.00512926181849729,
+   "executes": 21.575315063012603,
+   "direct_hits": 21.575315063012603,
+   "direct_noncrit_avg": 7727.069481451411,
+   "direct_crit_rate": 0.3348940707431273,
+   "ticks": 0.0,
+   "tick_noncrit_avg": 0.0,
+   "tick_crit_rate": 0.0
+  },
+  "rune_of_unleashed_fire_lingering": {
+   "spell_id": 1287663,
+   "school": "cosmic",
+   "dps": 313.1629171923377,
+   "share": 0.0020950972041817967,
+   "executes": 50.319263852770554,
+   "direct_hits": 0.0,
+   "direct_noncrit_avg": 0.0,
+   "direct_crit_rate": 0.0,
+   "ticks": 243.9153830766153,
+   "tick_noncrit_avg": 385.1662099692506,
+   "tick_crit_rate": 0.0
+  }
+ },
+ "buffs": {
+  "akilzons_rite": {
+   "spell_id": 1297664,
+   "uptime": 0.23606160806192553,
+   "starts": 4.073214642928586,
+   "refreshes": 1.7957591518303662,
+   "interval": 60.56533945489942,
+   "duration": 17.405477401960784
+  },
+  "arcanoweave_insight": {
+   "spell_id": 1229746,
+   "uptime": 0.5264813358840461,
+   "starts": 5.89877975595119,
+   "refreshes": 5.232846569313863,
+   "interval": 49.740225125341404,
+   "duration": 26.791059610046716
+  },
+  "brain_freeze": {
+   "spell_id": 190446,
+   "uptime": 0.14574565398016037,
+   "starts": 28.43608721744349,
+   "refreshes": 1.2688537707541507,
+   "interval": 10.639109589639087,
+   "duration": 1.5549597719128534
+  },
+  "brainstorm": {
+   "spell_id": 461531,
+   "uptime": 0.6014348911190934,
+   "starts": 16.529105821164233,
+   "refreshes": 12.42628525705141,
+   "interval": 13.201045308806801,
+   "duration": 10.916027706317864
+  },
+  "critical_ritual": {
+   "spell_id": 1295899,
+   "uptime": 0.1851889314337095,
+   "starts": 3.4712942588517706,
+   "refreshes": 0.6963392678535707,
+   "interval": 66.25108074484308,
+   "duration": 16.013940723279482
+  },
+  "fingers_of_frost": {
+   "spell_id": 44544,
+   "uptime": 0.2100246172514566,
+   "starts": 33.81696339267854,
+   "refreshes": 12.031606321264253,
+   "interval": 8.931563921163077,
+   "duration": 1.8621471425198939
+  },
+  "glacial_spike": {
+   "spell_id": 1222865,
+   "uptime": 0.12734583577225267,
+   "starts": 14.843968793758751,
+   "refreshes": 1.1378275655131027,
+   "interval": 19.687079903671393,
+   "duration": 2.57423524981508
+  },
+  "halazzis_rite": {
+   "spell_id": 1297663,
+   "uptime": 0.26654222405176214,
+   "starts": 4.639527905581116,
+   "refreshes": 1.8929785957191438,
+   "interval": 56.829154289161885,
+   "duration": 17.238688987390802
+  },
+  "hand_of_frost": {
+   "spell_id": 1263263,
+   "uptime": 0.6999215425021934,
+   "starts": 13.351870374074815,
+   "refreshes": 48.93978795759152,
+   "interval": 11.462987806268199,
+   "duration": 15.721068292609996
+  },
+  "hasty_ritual": {
+   "spell_id": 1295900,
+   "uptime": 0.18641702193605675,
+   "starts": 3.4986997399479898,
+   "refreshes": 0.6821364272854571,
+   "interval": 66.45528013029318,
+   "duration": 16.003474495035945
+  },
+  "icicles": {
+   "spell_id": 205473,
+   "uptime": 0.915450620589926,
+   "starts": 15.619323864772955,
+   "refreshes": 61.63912782556511,
+   "interval": 19.70599461969136,
+   "duration": 17.58331117473384
+  },
+  "janalais_rite": {
+   "spell_id": 1297655,
+   "uptime": 0.11527775877214598,
+   "starts": 2.166033206641328,
+   "refreshes": 0.47909581916383276,
+   "interval": 81.25449968112245,
+   "duration": 15.964984787018253
+  },
+  "masterful_ritual": {
+   "spell_id": 1295901,
+   "uptime": 0.18497321198338668,
+   "starts": 3.456491298259652,
+   "refreshes": 0.6979395879175835,
+   "interval": 66.58446578223587,
+   "duration": 16.043855921432698
+  },
+  "nalorakks_rite": {
+   "spell_id": 1297665,
+   "uptime": 0.08028757599845032,
+   "starts": 1.5877175435087016,
+   "refreshes": 0.11762352470494099,
+   "interval": 86.76881125226862,
+   "duration": 15.16261514274934
+  },
+  "overflowing_energy": {
+   "spell_id": 394195,
+   "uptime": 0.5693646237356607,
+   "starts": 14.805561112222444,
+   "refreshes": 13.702140428085617,
+   "interval": 20.182078154602646,
+   "duration": 11.537603352482698
+  },
+  "permafrost_lances": {
+   "spell_id": 455122,
+   "uptime": 0.5644168404190875,
+   "starts": 11.577715543108622,
+   "refreshes": 0.0014002800560112022,
+   "interval": 26.97499894309709,
+   "duration": 14.616875556092012
+  },
+  "rune_of_critical_power": {
+   "spell_id": 1287772,
+   "uptime": 0.879286497287965,
+   "starts": 11.302460492098419,
+   "refreshes": 39.005401080216046,
+   "interval": 19.56734600652689,
+   "duration": 23.348512737615724
+  },
+  "soul_fang_alacrity": {
+   "spell_id": 1305360,
+   "uptime": 0.4974548559121799,
+   "starts": 9.36127225445089,
+   "refreshes": 7.39367873574715,
+   "interval": 31.499906182096055,
+   "duration": 15.94198530540863
+  },
+  "splinterstorm": {
+   "spell_id": 1247908,
+   "uptime": 0.26223814389499944,
+   "starts": 7.709141828365673,
+   "refreshes": 0.26025205041008204,
+   "interval": 41.4993546477029,
+   "duration": 10.177193075588473
+  },
+  "thermal_void": {
+   "spell_id": 1247730,
+   "uptime": 0.1497679895034726,
+   "starts": 28.253650730146028,
+   "refreshes": 0.03460692138427685,
+   "interval": 10.60653279619116,
+   "duration": 1.588903154012373
+  },
+  "venomcursed_ascendance": {
+   "spell_id": 1317581,
+   "uptime": 0.38619993448039625,
+   "starts": 7.32126425285057,
+   "refreshes": 3.822164432886577,
+   "interval": 39.27145058589431,
+   "duration": 15.83351769839105
+  },
+  "venomcursed_mastery": {
+   "spell_id": 1307922,
+   "uptime": 0.38576405620769416,
+   "starts": 7.299259851970394,
+   "refreshes": 3.826365273054611,
+   "interval": 39.435951320001266,
+   "duration": 15.85890137301022
+  },
+  "versatile_ritual": {
+   "spell_id": 1295898,
+   "uptime": 0.18701721724133819,
+   "starts": 3.508501700340068,
+   "refreshes": 0.6825365073014603,
+   "interval": 66.46168534346315,
+   "duration": 15.98888424766674
+  }
+ }
+}
