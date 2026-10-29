@@ -3236,6 +3236,7 @@ name = "channel test"
 spell_power = 1000
 haste = 1.0
 crit = 0.0
+versatility = 0.0
 [fight]
 duration = 10
 variance = 0
