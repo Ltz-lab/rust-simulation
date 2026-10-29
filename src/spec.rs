@@ -24,7 +24,82 @@ pub struct Spec {
     /// Poisson rate of `per_minute`.
     #[serde(default)]
     pub procs: Vec<ProcDef>,
+    /// Summonable pets: each active instance runs its own action loop.
+    #[serde(default)]
+    pub pets: Vec<PetDef>,
     pub rotation: Vec<RotationEntry>,
+}
+
+/// A pet or summon. Any number of instances can be active at once (up to
+/// `max_active`), each with its own timer, energy, cooldowns and action loop.
+/// Its abilities are reported (and calibrated, and keyed in buffs) as
+/// `<pet>_<ability>`.
+#[derive(Debug, Deserialize, Clone)]
+pub struct PetDef {
+    pub name: String,
+    /// Seconds each instance stays (0 = until dismissed).
+    #[serde(default)]
+    pub duration: f64,
+    /// Cap on active instances (0 = none): a new summon replaces the one
+    /// closest to expiring.
+    #[serde(default)]
+    pub max_active: u32,
+    #[serde(default)]
+    pub owner_coeff: OwnerCoeff,
+    /// Use the owner's haste (with buffs) for casts, GCDs and swings; else none.
+    #[serde(default = "yes")]
+    pub inherit_haste: bool,
+    /// Use the owner's crit chance (with global crit buffs); else `crit`.
+    #[serde(default = "yes")]
+    pub inherit_crit: bool,
+    #[serde(default)]
+    pub crit: f64,
+    /// Energy each instance starts with. Abilities' `cost = { energy = .. }`
+    /// spends it; an instance that can't afford any action leaves.
+    #[serde(default)]
+    pub energy: Option<f64>,
+    /// Seconds from summon to its first action and swing (travel, leap).
+    #[serde(default)]
+    pub delay: f64,
+    #[serde(default)]
+    pub melee: Option<PetMelee>,
+    pub abilities: Vec<AbilityDef>,
+    /// Action priority list (pet-local ability names). Empty: every ability in
+    /// order, except `triggered_only` ones and the melee ability.
+    #[serde(default)]
+    pub rotation: Vec<RotationEntry>,
+    /// Effects when an instance arrives / leaves on its own (expiry, out of
+    /// energy). `self.*` in them refers to that instance.
+    #[serde(default)]
+    pub on_summon: Vec<Effect>,
+    #[serde(default)]
+    pub on_expire: Vec<Effect>,
+}
+
+/// Pet power from the owner's: pet sp = sp_from_sp x owner sp + sp_from_ap x owner ap, etc.
+#[derive(Debug, Deserialize, Clone)]
+pub struct OwnerCoeff {
+    #[serde(default = "one")]
+    pub sp_from_sp: f64,
+    #[serde(default)]
+    pub sp_from_ap: f64,
+    #[serde(default = "one")]
+    pub ap_from_ap: f64,
+    #[serde(default)]
+    pub ap_from_sp: f64,
+}
+
+impl Default for OwnerCoeff {
+    fn default() -> Self { OwnerCoeff { sp_from_sp: 1.0, sp_from_ap: 0.0, ap_from_ap: 1.0, ap_from_sp: 0.0 } }
+}
+
+/// A pet's auto attack: executes `ability` every `speed` seconds.
+#[derive(Debug, Deserialize, Clone)]
+pub struct PetMelee {
+    pub ability: String,
+    pub speed: f64,
+    #[serde(default = "yes")]
+    pub hasted: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -187,6 +262,10 @@ pub struct DamageDef {
     /// instead of a coefficient, and empty the store.
     #[serde(default)]
     pub stored_from: Option<String>,
+    /// Multiply the damage by this condition-language expression (e.g.
+    /// `self.energy/100` for a hit made per dismissed pet).
+    #[serde(default)]
+    pub scale: Option<String>,
     /// Number of separate hits per cast.
     #[serde(default = "one_u32")]
     pub hits: u32,
@@ -285,6 +364,10 @@ pub enum Effect {
         /// Lasts this long instead of the buff's own duration.
         #[serde(default)]
         duration: Option<f64>,
+        /// Set the stack count to this expression's value instead of adding
+        /// `stacks` (0 removes the buff).
+        #[serde(default)]
+        set: Option<String>,
     },
     Consume {
         buff: String,
@@ -343,6 +426,29 @@ pub enum Effect {
         #[serde(default, rename = "else")]
         otherwise: Vec<Effect>,
     },
+    /// Summon `count` instances of a pet (optionally for their own `duration`).
+    Summon {
+        pet: String,
+        #[serde(default = "one_u32")]
+        count: u32,
+        #[serde(default)]
+        duration: Option<f64>,
+    },
+    /// Make up to `count` (0 = all) active instances of a pet leave, oldest
+    /// first, applying `each` once per instance (`self.*` refers to it) and
+    /// skipping its `on_expire`.
+    Dismiss {
+        pet: String,
+        #[serde(default)]
+        count: u32,
+        #[serde(default)]
+        each: Vec<Effect>,
+    },
+    /// Add time to every active instance of a pet.
+    ExtendPet {
+        pet: String,
+        seconds: f64,
+    },
     /// Execute another ability for free, off the GCD (optionally delayed).
     /// `mastery_chance`: proc chance = player mastery x this factor (overrides `chance`).
     Trigger {
@@ -369,6 +475,12 @@ pub struct BuffDef {
     pub school_pct: HashMap<String, f64>,
     #[serde(default)]
     pub ability_pct: HashMap<String, f64>,
+    /// Per-pet damage bonus (percent), keyed by pet name.
+    #[serde(default)]
+    pub pet_pct: HashMap<String, f64>,
+    /// `damage_pct` and `school_pct` also apply to pets' damage.
+    #[serde(default)]
+    pub pets: bool,
     #[serde(default)]
     pub crit_pct: f64,
     /// Per-ability crit chance (percent; 100 = guaranteed crit).
@@ -472,23 +584,46 @@ pub struct BuffPatch {
     pub school_pct: HashMap<String, f64>,
 }
 
+/// A pet ability as the engine sees it: name, `source` and DoT name
+/// prefixed with `<pet>_`.
+pub fn pet_ability(pet: &str, a: &AbilityDef) -> AbilityDef {
+    let mut a = a.clone();
+    a.name = format!("{pet}_{}", a.name);
+    a.source = a.source.map(|s| format!("{pet}_{s}"));
+    if let Some(d) = &mut a.dot {
+        d.name = format!("{pet}_{}", d.name);
+    }
+    a
+}
+
 impl Spec {
     /// Fold a calibration overlay into the spec's damage definitions.
     pub fn apply_calibration(&mut self, cal: &Calibration) -> Result<(), String> {
         let mut seen = std::collections::HashSet::new();
-        for a in &mut self.abilities {
-            let src = a.source.as_ref().unwrap_or(&a.name);
-            if let (Some(d), Some(c)) = (&mut a.damage, cal.sources.get(src)) {
+        let mut patch = |a: &mut AbilityDef, prefix: &str| {
+            let src = format!("{prefix}{}", a.source.as_ref().unwrap_or(&a.name));
+            if let (Some(d), Some(c)) = (&mut a.damage, cal.sources.get(&src)) {
                 d.mult *= c.derived * c.mult;
                 d.crit_bonus += c.crit_bonus;
-                seen.insert(src.clone());
+                seen.insert(src);
             }
-            if let Some(d) = &mut a.dot
-                && let Some(c) = cal.sources.get(&d.name) {
+            if let Some(d) = &mut a.dot {
+                let name = format!("{prefix}{}", d.name);
+                if let Some(c) = cal.sources.get(&name) {
                     d.mult *= c.derived * c.mult;
                     d.crit_bonus += c.crit_bonus;
-                    seen.insert(d.name.clone());
+                    seen.insert(name);
                 }
+            }
+        };
+        for a in &mut self.abilities {
+            patch(a, "");
+        }
+        for p in &mut self.pets {
+            let prefix = format!("{}_", p.name);
+            for a in &mut p.abilities {
+                patch(a, &prefix);
+            }
         }
         for k in cal.sources.keys() {
             if !seen.contains(k) {

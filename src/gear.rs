@@ -42,15 +42,55 @@ struct GearSpec {
     primary: String,
     base_primary: f64,
     primary_mult: f64,
-    attack_power_mult: f64,
+    /// Attack power per point of the primary stat (melee); omit for casters.
+    #[serde(default)]
+    attack_power_mult: Option<f64>,
+    /// Spell power per point of the primary stat (casters); omit for melee.
+    #[serde(default)]
+    spell_power_per_primary: Option<f64>,
     crit_bonus: f64,
     haste_mult: f64,
     mastery_points: f64,
     mastery_coeff: f64,
     versatility_bonus: f64,
+    #[serde(default)]
     weapon_ap_per_dps: f64,
     #[serde(default)]
     kit: Option<Kit>,
+    /// Time-averaged gear stat procs, added on top of the buffed stats.
+    #[serde(default)]
+    procs: ProcBonus,
+}
+
+/// `[gear.procs]`: final-stat additions for proc uptime (same units as `[player]`).
+#[derive(Deserialize, Default)]
+struct ProcBonus {
+    #[serde(default)]
+    attack_power: f64,
+    #[serde(default)]
+    spell_power: f64,
+    #[serde(default)]
+    crit: f64,
+    #[serde(default)]
+    haste: f64,
+    #[serde(default)]
+    mastery: f64,
+    #[serde(default)]
+    versatility: f64,
+}
+
+impl ProcBonus {
+    fn get(&self, stat: &str) -> f64 {
+        match stat {
+            "attack_power" => self.attack_power,
+            "spell_power" => self.spell_power,
+            "crit" => self.crit,
+            "haste" => self.haste,
+            "mastery" => self.mastery,
+            "versatility" => self.versatility,
+            _ => 0.0,
+        }
+    }
 }
 
 /// Raid-night extras on top of the gear (consumables, Bloodlust): only
@@ -129,7 +169,7 @@ fn parse_ids(s: &str) -> Vec<i64> {
 }
 
 /// Compute item stats and report JSON from SimC-format text and a `[gear]` table.
-fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, [(&'static str, f64); 6], Option<KitOut>), String> {
+fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, Vec<(&'static str, f64)>, Option<KitOut>), String> {
     let gd = gamedata();
     let mut level: usize = 90;
     let mut item_lines = Vec::new();
@@ -370,32 +410,42 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, [(&'static str, f64)
     let vers_dr = dr_percent((versatility_rating as f64 + kit_stat("versatility_rating")) / cr["versatility"]);
 
     let primary = ((cfg.base_primary + gear_primary + kit_stat("primary")) * cfg.primary_mult).floor();
-    let attack_power = (primary * cfg.attack_power_mult).floor();
-    let weapon_attack_power = weapon_dps * cfg.weapon_ap_per_dps;
     let crit = crit_dr / 100.0 + cfg.crit_bonus;
     let haste = (1.0 + haste_dr / 100.0) * cfg.haste_mult - 1.0;
     let mastery = (mastery_dr + cfg.mastery_points) * cfg.mastery_coeff / 100.0;
     let versatility = vers_dr / 100.0 + cfg.versatility_bonus;
 
-    // Flat primary-stat buffs as a share of the engine's total attack power.
+    // Buffed stats (the reference's snapshot), then proc averages on top.
+    let mut buffed: Vec<(&'static str, f64)> = Vec::new();
+    if let Some(ap_mult) = cfg.attack_power_mult {
+        buffed.push(("attack_power", (primary * ap_mult).floor()));
+        buffed.push(("weapon_attack_power", weapon_dps * cfg.weapon_ap_per_dps));
+    }
+    if let Some(sp_mult) = cfg.spell_power_per_primary {
+        buffed.push(("spell_power", (primary * sp_mult).floor()));
+    }
+    buffed.extend([("crit", crit), ("haste", haste), ("mastery", mastery), ("versatility", versatility)]);
+    let player_pairs: Vec<(&'static str, f64)> =
+        buffed.iter().map(|&(k, v)| (k, v + cfg.procs.get(k))).collect();
+    let to_obj = |pairs: &[(&'static str, f64)]| -> Value {
+        Value::Object(pairs.iter().map(|&(k, v)| (k.to_string(), json!(v))).collect())
+    };
+
+    // Flat primary-stat buffs as a share of the engine's total attack (or spell) power.
+    let power_per_primary = cfg.attack_power_mult.or(cfg.spell_power_per_primary).unwrap_or(0.0);
+    let total_power: f64 = player_pairs
+        .iter()
+        .filter(|(k, _)| matches!(*k, "attack_power" | "weapon_attack_power" | "spell_power"))
+        .map(|(_, v)| v)
+        .sum();
     let power_buffs: Vec<(String, f64)> = kit
         .map(|k| {
-            let total_ap = attack_power + weapon_attack_power;
             k.primary_buffs
                 .iter()
-                .map(|(b, v)| (b.clone(), v * cfg.primary_mult * cfg.attack_power_mult / total_ap * 100.0))
+                .map(|(b, v)| (b.clone(), v * cfg.primary_mult * power_per_primary / total_power * 100.0))
                 .collect()
         })
         .unwrap_or_default();
-
-    let player_pairs = [
-        ("attack_power", attack_power),
-        ("weapon_attack_power", weapon_attack_power),
-        ("crit", crit),
-        ("haste", haste),
-        ("mastery", mastery),
-        ("versatility", versatility),
-    ];
 
     let report = json!({
         "build": gd.build,
@@ -420,14 +470,9 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, [(&'static str, f64)
             "precombat": k.precombat,
             "power_pct": power_buffs.iter().cloned().collect::<BTreeMap<_, _>>(),
         })),
-        "player": {
-            "attack_power": attack_power,
-            "weapon_attack_power": weapon_attack_power,
-            "crit": crit,
-            "haste": haste,
-            "mastery": mastery,
-            "versatility": versatility,
-        },
+        "primary": primary,
+        "buffed": to_obj(&buffed),
+        "player": to_obj(&player_pairs),
     });
 
     let kit_out = kit.map(|k| KitOut { precombat: k.precombat.clone(), power_buffs });
@@ -580,5 +625,52 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         let (rep_trink, _, _) = compute(&with_trinkets, &cfg).unwrap();
         assert_eq!(rep_trink["gear"]["crit_rating"], 1200);
         assert_eq!(rep_trink["gear"]["strength"], 1927);
+    }
+
+    /// A caster spec's own `[gear]` table against its core-kit profile (no trinkets).
+    fn caster(spec: &str, profile: &str) -> Value {
+        let doc: toml::Value = toml::from_str(spec).unwrap();
+        let cfg: GearSpec = doc["gear"].clone().try_into().unwrap();
+        let core: String = profile
+            .lines()
+            .filter(|l| !l.starts_with("trinket"))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        compute(&core, &cfg).unwrap().0
+    }
+
+    #[test]
+    fn fire_mage_spell_power_and_procs() {
+        let rep = caster(
+            include_str!("../specs/fire_mage.toml"),
+            include_str!("../profiles/MID2_Mage_Fire.simc"),
+        );
+        assert_eq!(rep["gear"]["intellect"], 2412);
+        assert_eq!(rep["gear"]["crit_rating"], 170);
+        assert_eq!(rep["gear"]["haste_rating"], 1204);
+        let b = &rep["buffed"];
+        assert_eq!(b["spell_power"].as_f64().unwrap(), 3341.0);
+        assert!(b.get("attack_power").is_none());
+        assert!((b["crit"].as_f64().unwrap() - 0.106957).abs() < 1e-5);
+        assert!((b["haste"].as_f64().unwrap() - 0.299109).abs() < 1e-5);
+        assert!((b["mastery"].as_f64().unwrap() - 0.175035).abs() < 1e-5);
+        assert!((b["versatility"].as_f64().unwrap() - 0.140185).abs() < 1e-5);
+        // final = buffed + [gear.procs]
+        assert!((rep["player"]["haste"].as_f64().unwrap() - (0.299109 + 0.0278)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn destruction_warlock_spell_power_and_procs() {
+        let rep = caster(
+            include_str!("../specs/destruction_hellcaller.toml"),
+            include_str!("../profiles/MID2_Warlock_Destruction.simc"),
+        );
+        let b = &rep["buffed"];
+        assert_eq!(b["spell_power"].as_f64().unwrap(), 3375.0);
+        assert!((b["crit"].as_f64().unwrap() - 0.359783).abs() < 1e-5);
+        assert!((b["haste"].as_f64().unwrap() - 0.198732).abs() < 1e-5);
+        assert!((b["mastery"].as_f64().unwrap() - 0.735652).abs() < 1e-5);
+        assert!((b["versatility"].as_f64().unwrap() - 0.052778).abs() < 1e-5);
+        assert_eq!(rep["player"]["spell_power"].as_f64().unwrap(), 3413.0);
     }
 }

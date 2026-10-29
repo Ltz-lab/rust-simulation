@@ -2,14 +2,14 @@
 """Check azsim gear -> stats against SimulationCraft.
 
   python3 tools/check_gear.py <simc_binary> <profile.simc> \\
-      [--spec specs/retribution_herald.toml] \\
-      [--calib calibration/retribution_herald.toml] \\
+      [--spec specs/<spec>.toml] [--calib calibration/<spec>.toml] \\
       [--no-trinkets] [--dps] [--md]
 
 Runs SimC as a black-box reference (gear-only buffed stats, consumables and set
 bonuses disabled) and compares per-item ilvl/ratings, total character ratings
-and final stats (attack power, crit, haste, mastery, versatility), and optional
-5000-iteration DPS against azsim.
+and final stats (attack or spell power, crit, haste, mastery, versatility), and
+optional 5000-iteration DPS against azsim. The spec and calibration default to
+the one matching the profile's `spec=` line.
 """
 import argparse
 import json
@@ -23,8 +23,11 @@ ROOT = os.path.dirname(HERE)
 ENGINE = os.path.join(ROOT, "target", "release", "azsim")
 DEFAULT_SIMC = "/Users/jack/Dev/wow sim/simc/build/simc"
 DEFAULT_PROFILE = os.path.join(ROOT, "profiles", "MID2_Paladin_Retribution.simc")
-DEFAULT_SPEC = os.path.join(ROOT, "specs", "retribution_herald.toml")
-DEFAULT_CALIB = os.path.join(ROOT, "calibration", "retribution_herald.toml")
+SPEC_BY_PROFILE = {
+    "retribution": "retribution_herald",
+    "fire": "fire_mage",
+    "destruction": "destruction_hellcaller",
+}
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
     "YWmtZmZrBBAAsAYAwYGmBzYmZDYmZYMjBD"
@@ -52,6 +55,14 @@ def filter_profile(profile_path, no_trinkets):
     if no_trinkets:
         lines = [l for l in lines if not l.lstrip().startswith(("trinket1=", "trinket2="))]
     return lines
+
+
+def spec_for_profile(profile_lines):
+    for l in profile_lines:
+        k, _, v = l.strip().partition("=")
+        if k == "spec" and v.strip().lower() in SPEC_BY_PROFILE:
+            return SPEC_BY_PROFILE[v.strip().lower()]
+    return "retribution_herald"
 
 
 def run_simc(simc_bin, profile_lines, dps_mode):
@@ -146,10 +157,13 @@ def compare_char(az, sc_stats):
             bad = True
         rows.append((r, f"{av:.0f}", f"{sv:.0f}", f"{diff:+.0f}"))
 
-    if "attack_power" in sc_stats:  # caster reports have spell_power instead
-        ap_a = float(az["player"]["attack_power"])
-        ap_s = float(sc_stats["attack_power"])
-        rows.append(("attack_power", f"{ap_a:.1f}", f"{ap_s:.1f}", f"{ap_a - ap_s:+.1f}"))
+    # Buffed stats (before the spec's [gear.procs] averages) are what SimC reports.
+    buffed = az.get("buffed", az["player"])
+    for power in ("attack_power", "spell_power"):
+        if power in sc_stats and power in buffed:
+            p_a = float(buffed[power])
+            p_s = float(sc_stats[power])
+            rows.append((power, f"{p_a:.1f}", f"{p_s:.1f}", f"{p_a - p_s:+.1f}"))
 
     pct_fields = [
         ("crit %", "crit", "attack_crit"),
@@ -158,7 +172,7 @@ def compare_char(az, sc_stats):
         ("versatility %", "versatility", "damage_versatility"),
     ]
     for label, ak, sk in pct_fields:
-        av = float(az["player"][ak]) * 100.0
+        av = float(buffed[ak]) * 100.0
         if sk not in sc_stats:
             continue
         sv = float(sc_stats[sk]) * 100.0
@@ -211,14 +225,17 @@ def main():
     ap = argparse.ArgumentParser(description="Check azsim gear -> stats against SimC.")
     ap.add_argument("simc_binary", nargs="?", default=DEFAULT_SIMC)
     ap.add_argument("profile", nargs="?", default=DEFAULT_PROFILE)
-    ap.add_argument("--spec", default=DEFAULT_SPEC)
-    ap.add_argument("--calib", default=DEFAULT_CALIB)
+    ap.add_argument("--spec", default=None)
+    ap.add_argument("--calib", default=None)
     ap.add_argument("--no-trinkets", action="store_true")
     ap.add_argument("--dps", action="store_true")
     ap.add_argument("--md", action="store_true")
     args = ap.parse_args()
 
     prof_lines = filter_profile(args.profile, args.no_trinkets)
+    spec_name = spec_for_profile(prof_lines)
+    args.spec = args.spec or os.path.join(ROOT, "specs", f"{spec_name}.toml")
+    args.calib = args.calib or os.path.join(ROOT, "calibration", f"{spec_name}.toml")
     sc_player = run_simc(args.simc_binary, prof_lines, args.dps)
     sc_gear = sc_player["gear"]
     sc_stats = sc_player["collected_data"]["buffed_stats"]["stats"]

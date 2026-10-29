@@ -362,8 +362,14 @@ mod tests {
     #[test]
     fn unknown_spec_and_gearless_spec() {
         assert!(run_json(r#"{"spec":"nope"}"#).is_err());
-        assert!(supports_gear("retribution_herald"));
-        assert!(!supports_gear("fire_mage"));
+        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller"] {
+            assert!(supports_gear(name), "{name}");
+        }
+        // A spec without a [gear] table can't take gear lines
+        let gearless = std::env::temp_dir().join("azsim_gearless_spec.toml");
+        let fire = builtin("fire_mage").unwrap().1;
+        std::fs::write(&gearless, fire.split("\n[gear]").next().unwrap().to_string() + "\n[fight]" + fire.split("\n[fight]").nth(1).unwrap()).unwrap();
+        assert!(!supports_gear(gearless.to_str().unwrap()));
         // Fire without gear lines still sims
         let out = run_json(r#"{"spec":"fire_mage","iterations":100}"#).unwrap();
         assert!(out.contains("\"dps\""));

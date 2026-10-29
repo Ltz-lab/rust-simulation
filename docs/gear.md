@@ -46,10 +46,40 @@ SimC side is core kit. Ret's numbers and the gap they close are in
 [retribution.md](retribution.md#full-kit-a-real-character-against-simc).
 
 
+## Casters
+
+Fire Mage and Destruction Warlock carry `[gear]` tables too. Casters have no
+weapon attack power; `spell_power_per_primary` turns the buffed intellect
+into spell power (1 per point, observed) and `attack_power_mult` is left out.
+Their `[player]` stats are the buffed snapshot plus time-averaged gear stat
+procs, so `[gear.procs]` adds those same averages back on top (in `[player]`
+units). `--gear-stats` reports both: `buffed` is what SimC reports, `player`
+is what the sim runs with. Against SimC's MID2 sample profiles without
+trinkets (`tools/check_gear.py`, which picks the spec from the profile's
+`spec=` line), every item level and rating matches:
+
+| stat | Fire azsim | Fire SimC | Destro azsim | Destro SimC |
+|---|---:|---:|---:|---:|
+| crit rating | 170 | 170 | 1,149 | 1,149 |
+| haste rating | 1,204 | 1,204 | 771 | 771 |
+| mastery rating | 1,069 | 1,069 | 1,002 | 1,002 |
+| versatility rating | 595 | 595 | 123 | 123 |
+| spell power | 3,341 | 3,341 | 3,375 | 3,375 |
+| crit | 10.70% | 10.70% | 35.98% | 35.98% |
+| haste | 29.91% | 29.91% | 19.87% | 19.87% |
+| mastery | 17.50% | 17.50% | 73.57% | 73.57% |
+| versatility | 14.02% | 14.02% | 5.28% | 5.28% |
+
+DPS from `--gear` vs the hand-entered stats (5,000 iterations, same seed):
+Fire 148,405 vs 148,397 (+0.01%; SimC 147,351), Destruction 155,828 vs
+155,835 (-0.00%; SimC 157,039).
+
+
 ## Known gaps
 
-- The `[gear]` constants are per spec and race (Ret dwarf
-  today); racial stat bonuses such as Human's +2% secondaries, enchants that
+- The `[gear]` constants are per spec and race (all dwarf
+  today). The casters' `[gear.procs]` averages were observed on the sample
+  gear and stay fixed when the gear changes; racial stat bonuses such as Human's +2% secondaries, enchants that
   work through a spell aura (ring crit-damage, weapon procs), embellishments,
   and set bonuses aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
