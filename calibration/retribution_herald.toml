@@ -154,7 +154,7 @@ crit_bonus = +0.025111
 
 [sources."wake_of_ashes"]
 derived = 1.050000
-mult = 1.996030
+mult = 1.080929
 crit_bonus = +0.016902
 
 [buffs."avenging_wrath".ability_pct]

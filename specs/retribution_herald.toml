@@ -192,7 +192,7 @@ name = "wake_of_ashes"
 spell_id = 255937
 cooldown = 30               # [db2]
 gain = { holy_power = 3 }   # [obs]
-damage = { ap_coeff = 1.743, school = "holyfire", mastery = true }   # [db2 205273]
+damage = { ap_coeff = 3.2186, school = "holyfire", mastery = true }  # [db2 255937 effect 1]
 on_cast = [
   { type = "buff", buff = "dawnlight", stacks = 3 },        # [obs]
   { type = "buff", buff = "divine_purpose" },               # [obs] every Wake

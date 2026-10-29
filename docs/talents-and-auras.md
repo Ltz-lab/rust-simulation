@@ -40,13 +40,16 @@ inside its window rather than averaged over the fight, the window weighs more,
 and the Hammer of Wrath chain inside it is where the haste over-response sits.
 
 The tool also flags coefficients in the spec that disagree with the game data
-for the spell that dealt the damage: Wake of Ashes uses 1.743 (spell 205273)
-where the logged spell 255937 has 3.2186.
+for the spell that dealt the damage. Wake of Ashes used 1.743 (the old
+artifact spell 205273), not the 3.2186 of the logged spell 255937. It now uses
+255937's coefficient, and its residual dropped from 1.996 to 1.081. Per-hit
+damage is the same either way (3.479 AP), so DPS and the stat probes didn't
+move.
 
 What stays in the residual, by source: scripted effects the data only names
 (aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), target
 debuffs (Judgment's +20% from spenders, aura 271), buffs and procs the spec
-doesn't model, and the coefficient mismatches above.
+doesn't model.
 
 ```sh
 python3 tools/db2.py --build 12.1.5.70575      # fetch the DB2 tables into target/db2
