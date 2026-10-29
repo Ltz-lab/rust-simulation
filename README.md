@@ -41,7 +41,7 @@ profiles (core kit, 300s Patchwerk):
 | [Feral Druid (Wildstalker)](docs/feral-druid.md) | 169,230 | 169,363 | +0.08% | haste +0.17 pts | — |
 | [Devourer Demon Hunter (Void-Scarred)](docs/devourer-demon-hunter.md) | 164,261 | 164,308 | +0.03% | haste -1.13 pts | — |
 | [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,729 | -0.59% | haste -3.06 pts | ~10× |
-| [Survival Hunter (Sentinel)](docs/survival-hunter.md) | 163,198 | 163,103 | -0.06% | haste -1.26 pts | — |
+| [Survival Hunter (Sentinel)](docs/survival-hunter.md) | 163,198 | 163,103 | -0.06% | agility +1.71 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
