@@ -793,7 +793,7 @@ if = "dot.garrote.ticking&dot.rupture.ticking&(buff.deathmark.up|cooldown.deathm
 # not already an improved one (our marker for SimC's dot pmultiplier > 1).
 [[rotation]]
 action = "vanish"
-if = "!buff.stealth.up&!buff.vanish.up&!buff.improved_garrote_dot.up&(buff.deathmark.up|cooldown.deathmark.remains>fight_remains-10)"
+if = "!buff.stealth.up&!buff.vanish.up&!buff.improved_garrote_dot.up&cooldown.garrote.ready&(buff.deathmark.up|cooldown.deathmark.remains>fight_remains-10)"
 
 # Bleeds.
 [[rotation]]

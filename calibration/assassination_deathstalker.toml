@@ -4,13 +4,13 @@
 
 [sources."ambush"]
 derived = 1.749600
-mult = 1.269268
-crit_bonus = +0.038878
+mult = 1.000000
+crit_bonus = +0.000000
 
 [sources."amplifying_poison"]
 derived = 2.494800
-mult = 1.652635
-crit_bonus = +0.000386
+mult = 1.652609
+crit_bonus = +0.000397
 
 [sources."auto_attack_mh"]
 mult = 6.747847
@@ -28,77 +28,77 @@ crit_bonus = -0.001678
 
 [sources."deadly_poison_dot"]
 derived = 2.494800
-mult = 1.661012
+mult = 1.660737
 crit_bonus = +0.001515
 
 [sources."deadly_poison_instant"]
 derived = 2.494800
-mult = 1.654414
-crit_bonus = -0.000400
+mult = 1.654361
+crit_bonus = -0.000370
 
 [sources."deathmark"]
 derived = 1.620000
-mult = 2.445399
-crit_bonus = -0.004502
+mult = 2.445416
+crit_bonus = -0.004727
 
 [sources."deathstalkers_mark"]
 derived = 1.620000
-mult = 1.363464
-crit_bonus = -0.000513
+mult = 1.363376
+crit_bonus = -0.000455
 
 [sources."envenom"]
 derived = 2.082534
-mult = 1.323414
-crit_bonus = -0.004743
+mult = 1.323180
+crit_bonus = -0.004439
 
 [sources."fan_of_knives"]
 derived = 2.592000
-mult = 1.242731
-crit_bonus = -0.004370
+mult = 1.243163
+crit_bonus = -0.003806
 
 [sources."garrote"]
 derived = 2.421900
-mult = 2.797757
-crit_bonus = -0.000156
+mult = 2.798075
+crit_bonus = -0.000157
 
 [sources."hunt_them_down"]
 derived = 2.025000
-mult = 1.367278
-crit_bonus = +0.001176
+mult = 1.367244
+crit_bonus = +0.001188
 
 [sources."implacable_strikes_nature"]
 derived = 1.620000
-mult = 1.650739
-crit_bonus = -0.010119
+mult = 1.650679
+crit_bonus = -0.010316
 
 [sources."implacable_strikes_physical"]
 derived = 1.620000
-mult = 1.141506
-crit_bonus = -0.001986
+mult = 1.141514
+crit_bonus = -0.001714
 
 [sources."internal_bleeding"]
 derived = 1.786050
-mult = 2.418128
-crit_bonus = -0.000345
+mult = 2.414011
+crit_bonus = -0.000229
 
 [sources."kingsbane"]
 derived = 1.620000
-mult = 2.152262
-crit_bonus = +0.005482
+mult = 2.152556
+crit_bonus = +0.005329
 
 [sources."mutilate_mh"]
 derived = 1.620000
-mult = 1.220153
-crit_bonus = +0.000924
+mult = 1.220423
+crit_bonus = +0.000812
 
 [sources."mutilate_oh"]
 derived = 1.620000
-mult = 1.196909
-crit_bonus = -0.004464
+mult = 1.197202
+crit_bonus = -0.004415
 
 [sources."mutilated_flesh"]
 derived = 1.000000
-mult = 1.277495
+mult = 1.277671
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire"]
@@ -113,8 +113,8 @@ crit_bonus = +0.000000
 
 [sources."rupture"]
 derived = 5.551847
-mult = 2.415249
-crit_bonus = +0.001424
+mult = 2.414950
+crit_bonus = +0.001413
 
 [sources."searing_lightwood"]
 derived = 1.000000
@@ -123,8 +123,8 @@ crit_bonus = +0.000804
 
 [sources."shiv"]
 derived = 1.620000
-mult = 0.570124
-crit_bonus = +0.000203
+mult = 0.570135
+crit_bonus = +0.000416
 
 [buffs."finish_the_job".ability_pct]
 "ambush" = 10.0000

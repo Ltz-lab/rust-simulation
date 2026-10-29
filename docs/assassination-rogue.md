@@ -14,51 +14,51 @@ the gaps at the bottom are still open.
 | | DPS |
 |---|---:|
 | reference | 148,195 |
-| azsim (`-n 10000 --seed 1`, with calibration) | 148,449 |
-| difference | **+0.17%** |
+| azsim (`-n 10000 --seed 1`, with calibration) | 148,533 |
+| difference | **+0.23%** |
 
 Hit counts per fight (structurally the important part) are close for the
-rotation: 54.4 Envenoms (reference 54.3), 14.3 Garrotes (13.8), 11.2 Ruptures
-(10.4), 120.4 Mutilates (121.9), 5.3 Kingsbanes (5.2), 2.9 Deathmarks (2.9),
-1.9 Vanishes (1.9), 18.9 Shivs (18.8) and 7.1 Thistle Teas (6.1). Amplifying
-and Deadly Poison each proc 673 times against 657.
+rotation: 54.6 Envenoms (reference 54.3), 14.5 Garrotes (13.8), 11.2 Ruptures
+(10.4), 120.5 Mutilates (121.9), 5.3 Kingsbanes (5.2), 2.9 Deathmarks (2.9),
+1.9 Vanishes (1.9), 18.9 Shivs (18.8) and 7.0 Thistle Teas (6.1). Amplifying
+and Deadly Poison each proc 674 times against 657.
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| envenom | 29,489 | 29,465 | -0.1% | 54.3 | 54.4 |
-| rupture | 19,618 | 19,518 | -0.5% | 212.7 | 211.7 |
-| garrote | 15,341 | 15,284 | -0.4% | 214.3 | 213.6 |
+| envenom | 29,489 | 29,579 | +0.3% | 54.3 | 54.6 |
+| rupture | 19,618 | 19,519 | -0.5% | 212.7 | 211.7 |
+| garrote | 15,341 | 15,286 | -0.4% | 214.3 | 213.6 |
 | auto_attack_mh | 12,175 | 12,020 | -1.3% | 452.1 | 446.9 |
-| kingsbane | 9,897 | 9,893 | -0.0% | 41.4 | 41.4 |
-| deadly_poison_instant | 7,543 | 7,714 | +2.3% | 657.4 | 673.2 |
-| amplifying_poison | 7,538 | 7,713 | +2.3% | 657.6 | 673.5 |
+| kingsbane | 9,897 | 9,887 | -0.1% | 41.4 | 41.4 |
+| deadly_poison_instant | 7,543 | 7,720 | +2.3% | 657.4 | 673.7 |
+| amplifying_poison | 7,538 | 7,719 | +2.4% | 657.6 | 674.0 |
 | auto_attack_oh | 5,946 | 5,891 | -0.9% | 450.4 | 446.5 |
-| mutilate_mh | 5,811 | 5,738 | -1.3% | 121.9 | 120.4 |
-| hunt_them_down | 5,222 | 5,190 | -0.6% | 673.4 | 669.8 |
-| deathstalkers_mark | 5,116 | 5,184 | +1.3% | 53.0 | 53.7 |
-| implacable_strikes_nature | 3,992 | 4,005 | +0.3% | 26.1 | 26.4 |
-| internal_bleeding | 3,075 | 3,215 | +4.6% | 95.5 | 99.9 |
+| mutilate_mh | 5,811 | 5,742 | -1.2% | 121.9 | 120.5 |
+| hunt_them_down | 5,222 | 5,186 | -0.7% | 673.4 | 669.2 |
+| deathstalkers_mark | 5,116 | 5,199 | +1.6% | 53.0 | 53.9 |
+| implacable_strikes_nature | 3,992 | 4,004 | +0.3% | 26.1 | 26.4 |
+| internal_bleeding | 3,075 | 3,210 | +4.4% | 95.5 | 99.8 |
 | deadly_poison_dot | 3,173 | 3,141 | -1.0% | 215.2 | 213.2 |
-| mutilate_oh | 2,843 | 2,802 | -1.5% | 121.9 | 120.4 |
-| mutilated_flesh | 2,528 | 2,674 | +5.8% | 97.7 | 103.4 |
+| mutilate_oh | 2,843 | 2,804 | -1.4% | 121.9 | 120.5 |
+| mutilated_flesh | 2,528 | 2,675 | +5.8% | 97.7 | 103.5 |
 | breath_of_corruption | 2,550 | 2,555 | +0.2% | 20.2 | 20.3 |
-| implacable_strikes_physical | 1,959 | 1,970 | +0.6% | 26.1 | 26.4 |
+| implacable_strikes_physical | 1,959 | 1,971 | +0.6% | 26.1 | 26.4 |
 | searing_lightwood | 1,548 | 1,550 | +0.1% | 48.6 | 48.7 |
 | deathmark | 1,017 | 1,006 | -1.1% | 34.4 | 34.1 |
 | rune_of_unleashed_fire | 934 | 935 | +0.1% | 46.0 | 46.1 |
-| shiv | 305 | 305 | +0.1% | 18.8 | 18.9 |
+| shiv | 305 | 305 | +0.2% | 18.8 | 18.9 |
 | rune_of_unleashed_fire_lingering | 292 | 272 | -6.8% | 229.9 | 214.6 |
-| fan_of_knives | 270 | 288 | +6.8% | 5.7 | 6.1 |
-| ambush | 7 | 48 | +605.1% | 0.0 | 0.3 |
-| **total** | **148,195** | **148,449** | **+0.17%** | | |
+| fan_of_knives | 270 | 288 | +6.9% | 5.7 | 6.1 |
+| ambush | 7 | 0 | -100.0% | 0.0 | 0.0 |
+| **total** | **148,195** | **148,533** | **+0.23%** | | |
 
 ## Held-out stat probes
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +10.21% | +9.76% | -0.46 |
-| +500 haste | +7.94% | +8.65% | +0.71 |
-| +500 mastery | +9.94% | +9.66% | -0.29 |
+| +500 crit | +10.21% | +9.74% | -0.48 |
+| +500 haste | +7.94% | +8.61% | +0.66 |
+| +500 mastery | +9.94% | +9.66% | -0.28 |
 | +500 vers | +8.84% | +8.80% | -0.04 |
 | +200 agility | +6.34% | +6.50% | +0.15 |
 
@@ -124,9 +124,10 @@ gives the same order.
 - **Rupture is refreshed a little early.** 11.2 casts against 10.4 (the dot's
   tick count matches, 211.7 against 212.7), which carries Rupture's Internal
   Bleeding to 99.9 ticks against 95.5.
-- Ambush is used in ~30% of fights against 5% in the reference (0.03% DPS),
-  the Rune of Unleashed Fire lingering dot ticks 4.7 times per proc against
-  5.0, and the poison procs come out 2.3% high.
+- Ambush is no longer used (Vanish waits for Garrote to be ready), matching
+  the reference's 0.05 casts a fight. The Rune of Unleashed Fire lingering dot
+  ticks 4.7 times per proc against 5.0, and the poison procs come out 2.3%
+  high.
 
 Commands used:
 
