@@ -1,0 +1,567 @@
+# Marksmanship Hunter — Sentinel, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Hunter_Marksmanship.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py, incl.
+#          the Spell table's tooltip text for what a talent does
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (class_modules/sc_hunter.cpp) or its
+#          default APL (apl/hunter/mm.txt)
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, target debuffs) live in a
+# separate calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# Focus: 125 max, 5/s hasted [obs]. Steady Shot +25, Rapid Fire +3 a tick.
+# The rotation is SimC's Sentinel single-target APL: Explosive Shot on
+# cooldown (Unstable Trigger gives it a free second cast), Volley, Trueshot
+# when its condition holds, Moonlight Chakram late in Trueshot's slot,
+# Rapid Fire while Precise Shots is down or during Trueshot, Kill Shot and
+# Arcane Shot spend Precise Shots, Aimed Shot on cooldown, Steady Shot when
+# nothing else is left. Aimed Shot is cast instantly and for free while
+# Lock and Load is up.
+#
+# Sentinel: Trueshot applies Sentinel's Mark (+55% Aimed Shot damage,
+# +50% Aimed Shot crit, consumed by the next Aimed Shot, which calls down
+# Lunar Storm), Arcane Shot and Kill Shot can apply it too, and Rapid Fire
+# ticks bank 25% of their damage into Sanctified Armaments.
+
+name = "Marksmanship Hunter (Sentinel, core kit)"
+
+precombat = ["aimed_shot"]   # [obs] precast Aimed Shot lands at 0.4s
+
+[player]
+attack_power = 2652            # [obs] buffed stats (agility -> attack power)
+# The bow's share of ability damage: SimC adds weapon dps x 6 to attack power
+# for abilities (composite_total_attack_power) but not for Auto Shot. [db2]
+weapon_attack_power = 934.77   # 155.7956 dps (two_hand, ilvl 344, epic) x 6
+crit = 0.3672                  # [obs]
+haste = 0.1155                 # [obs]
+mastery = 0.1977               # [obs] Mastery: Sniper Training [db2 193468 #2/#4]
+versatility = 0.1463           # [obs]
+crit_multiplier = 2.23         # [obs] 2.0 base, x1.05 Take Aim, x(1+0.25xcrit) Penetrating Shots
+weapon = { min = 0, max = 0, speed = 3.0 }   # [db2] caustic repose greatbow
+
+[fight]
+duration = 300
+variance = 0.2
+
+[resources.focus]
+max = 125                      # [obs] "125.00" in SimC's log
+start = 125
+regen = 5                      # [simc] base_focus_regen_per_second
+regen_hasted = true            # [obs] 5.6/s at 11.55% haste
+
+[auto_attack]
+replace_with = "auto_shot"
+
+# Random gear procs, as Poisson rates [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.07
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 3.67
+
+[[procs]]
+ability = "void_eruption"
+per_minute = 4.97
+
+# Lock and Load: 10% chance on Auto Shot [db2 194595 #1]
+[[procs]]
+ability = "lock_and_load_proc"
+per_minute = 0
+on_hit = true
+chance = 0.10
+sources = ["auto_shot"]
+
+# Blood Fletching: every hit and every tick while the bleed is on the target
+# deals 0.45 AP [db2 1319011 #1, 1319015] (the ability's requires_buff gates it)
+[[procs]]
+ability = "blood_fletching"
+on_hit = true
+on_tick = true
+chance = 1.0
+
+# Bullseye: abilities that damage a target below 20% health stack +1% crit,
+# 30 stacks, 6s, one stack per 0.1s [db2 204089, 204090]
+[[procs]]
+ability = "bullseye_gain"
+on_hit = true
+chance = 1.0
+icd = 0.1
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "precise_shots"      # [db2 260242: 15s, 1 stack] +50% +10% Can't Miss, Won't Miss [db2 1253830 #1]
+duration = 15
+ability_pct = { arcane_shot = 60, kill_shot = 60 }
+
+[[buffs]]
+name = "bulletstorm"        # +20% Aimed Shot [db2 389020]; Accuracy By Volume makes it 2 stacks [db2 471428]
+duration = 15
+max_stacks = 2
+flat = true                 # the bonus doesn't scale with stacks, a stack is one free Aimed Shot
+ability_pct = { aimed_shot = 20 }
+
+[[buffs]]
+name = "lock_and_load"      # [db2 194594: 15s, 1 stack] Aimed Shot instant and free
+duration = 15
+
+[[buffs]]
+name = "trueshot"           # [db2 288613: 15s]
+duration = 15
+crit_pct = 10               # [db2 288613 #3]
+crit_damage_pct = 43        # [db2 288613 #4: +20% crit bonus, x2.23]
+cast_time_pct = { aimed_shot = 40 }           # Tensile Bowstring [db2 471366 #1]
+cooldown_rate_pct = { aimed_shot = 40, rapid_fire = 60 }   # [db2 288613 #2, #1]
+
+[[buffs]]
+name = "moonlight_chakram"  # [db2 1264946: 15s] Trueshot's slot becomes Moonlight Chakram
+duration = 15
+
+[[buffs]]
+name = "sentinels_mark"     # [db2 1253601: 16s] +20% +20% Avian Specialization [db2 466867] +15% Arcane Talons [db2 1253846 #1]
+duration = 16
+ability_pct = { aimed_shot = 55 }
+ability_crit_pct = { aimed_shot = 50 }   # [db2 1253846 #2] +50% crit chance vs the marked target
+
+[[buffs]]
+name = "rapid_fire_mark"    # [db2 1301098: 12s] Rapid Fire +55% until its next hit
+duration = 12
+ability_pct = { rapid_fire = 55 }
+
+[[buffs]]
+name = "stargazer"          # [db2 1253750: 10s] +2% crit bonus per stack on consuming Precise Shots
+duration = 10
+max_stacks = 100
+crit_damage_pct = 4.3
+
+[[buffs]]
+name = "unstable_trigger"   # [db2 1301778: 3s] Explosive Shot can be cast again, free
+duration = 3
+
+[[buffs]]
+name = "explosive_shot_cd"  # [simc] Explosive Shot's 30s cooldown, as a buff so Unstable Trigger and Salvo can cast off it
+duration = 30
+
+[[buffs]]
+name = "salvo_cast"         # [simc] marker: a Volley salvo Explosive Shot (no cooldown, no Unstable Trigger, no Tactical Reload)
+duration = 0.1
+
+[[buffs]]
+name = "blood_fletching"    # [db2 1319016: 4s] every hit bleeds for 0.45 AP
+duration = 4
+
+[[buffs]]
+name = "focus_fire"         # [db2 1277549: 15s] Rapid Fire +20% after a Surging Shots reset
+duration = 15
+ability_pct = { rapid_fire = 20 }
+
+[[buffs]]
+name = "execute_range"      # [db2 53351 #2: Kill Shot at 20%] marker for execute-only stacking
+duration = 0
+below_health = 20
+
+[[buffs]]
+name = "bullseye"           # [db2 204090: 6s, 30 stacks, +1% crit each]
+duration = 6
+max_stacks = 30
+crit_pct = 1
+
+# ---------------------------------------------------------------- helper abilities
+
+[[abilities]]
+name = "eagles_mark"        # a successful Sentinel's Mark application
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "sentinels_mark" },
+  { type = "buff", buff = "rapid_fire_mark" },
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 2.0 },   # Moon's Blessing [db2 1253825 #2]
+]
+
+[[abilities]]
+name = "lock_and_load_proc"  # Tactical Reload / Auto Shot / Stalk and Strike
+triggered_only = true
+gcd = 0
+on_cast = [
+  # Re-triggering while it's already up refreshes the buff but gives no charge back [simc]
+  { type = "if", if = "buff.lock_and_load.up", then = [{ type = "buff", buff = "lock_and_load" }], else = [
+    { type = "buff", buff = "lock_and_load" },
+    { type = "reset_cooldown", ability = "aimed_shot", keep_recharge = true },
+  ]},
+]
+
+[[abilities]]
+name = "surging_shots_proc"  # [db2 391559 #3: 15% on Aimed Shot] reset Rapid Fire, empower it
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "reset_cooldown", ability = "rapid_fire" },
+  { type = "buff", buff = "focus_fire" },
+]
+
+[[abilities]]
+name = "bullseye_gain"
+triggered_only = true
+gcd = 0
+requires_buff = "execute_range"
+on_cast = [{ type = "buff", buff = "bullseye" }]
+
+# ---------------------------------------------------------------- player-cast abilities
+
+[[abilities]]
+name = "auto_shot"
+spell_id = 75
+triggered_only = true
+gcd = 0
+# 720% weapon damage [db2 75 #1]: 7.2 x (weapon damage + 3.0s x AP/6), with the
+# weapon's share carried by weapon_attack_power (7.2 x 467.39 = 3.6 x 934.77)
+damage = { ap_coeff = 3.6, school = "physical", crit_bonus = 0.15, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # +15% crit, Obsidian Arrowhead [db2 471350 #1]
+
+[[abilities]]
+name = "steady_shot"
+spell_id = 56641
+cast_time = 1.7             # [db2]
+damage = { ap_coeff = 4.8, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 56641 #1]
+on_cast = [
+  { type = "gain", resource = "focus", amount = 25 },                      # [db2 77443 + 450379 #3]
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = 2.0 },     # [db2 56641 #2]
+]
+
+[[abilities]]
+name = "arcane_shot"
+spell_id = 185358
+requires_buff = "precise_shots"   # the APL only spends Precise Shots on it
+cost = { focus = 16 }             # 40 -60% Precise Shots [db2 260242 #3]
+damage = { ap_coeff = 3.758, school = "arcane", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 185358 #1]
+on_cast = [
+  { type = "consume", buff = "precise_shots" },
+  { type = "buff", buff = "stargazer" },
+  # Spotter's Mark: 30% base (20% Spotter's Mark + 10% Moon's Blessing [db2 1253825 #1]),
+  # 70% during Trueshot (Feathered Frenzy x2 [db2 470943] + Lunar Calling 10% [db2 1253852])
+  { type = "trigger", ability = "eagles_mark", chance_expr = "0.30+0.40*buff.trueshot.up" },
+]
+
+[[abilities]]
+name = "kill_shot"
+spell_id = 53351
+requires_buff = "precise_shots"
+cooldown = 10               # [db2]
+cost = { focus = 4 }        # 10 -60% Precise Shots
+damage = { ap_coeff = 10.5, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 53351 #1]
+on_cast = [
+  { type = "consume", buff = "precise_shots" },
+  { type = "buff", buff = "stargazer" },
+  { type = "trigger", ability = "eagles_mark", chance_expr = "0.30+0.40*buff.trueshot.up" },
+]
+
+[[abilities]]
+name = "aimed_shot"
+spell_id = 19434
+cast_time = 2.5             # [db2]
+cast_hasted = true
+charges = 2                 # [db2]
+cooldown = 15               # [db2] recharge
+cooldown_hasted = true      # [obs] 13.446s at 11.55% haste
+cost_expr = { focus = "35*(1-0.6*buff.trueshot.up)" }   # [db2] Tensile Bowstring -60% during Trueshot
+damage = { ap_coeff = 9.72, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 20, crit_only = true }] }   # [db2 19434 #1]; Blood Fletching raises the crit feed to 20%
+on_crit = [{ type = "buff", buff = "blood_fletching" }]   # [db2 1319016] applied after the hit, so it doesn't bleed for its own crit
+on_cast = [
+  { type = "buff", buff = "precise_shots" },
+  { type = "consume", buff = "bulletstorm" },
+  { type = "if", if = "buff.sentinels_mark.up", then = [
+    { type = "consume", buff = "sentinels_mark" },
+    { type = "trigger", ability = "lunar_storm", delay = 0.15 },
+    { type = "trigger", ability = "lunar_storm", delay = 0.3 },
+    { type = "trigger", ability = "lunar_storm", delay = 0.45 },
+    { type = "trigger", ability = "lunar_storm", delay = 0.6 },
+  ]},
+  { type = "trigger", ability = "surging_shots_proc", chance = 0.15 },   # [db2 391559 #3]
+]
+
+[[abilities]]
+name = "aimed_shot_locked"  # Lock and Load: instant and free, still costs a charge
+requires_buff = "lock_and_load"
+free_with = "lock_and_load"
+gcd = 1.5
+on_cast = [{ type = "trigger", ability = "aimed_shot" }]
+
+[[abilities]]
+name = "rapid_fire"
+spell_id = 257044
+gcd = 1.5
+cooldown = 16               # [db2]
+channel = { ticks = 10, interrupt_auto_attack = true }   # [db2 257044 #1: 7 shots + 3 Quick Draw [db2 459794 #4]]; [obs] a swing that lands inside the channel does nothing
+on_cast = [
+  { type = "buff", buff = "bulletstorm", stacks = 2 },   # [db2 389019] with Accuracy By Volume
+  { type = "buff", buff = "precise_shots" },             # No Scope [db2 473385]
+]
+[abilities.dot]
+name = "rapid_fire"
+ap_coeff = 1.05             # [db2 257045 #1]
+tick_time = 0.2             # [obs] 0.181s at 21.6% haste, 10 ticks
+duration = 2.0
+hasted = true
+tick_on_apply = true
+whole_ticks = true
+school = "physical"
+mastery = true              # [db2 193468 #4]
+feed = [{ dot = "sanctified_armaments", pct = 25 }]   # [db2 1253831 #1]
+on_tick = [
+  { type = "gain", resource = "focus", amount = 3 },               # [db2 263585 #1]
+  { type = "consume", buff = "rapid_fire_mark" },                  # the mark pays out on the first hit only
+]
+
+[[abilities]]
+name = "explosive_shot"
+spell_id = 212431
+gcd = 1.5
+cost_expr = { focus = "20*(1-buff.unstable_trigger.up)" }   # free on the Unstable Trigger recast
+on_cast = [
+  { type = "if", if = "buff.salvo_cast.up", then = [{ type = "consume", buff = "salvo_cast" }], else = [
+    { type = "if", if = "buff.unstable_trigger.up", then = [{ type = "consume", buff = "unstable_trigger" }], else = [
+      { type = "buff", buff = "explosive_shot_cd" },
+      { type = "buff", buff = "unstable_trigger" },   # [db2 473520] always
+    ]},
+  ]},
+]
+[abilities.dot]
+name = "explosive_shot"
+ap_coeff = 3.07             # [db2 212431 #1]
+tick_time = 1.0
+duration = 4.0              # [db2 3s] +1s Precision Detonation [db2 471369]
+hasted = false
+whole_ticks = true          # [obs] no shortened final tick: refresh pairs give 6 ticks
+school = "fire"
+mastery = true              # [db2 193468 #4]
+feed = [{ dot = "master_marksman", pct = 10, crit_only = true }]
+
+[[abilities]]
+name = "salvo_explosive_shot"   # Volley applies Explosive Shot to its first target [db2 400456]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "salvo_cast" },
+  { type = "trigger", ability = "explosive_shot" },
+]
+
+[[abilities]]
+name = "volley"
+spell_id = 260243
+gcd = 1.5
+cooldown = 45               # [db2]
+on_cast = [{ type = "trigger", ability = "salvo_explosive_shot", delay = 0.5 }]   # first tick
+[abilities.dot]
+name = "volley"
+ap_coeff = 1.85             # [db2 260247 #1]
+tick_time = 0.5
+duration = 6.0
+hasted = false
+whole_ticks = true          # 12 ticks, the first 0.5s in [obs]
+school = "physical"
+mastery = true              # [db2 193468 #2/#4]
+feed = [{ dot = "master_marksman", pct = 10, crit_only = true }]
+
+[[abilities]]
+name = "trueshot"
+spell_id = 288613
+gcd = 0                     # [obs] cast in the same instant as Rapid Fire
+cooldown = 120              # [db2]
+on_cast = [
+  { type = "buff", buff = "trueshot" },
+  { type = "buff", buff = "moonlight_chakram" },
+  { type = "trigger", ability = "eagles_mark" },   # Feathered Frenzy: Trueshot applies the mark
+]
+
+[[abilities]]
+name = "moonlight_chakram"
+spell_id = 1264949
+requires_buff = "moonlight_chakram"
+gcd = 1.5
+on_cast = [
+  { type = "consume", buff = "moonlight_chakram", all = true },
+  { type = "trigger", ability = "moonlight_chakram_1" },
+  { type = "trigger", ability = "moonlight_chakram_2", delay = 0.64 },   # 640ms between bounces [simc]
+  { type = "trigger", ability = "moonlight_chakram_3", delay = 1.28 },
+  { type = "trigger", ability = "moonlight_chakram_4", delay = 1.92 },
+  { type = "trigger", ability = "moonlight_chakram_5", delay = 2.56 },
+  { type = "trigger", ability = "moonlight_chakram_6", delay = 3.2 },
+  { type = "trigger", ability = "moonlight_chakram_7", delay = 3.84 },
+  { type = "trigger", ability = "lock_and_load_proc" },   # Stalk and Strike [db2 1266069]
+]
+
+# Moonlight Chakram bounces 7 times [simc: effectN(2)=6, <=] and each bounce
+# deals 25% more [db2 1264903 / 1264949 #3]: 2.844 AP x 1.25^k.
+[[abilities]]
+name = "moonlight_chakram_1"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 1.25, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }   # [db2 1266081 #1]
+
+[[abilities]]
+name = "moonlight_chakram_2"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 1.5625, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "moonlight_chakram_3"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 1.9531, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "moonlight_chakram_4"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 2.4414, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "moonlight_chakram_5"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 3.0518, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "moonlight_chakram_6"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 3.8147, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "moonlight_chakram_7"
+source = "moonlight_chakram_damage"
+triggered_only = true
+damage = { ap_coeff = 2.844, mult = 4.7684, school = "physical", mastery = true, feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "lunar_storm"        # [db2 1253733 #1] 4 hits, 150ms apart [simc]
+spell_id = 1253733
+triggered_only = true
+damage = { ap_coeff = 2.0, school = "arcane", feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+[[abilities]]
+name = "blood_fletching"    # [db2 1319015 #1]
+spell_id = 1319015
+triggered_only = true
+requires_buff = "blood_fletching"
+no_procs = true
+damage = { ap_coeff = 0.45, school = "physical", feed = [{ dot = "master_marksman", pct = 10, crit_only = true }] }
+
+# ---------------------------------------------------------------- rolling bleeds
+
+[[abilities]]
+name = "master_marksman_holder"
+triggered_only = true
+[abilities.dot]
+name = "master_marksman"    # [db2 269576: 6s, 2s ticks] 10% of every crit (20% of Aimed Shot crits)
+banked = true
+tick_time = 2.0
+duration = 6.0
+hasted = false
+school = "physical"
+
+[[abilities]]
+name = "sanctified_armaments_holder"
+triggered_only = true
+[abilities.dot]
+name = "sanctified_armaments"   # [db2 1253836: 6s, 1s ticks] 25% of Rapid Fire's ticks
+banked = true
+tick_time = 1.0
+duration = 6.0
+hasted = false
+school = "arcane"
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { ap_coeff = 1.86, school = "fire", crit_bonus = -2.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+ap_coeff = 0.116
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+
+[[abilities]]
+name = "acidbrood_scourge"
+spell_id = 1310088
+triggered_only = true
+damage = { ap_coeff = 2.33, school = "nature" }   # gear; scale from calibration
+
+[[abilities]]
+name = "void_eruption"
+spell_id = 1310209
+triggered_only = true
+damage = { ap_coeff = 1.747, school = "shadow" }   # gear; scale from calibration
+
+# ---------------------------------------------------------------- rotation
+# SimC's Sentinel single-target APL (actions.sentst), paraphrased.
+# trueshot_ready = (fight_remains>25 | bullseye at max stacks)
+#                & (explosive shot 15s from ready) | fight_remains<25 | time<10
+
+[[rotation]]
+action = "explosive_shot"
+if = "buff.unstable_trigger.up&!buff.lock_and_load.up"   # the free second cast, off the cooldown
+
+[[rotation]]
+action = "explosive_shot"
+if = "!buff.explosive_shot_cd.up&!buff.lock_and_load.up"
+
+[[rotation]]
+action = "volley"
+
+[[rotation]]
+action = "trueshot"
+if = "((fight_remains>25|buff.bullseye.stack>=30)&(buff.explosive_shot_cd.remains>=15|!buff.explosive_shot_cd.up))|fight_remains<25|time<10"
+
+[[rotation]]
+action = "moonlight_chakram"
+if = "buff.moonlight_chakram.remains<5"
+
+[[rotation]]
+action = "aimed_shot_locked"
+if = "buff.trueshot.up&!buff.precise_shots.up&cooldown.aimed_shot.charges>0"
+
+[[rotation]]
+action = "aimed_shot"
+if = "buff.trueshot.up&!buff.precise_shots.up"
+
+[[rotation]]
+action = "rapid_fire"
+if = "!buff.precise_shots.up|buff.trueshot.up"
+
+[[rotation]]
+action = "kill_shot"
+if = "buff.precise_shots.up&target.health.pct<=20"
+
+[[rotation]]
+action = "arcane_shot"
+if = "buff.precise_shots.up"
+
+[[rotation]]
+action = "aimed_shot_locked"
+if = "cooldown.aimed_shot.charges>0"
+
+[[rotation]]
+action = "aimed_shot"
+
+[[rotation]]
+action = "moonlight_chakram"
+
+[[rotation]]
+action = "steady_shot"
