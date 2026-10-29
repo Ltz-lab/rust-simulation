@@ -16,7 +16,7 @@
 # target and pays focus per tick; Cobra Shot (35 focus) dumps focus and takes
 # a second off Kill Command. Bestial Wrath every 30s buffs both hunter and
 # pets, applies Bloodshed from every pet and triggers the Pack Leader cycle:
-# every ~19s the next Kill Command empowers Wyvern, Boar or Bear in turn.
+# every ~12s the next Kill Command empowers Wyvern, Boar or Bear in turn.
 # Kill Command also has a chance to summon a Dire Beast, and every eighth
 # Dire Beast or Bear summons Fenryr or Hati.
 
@@ -420,7 +420,7 @@ duration = 0
 max_active = 1
 owner_coeff = { ap_from_ap = 0.6 }   # [simc stable_pet_t]
 energy = 100
-energy_regen = 13.8          # [obs] 8.75 x 1.25 x 1.26 haste
+energy_regen = 13.8          # [simc] 1.25 x owner focus regen, raid haste
 melee = { ability = "melee", speed = 1.4286 }   # [simc] 2s / Frenzy 1.4
 
 [[pets.abilities]]
