@@ -184,14 +184,18 @@ ran at medium effort.
 | 5. Calibrate, 6 rounds | Sonnet | 23.6 min | 78k–226k per round, ~1.0M total |
 | 5a. Triage, 5 runs | Haiku | 1.7 min | ~61k each, ~307k total |
 | 6. Escalation: missing Insanity | Opus | 24.2 min | 373k |
-| 7. Wrap-up | Haiku | WRAPUP_TIME | WRAPUP_TOKENS |
+| 7. Wrap-up: gear, registration, docs, tests | Haiku | 5.8 min | 148k |
+| 7b. Escalation: merge with main's `rolling` DoTs, landing, gear crit fix | Opus | 8.1 min | 149k |
 
 Token counts are what the harness reported for each subagent when it
 handed back. They show context size, not billed tokens, so cached
-re-reads are not separated out. Per model, excluding wrap-up:
-- Haiku: about 7 minutes and 0.46M tokens.
+re-reads are not separated out. Per model:
+- Haiku: about 13 minutes and 0.61M tokens.
 - Sonnet: about 40 minutes and 1.3M tokens.
-- Opus: about 44 minutes and 0.83M tokens, plus the coordinator's own small context.
+- Opus: about 52 minutes and 0.98M tokens, plus the coordinator's own small context.
+
+End to end it took 106 minutes of wall time, with the stages running one
+after another.
 
 The calibration loop ran round by round, starting at -2.23% DPS:
 
@@ -205,7 +209,8 @@ The calibration loop ran round by round, starting at -2.23% DPS:
 | 6 | -1.40% | Void Torrent's 4th Insanity tick restored |
 | 7 | -0.60% | Opus escalation |
 
-There was one escalation, at round 6 rather than the planned 8. The
+There were two escalations. The first came at round 6 rather than the
+planned 8. The
 remaining gap was a single Insanity shortfall: SW:M was cast 42.3 times
 against 46.5. Both Sonnet and the brief had missed it, and no single
 source was over the 3%/3% threshold. Opus found it: Surge of Insanity
@@ -214,6 +219,12 @@ Sonnet's three fitted fudges with real mechanics:
 - The Screams tick rate was fitted at 63%/85%. Opus replaced it with
   80% on both DoTs, plus a spec aura that weakens Quickened Pulse.
 - The 3% GCD lag was replaced by SimC's channel lag and queue lag.
+
+The second escalation came at landing. The Haiku wrap-up stopped, as
+instructed, on a rebase conflict: Arms had added `refresh = "rolling"` in
+parallel with our `rollover`. Opus kept main's implementation and added
+`rolling_pandemic` and `apply_dot` strength on top. It also fixed a 5%
+base-crit omission in `[gear]` that Haiku had flagged but not fixed.
 
 What we'd change:
 - **Brief.** The brief was the highest-leverage stage. Its one missing
