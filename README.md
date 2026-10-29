@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Twenty-three specs so far, all Midnight Season 2, compared against SimC's sample
+Twenty-four specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -49,7 +49,7 @@ profiles (core kit, 300s Patchwerk):
 | [Unholy Death Knight (Rider of the Apocalypse)](docs/unholy.md) | 148,582 | 149,950 | +0.92% | haste -1.29 pts | — |
 | [Windwalker Monk (Shado-Pan)](docs/windwalker-shadopan.md) | 169,265 | 167,124 | -1.26% | crit -0.70 pts | — |
 | [Fury Warrior (Slayer)](docs/fury-warrior.md) | 167,734 | 161,427 | -3.76% (known gap) | crit +1.19 pts | ~8× |
-| [Outlaw Rogue (Trickster)](docs/outlaw-rogue.md) | 162,375 | 158,651 | -2.29% | haste +1.45 pts | — |
+| [Outlaw Rogue (Trickster)](docs/outlaw-rogue.md) | 162,375 | 158,651 | -2.29% (known gap) | haste +1.45 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -90,7 +90,8 @@ cargo build --release
   [Unholy Death Knight](docs/unholy.md),
   [Windwalker Monk](docs/windwalker-shadopan.md),
   [Fury Warrior](docs/fury-warrior.md),
-  [Enhancement Shaman](docs/enhancement-shaman.md) (results, validation, known gaps)
+  [Enhancement Shaman](docs/enhancement-shaman.md),
+  [Outlaw Rogue](docs/outlaw-rogue.md) (results, validation, known gaps)
   [Unholy Death Knight](docs/unholy.md)
   [Outlaw Rogue](docs/outlaw-rogue.md)
   (results, validation, known gaps)

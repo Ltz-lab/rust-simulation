@@ -70,6 +70,9 @@ Held out from calibration (`tools/validate_stats.py`, same calibration):
 
 ## Known gaps
 
+- **Total DPS is 2.3% low** (158,651 against 162,375). This is a known
+  issue, landed as is: almost all of it is the Killing Spree / Adrenaline Rush
+  cadence below.
 - Killing Spree and Adrenaline Rush cadence (see above): the reference's
   Restless Blades chain is ~10% stronger. SimC rolls Killing Spree with
   `total_cp` including Supercharger; the spec does the same.
