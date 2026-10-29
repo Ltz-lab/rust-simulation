@@ -23,6 +23,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../calibration/elemental_farseer.toml"),
     ),
     (
+        "fury_slayer",
+        include_str!("../specs/fury_slayer.toml"),
+        include_str!("../calibration/fury_slayer.toml"),
+    ),
+    (
         "affliction_hellcaller",
         include_str!("../specs/affliction_hellcaller.toml"),
         include_str!("../calibration/affliction_hellcaller.toml"),

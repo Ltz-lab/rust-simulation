@@ -47,6 +47,7 @@ profiles (core kit, 300s Patchwerk):
 | [Marksmanship Hunter (Sentinel)](docs/marksmanship-hunter.md) | 155,473 | 156,903 | +0.92% | crit -1.89 pts | — |
 | [Unholy Death Knight (Rider of the Apocalypse)](docs/unholy.md) | 148,582 | 149,950 | +0.92% | haste -1.29 pts | — |
 | [Windwalker Monk (Shado-Pan)](docs/windwalker-shadopan.md) | 169,265 | 167,124 | -1.26% | crit -0.70 pts | — |
+| [Fury Warrior (Slayer)](docs/fury-warrior.md) | 167,734 | 179,423 | +6.97% | crit +1.39 pts | ~8× |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
