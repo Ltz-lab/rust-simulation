@@ -157,13 +157,13 @@ name = "cat_melee_skyfury" # [simc 462854] Skyfury repeats the swing; the repeat
 triggered_only = true
 gcd = 0
 source = "cat_melee"
-damage = { ap_coeff = 0.166667, school = "physical" }
+damage = { ap_coeff = 0.166667, school = "physical" }   # [simc] the same 1/6 weapon power coefficient
 
 [[abilities]]
 name = "shadowmeld"        # [db2 58984] Night Elf racial; the APL re-stealths to re-Rake
 spell_id = 58984
-gcd = 1.0
-cooldown = 120
+gcd = 1.0                  # [db2]
+cooldown = 120             # [db2 58984] two minutes
 on_cast = [{ type = "buff", buff = "prowl" }]
 
 [[abilities]]
@@ -436,7 +436,7 @@ on_tick = [{ type = "choose", choices = [
   { if = "dot.lunar_inspiration.up", effects = [{ type = "trigger", ability = "wrath_convoke" }] },
   { if = "!dot.lunar_inspiration.up", effects = [{ type = "trigger", ability = "lunar_inspiration_convoke" }] },
   { if = "!dot.lunar_inspiration.up", effects = [{ type = "trigger", ability = "lunar_inspiration_convoke" }] },
-  # 1/32 Feral Frenzy, the exceptional tick (0.4 x 1/32 = 0.0125 per tick)
+  # 1/32 Feral Frenzy, the exceptional tick [obs] 0.20 per convoke = 0.4 x 1/32
   { effects = [{ type = "trigger", ability = "feral_frenzy_convoke", chance = 0.4 }] },
 ] }]
 
