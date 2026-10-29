@@ -123,6 +123,7 @@ name = "imp"
 duration = 40               # 0 = until dismissed
 max_active = 0              # cap; a new summon replaces the one closest to expiring
 energy = 100                # optional; abilities' cost = { energy = .. } spend it
+energy_regen = 10           # optional, per second, capped at energy; default 0
 owner_coeff = { sp_from_sp = 0.6 }   # also sp_from_ap, ap_from_ap (default 1), ap_from_sp
 inherit_haste = true        # default; false: unhasted
 inherit_crit = true         # default; false: uses `crit` instead
@@ -136,6 +137,7 @@ name = "firebolt"
 cast_time = 2.0
 gcd = 0
 cost = { energy = 20 }
+cooldown_on_start = true    # optional: start pet cooldown at cast start
 damage = { sp_coeff = 0.9, school = "fire", mastery = true }
 
 [[pets.rotation]]           # optional; default: every ability in order,
@@ -159,15 +161,20 @@ if = "self.energy>=20"
   rotation: off its own cooldown, affordable, `requires_buff` up, condition
   true. A cast takes its (hasted) cast time, then the instance waits out the
   ability's GCD (hasted, at least 0.75s; `gcd = 0` for back-to-back casts).
-  An instance whose energy can't pay for any action leaves right away and
-  runs `on_expire`. A rotation ability needs a GCD, cast time, cooldown or
+  Without regeneration, an instance whose energy can't pay for any action leaves
+  right away and runs `on_expire`; with regeneration it waits for energy.
+  `melee.pause_while_casting = true` restarts the swing timer after a cast
+  that overlaps a scheduled swing. A rotation ability needs a GCD, cast time, cooldown or
   cost, so the loop always advances.
 - **Effects:**
   - `{ type = "summon", pet = "imp", count = 3, duration = 20 }` (`duration`
-    optional),
+    optional). `energy` and `damage_mult` optionally override starting energy
+    and direct pet damage for each summoned instance,
   - `{ type = "dismiss", pet = "imp", count = 6, each = [...] }`: up to
     `count` (0 = all) instances leave, oldest first; `each` runs once per
-    instance, before it goes, and its `on_expire` doesn't,
+    instance, before it goes, and its `on_expire` doesn't. `pool = ["hound"]`
+    samples up to `count` active instances without replacement across the named
+    pet and pool; only instances of the named pet are dismissed,
   - `{ type = "extend_pet", pet = "hound", seconds = 15 }`: every active
     instance,
   - `buff` takes `set = "<expression>"` to set the stack count instead of
@@ -226,3 +233,7 @@ the normal pet event lifetime rules.
 DoTs may specify `duration_expr` and `tick_time_expr` to compute their base
 duration on application and base tick interval when scheduling each tick.
 Haste and the existing refresh rules apply to those values.
+
+For shared buffs, `refresh_duration = false` preserves the existing expiration
+when stacks are added or set. `extend_buff` accepts negative seconds to shorten
+an active timer, expiring it no earlier than the current time.

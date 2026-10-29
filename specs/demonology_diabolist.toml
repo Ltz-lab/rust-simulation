@@ -18,13 +18,13 @@ crit_multiplier = 2.0 # [simc] pets with Demonic Brutality add 0.6 individually.
 
 [gear]
 primary = "intellect"
-base_primary = 619          # [obs] initial level-90 Orc estimate; checked against SimC below.
+base_primary = 622          # [obs] level-90 Orc, checked against SimC.
 primary_mult = 1.135575     # [simc] 1.05 armor x 1.05 Fel Intellect x 1.03 raid intellect.
 spell_power_per_primary = 1.0 # [simc]
 crit_bonus = 0.07           # [obs] snapshot less rating contribution (checked with --gear-stats).
 haste_mult = 1.02           # [simc] racial/passive; checked against snapshot.
 mastery_points = 15         # [obs] base 13 + 2 Skyfury.
-mastery_coeff = 1.5         # [db2] Master Demonologist 77219.
+mastery_coeff = 1.45        # [obs] +500 mastery probe, including spec modifiers.
 versatility_bonus = 0.03    # [simc] Mark of the Wild.
 spec_id = 266              # [db2] ChrSpecialization.
 use_items = { buff = "pet.demonic_tyrant.active|fight_remains<25", other = "1" }
@@ -36,7 +36,7 @@ effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs.
 spell_power = 70
 crit = 0.0425761
 haste = 0.02164
-mastery = 0.065687
+mastery = 0.063507
 versatility = 0.0056066
 
 [gear.kit]

@@ -47,6 +47,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/subtlety_deathstalker.toml"),
         include_str!("../calibration/subtlety_deathstalker.toml"),
     ),
+    (
+        "demonology_diabolist",
+        include_str!("../specs/demonology_diabolist.toml"),
+        include_str!("../calibration/demonology_diabolist.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.

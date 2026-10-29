@@ -2801,6 +2801,33 @@ action = "wait"
     }
 
     #[test]
+    fn regenerating_pet_waits_for_energy_and_stays_alive() {
+        let text = BASE.replace("energy = 100\nowner_coeff", "energy = 20\nenergy_regen = 5\nowner_coeff");
+        let c = compile(&text);
+        let mut st = state(&c);
+        cast(&mut st, "summon_imp");
+        advance(&mut st, 10.1);
+        assert_eq!(st.out.casts[src(&c, "imp_firebolt")], 3);
+        assert_eq!(active(&st, "imp"), 1.0);
+        assert_eq!(st.out.casts[src(&c, "imp_fades")], 0);
+    }
+
+    #[test]
+    fn summon_overrides_are_per_instance() {
+        let text = BASE.replace(
+            "on_cast = [{ type = \"summon\", pet = \"imp\" }]",
+            "on_cast = [{ type = \"summon\", pet = \"imp\", energy = 20, damage_mult = 2 }]",
+        );
+        let c = compile(&text);
+        let mut st = state(&c);
+        cast(&mut st, "summon_imp");
+        advance(&mut st, 2.1);
+        assert_eq!(st.out.casts[src(&c, "imp_firebolt")], 1);
+        assert_eq!(st.out.damage[src(&c, "imp_firebolt")], 1000.0);
+        assert_eq!(active(&st, "imp"), 0.0);
+    }
+
+    #[test]
     fn concurrent_instances_keep_their_own_timers() {
         let c = compile(BASE);
         let mut st = state(&c);
