@@ -65,6 +65,7 @@ enum CEffect {
     ExtendDot { dot: usize, secs: f64 },
     DotStack { dot: usize, add: i32, set: Option<Expr>, min: u32 },
     CancelDot { dot: usize },
+    ApplyDot { dot: usize, strength: f64 },
     ExtendBuff { buff: usize, secs: f64 },
     If { cond: Expr, then: Vec<CEffect>, otherwise: Vec<CEffect> },
     Summon { pet: usize, count: u32, dur: Option<f64>, energy: Option<f64>, damage_mult: f64 },
@@ -162,6 +163,8 @@ struct CDot {
     on_expire: Vec<CEffect>,
     buff_mods: Vec<(usize, f64)>,
     crit_mods: Vec<(usize, f64)>,
+    /// (buff, fraction per stack) tick rate increases (`tick_rate_pct`).
+    rate_mods: Vec<(usize, f64)>,
     physical: bool,
     src: usize,
     pet: Option<usize>,
@@ -331,6 +334,7 @@ impl<'a> Resolver for Names<'a> {
                     "charges" => Var::CdCharges(i),
                     "charges_fractional" => Var::CdChargesFrac(i),
                     "duration" => Var::CdDuration(i),
+                    "full_recharge_time" => Var::CdFullRecharge(i),
                     _ => return Err(format!("unknown cooldown field '{f}'")),
                 }
             }
@@ -441,6 +445,7 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             min: *min,
         },
         Effect::CancelDot { dot: d } => CEffect::CancelDot { dot: n.dot(d)? },
+        Effect::ApplyDot { dot: d, strength } => CEffect::ApplyDot { dot: n.dot(d)?, strength: *strength },
         Effect::ExtendBuff { buff: b, seconds } => {
             CEffect::ExtendBuff { buff: get(n.buff, "buff", b)?, secs: *seconds }
         }
@@ -526,6 +531,12 @@ impl Compiled {
                 if !["pandemic", "extend", "reset", "rolling"].contains(&d.refresh.as_str()) {
                     return Err(format!("dot '{}': refresh must be pandemic, extend, reset or rolling", d.name));
                 }
+                if d.refresh == "rolling" && (d.overlap || d.banked) {
+                    return Err(format!("dot '{}': rolling refresh can't be overlap or banked", d.name));
+                }
+                if d.rolling_pandemic && d.refresh != "rolling" {
+                    return Err(format!("dot '{}': rolling_pandemic needs refresh = \"rolling\"", d.name));
+                }
                 let n = dot.len();
                 dot.insert(d.name.clone(), n);
             }
@@ -593,6 +604,7 @@ impl Compiled {
                             buff_mods(&spec.buffs, &d.name, &d.name, &d.school, pet_name)
                         },
                         crit_mods: crit_mods(&spec.buffs, &d.name, &d.name),
+                        rate_mods: per_buff(&spec.buffs, |b| b.tick_rate_pct.get(&d.name).copied().unwrap_or(0.0)),
                         physical: d.school == "physical",
                         src: src_names.iter().position(|x| *x == d.name).unwrap(),
                         pet: pi,
@@ -798,6 +810,13 @@ impl Compiled {
                 }
             }
         }
+        for b in &spec.buffs {
+            for k in b.tick_rate_pct.keys() {
+                if !dot.contains_key(k) {
+                    return Err(format!("buff '{}': tick_rate_pct names unknown dot '{k}'", b.name));
+                }
+            }
+        }
         for d in &dots {
             if d.def.banked && d.def.tick_on_apply {
                 return Err(format!("dot '{}': banked dots can't tick on apply", d.def.name));
@@ -812,7 +831,7 @@ impl Compiled {
                 (below, above, _) => BuffKind::Health(above.unwrap_or(-1.0), below.unwrap_or(1e9)),
             })
             .collect();
-        let on_expire = spec.buffs.iter().map(|b| effects(&b.on_expire, &format!("{}/on_expire", b.name))).collect::<Result<_, _>>()?;
+        let on_expire: Vec<Vec<CEffect>> = spec.buffs.iter().map(|b| effects(&b.on_expire, &format!("{}/on_expire", b.name))).collect::<Result<_, _>>()?;
         let rate_users = (0..spec.buffs.len())
             .map(|b| {
                 abilities
@@ -882,6 +901,40 @@ impl Compiled {
             });
         }
 
+        fn apply_dots(v: &[CEffect], out: &mut Vec<(usize, f64)>) {
+            for e in v {
+                match e {
+                    CEffect::ApplyDot { dot, strength } => out.push((*dot, *strength)),
+                    CEffect::If { then, otherwise, .. } => { apply_dots(then, out); apply_dots(otherwise, out); }
+                    CEffect::Choose { choices, .. } => for (_, c) in choices { apply_dots(c, out); },
+                    CEffect::Dismiss { each, .. } | CEffect::ForEachPet { each, .. } => apply_dots(each, out),
+                    _ => {}
+                }
+            }
+        }
+        let mut applied = Vec::new();
+        for a in &abilities {
+            for v in [&a.on_start, &a.on_begin, &a.on_cast, &a.on_crit, &a.on_noncrit, &a.on_free, &a.channel_finish] {
+                apply_dots(v, &mut applied);
+            }
+        }
+        for d in &dots {
+            for v in [&d.on_tick, &d.on_crit, &d.on_expire] {
+                apply_dots(v, &mut applied);
+            }
+        }
+        for v in on_expire.iter().chain(pets.iter().flat_map(|p| [&p.on_summon, &p.on_expire])).chain([&auto_on_hit]) {
+            apply_dots(v, &mut applied);
+        }
+        for (di, strength) in applied {
+            let owner = abilities.iter().find(|a| a.dot == Some(di)).unwrap();
+            if owner.def.channel.is_some() || owner.def.snapshot_channel {
+                return Err(format!("apply_dot: '{}' is a channel's dot", dots[di].def.name));
+            }
+            if strength != 1.0 && dots[di].def.refresh != "rolling" {
+                return Err(format!("apply_dot: strength needs refresh = \"rolling\" on dot '{}'", dots[di].def.name));
+            }
+        }
         let roll_names = rolls.into_inner();
         let mut stream_names = vec!["fight_length".to_string()];
         stream_names.extend(src_names.iter().map(|n| format!("crit/{n}")));
@@ -1072,6 +1125,8 @@ struct State<'a> {
     /// Independent stack timers (overlapping DoTs), and channel tick snapshots.
     dot_stacks_exp: Vec<Vec<f64>>,
     dot_channel_tick: Vec<f64>,
+    /// Interval the pending tick of a DoT with tick-rate buffs was scheduled with.
+    dot_sched: Vec<f64>,
     resolving_cast: bool,
     /// Damage waiting to be dealt by banked DoTs.
     bank: Vec<f64>,
@@ -1134,6 +1189,18 @@ impl<'a> Env for State<'a> {
                 }
             }
             Var::CdDuration(i) => self.cd_length(i),
+            Var::CdFullRecharge(i) => {
+                let n = self.charges_now(i);
+                let max = self.c.abilities[i].def.charges;
+                if n >= max || self.recharge_at[i] == INF {
+                    0.0
+                } else {
+                    // the charge in progress, then whole recharges at the current length
+                    let mut t = self.recharge_at[i];
+                    for _ in self.charges[i]..n { t += self.cd_len[i]; }
+                    (t - self.now).max(0.0) + (max - n - 1) as f64 * self.cd_len[i]
+                }
+            }
             Var::BuffUp(i) => b(self.buff_up(i)),
             Var::BuffRemains(i) => if self.buff_up(i) { (self.buff_exp[i] - self.now).max(0.0) } else { 0.0 },
             Var::BuffStack(i) => self.stacks(i),
@@ -1196,6 +1263,7 @@ impl<'a> State<'a> {
             dot_roll: vec![1.0; c.dots.len()],
             dot_stacks_exp: vec![Vec::new(); c.dots.len()],
             dot_channel_tick: vec![0.0; c.dots.len()],
+            dot_sched: vec![0.0; c.dots.len()],
             resolving_cast: false,
             bank: vec![0.0; c.dots.len()],
             hp_last: vec![0.0; c.hit_procs.len()],
@@ -1721,6 +1789,7 @@ impl<'a> State<'a> {
                 }
             }
             CEffect::CancelDot { dot } => self.cancel_dot(dot),
+            CEffect::ApplyDot { dot, strength } => self.apply_dot(dot, strength),
             CEffect::ExtendBuff { buff, secs } => {
                 if !self.buff_up(buff) {
                     return;
@@ -1911,7 +1980,8 @@ impl<'a> State<'a> {
     fn tick_len(&self, di: usize) -> f64 {
         let d = &self.c.dots[di];
         let base = d.tick_time.as_ref().map_or(d.def.tick_time, |e| e.eval(self).max(0.001));
-        if d.def.hasted { base / self.haste_mult() } else { base }
+        let t = if d.def.hasted { base / self.haste_mult() } else { base };
+        if d.rate_mods.is_empty() { t } else { t / (1.0 + self.buff_sum(&d.rate_mods)).max(0.01) }
     }
 
     fn start_ticking(&mut self, di: usize) {
@@ -1919,6 +1989,7 @@ impl<'a> State<'a> {
         self.dot_last[di] = self.now;
         let g = self.dot_gen[di];
         let t = self.dot_tick_len(di);
+        self.dot_sched[di] = t;
         self.push(self.now + t, Ev::DotTick(di as u32, g));
     }
 
@@ -1927,7 +1998,9 @@ impl<'a> State<'a> {
         else { self.tick_len(di) }
     }
 
-    fn apply_dot(&mut self, di: usize) {
+    /// Apply a DoT at `strength` (1 = a normal application; other values
+    /// only for `rolling` DoTs).
+    fn apply_dot(&mut self, di: usize, strength: f64) {
         let c = self.c;
         let def = &c.dots[di].def;
         let duration = c.dots[di].duration.as_ref().map_or(def.duration, |e| e.eval(self).max(0.0));
@@ -1952,15 +2025,26 @@ impl<'a> State<'a> {
             return;
         }
         if was && def.refresh == "rolling" {
-            // SimC's rolling periodic: keep the tick cadence, run a full
-            // duration from the next tick, and roll the ticks left into the
-            // new ones' damage
+            // SimC's rolling periodic: keep the tick cadence and roll the
+            // ticks left into the new ones' damage. The new duration is a
+            // full one from the next tick, or with `rolling_pandemic` the
+            // pandemic-capped one. `strength` scales the new ticks.
             let tick = self.tick_len(di);
-            let ttn = (self.dot_last[di] + tick - self.now).max(0.0);
+            // with tick-rate buffs the pending tick keeps the interval it was scheduled with
+            let pending = if c.dots[di].rate_mods.is_empty() { tick } else { self.dot_sched[di] };
+            let ttn = (self.dot_last[di] + pending - self.now).max(0.0);
             let left = 1.0 + (remaining - ttn) / tick;
-            let (exp, new_left) = if left < 1.0 { (duration, 1.0 + (duration - ttn) / tick) } else { (ttn + duration, 1.0 + duration / tick) };
-            self.dot_roll[di] = (left.max(0.0) * self.dot_roll[di] + duration / tick) / new_left;
-            self.dot_exp[di] = self.now + exp;
+            let added = strength * duration / tick;
+            if def.rolling_pandemic {
+                let exp = duration + remaining.min(0.3 * duration);
+                let new_left = left.max(0.0) + (exp - remaining) / tick;
+                self.dot_roll[di] = (left.max(0.0) * self.dot_roll[di] + added) / new_left;
+                self.dot_exp[di] = self.now + exp;
+            } else {
+                let (exp, new_left) = if left < 1.0 { (duration, 1.0 + (duration - ttn) / tick) } else { (ttn + duration, 1.0 + duration / tick) };
+                self.dot_roll[di] = (left.max(0.0) * self.dot_roll[di] + added) / new_left;
+                self.dot_exp[di] = self.now + exp;
+            }
             return;
         }
         self.dot_exp[di] = self.now
@@ -1972,7 +2056,7 @@ impl<'a> State<'a> {
             };
         if !was {
             self.dot_stk[di] = 1;
-            self.dot_roll[di] = 1.0;
+            self.dot_roll[di] = strength;
             if def.tick_on_apply {
                 self.dot_tick(di, 1.0);
             }
@@ -2135,7 +2219,7 @@ impl<'a> State<'a> {
                 self.cancel_dot(di);
                 self.dot_channel_tick[di] = c.dots[di].def.tick_time * speed;
             }
-            self.apply_dot(di);
+            self.apply_dot(di, 1.0);
             if a.def.snapshot_channel { self.dot_exp[di] = self.now + c.dots[di].def.duration * speed; }
         }
         for e in &a.on_cast {
@@ -2516,14 +2600,20 @@ impl<'a> State<'a> {
                     return true;
                 }
                 let d = &c.dots[di].def;
+                let rated = !c.dots[di].rate_mods.is_empty();
+                // with tick-rate buffs, a tick's share is measured against the
+                // interval it was scheduled with, and the next one uses the rate now
+                let scheduled = if rated { self.dot_sched[di] } else { 0.0 };
                 let tick = self.dot_tick_len(di);
-                let frac = ((self.now - self.dot_last[di]) / tick).clamp(0.0, 1.0);
+                let frac = ((self.now - self.dot_last[di]) / if rated { scheduled } else { tick }).clamp(0.0, 1.0);
                 self.dot_tick(di, frac);
                 self.dot_last[di] = self.now;
                 if self.now + tick <= self.dot_exp[di] + 1e-6 {
+                    self.dot_sched[di] = tick;
                     self.push(self.now + tick, Ev::DotTick(di as u32, g));
                 } else if !d.whole_ticks && self.dot_exp[di] > self.now + 1e-6 {
                     // shortened final tick at expiry, like the real game
+                    self.dot_sched[di] = tick;
                     self.push(self.dot_exp[di], Ev::DotTick(di as u32, g));
                 }
             }
@@ -3593,6 +3683,134 @@ action = "channel"
         assert_eq!(st.out.casts[src(&c, "channel")], 1);
         advance(&mut st, 2.1);
         assert_eq!(st.out.hits[src(&c, "channel_dot")], 4);
+    }
+
+    /// Tick-rate buffs, pandemic rolling refresh, partial-strength applications and
+    /// `full_recharge_time` on a bare caster.
+    const DOTS: &str = r#"
+name = "dot features"
+[player]
+spell_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 60
+variance = 0
+[[buffs]]
+name = "screams"
+duration = 3.5
+tick_rate_pct = { pain = 100 }
+[[abilities]]
+name = "pain"
+triggered_only = true
+[abilities.dot]
+name = "pain"
+school = "shadow"
+sp_coeff = 1.0
+duration = 16
+tick_time = 2
+[[abilities]]
+name = "scream"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "screams" }]
+[[abilities]]
+name = "madness"
+triggered_only = true
+[abilities.dot]
+name = "madness"
+school = "shadow"
+sp_coeff = 1.0
+duration = 6
+tick_time = 2
+refresh = "rolling"
+rolling_pandemic = true
+[[abilities]]
+name = "tentacle"
+triggered_only = true
+on_cast = [{ type = "apply_dot", dot = "madness", strength = 0.25 }]
+[[abilities]]
+name = "slam"
+triggered_only = true
+cooldown = 15
+charges = 2
+[[abilities]]
+name = "wait"
+gcd = 1.0
+[[rotation]]
+action = "wait"
+if = "cooldown.slam.full_recharge_time>100"
+"#;
+
+    #[test]
+    fn tick_rate_buff_speeds_up_the_next_ticks() {
+        let c = compile(DOTS);
+        let mut st = state(&c);
+        cast(&mut st, "scream");
+        cast(&mut st, "pain");
+        advance(&mut st, 16.5);
+        // 1s ticks while the buff is up (1, 2, 3, then 4 scheduled at 3), then 2s ones
+        assert_eq!(st.out.hits[src(&c, "pain")], 10);
+        // the tick at 4 was scheduled at the fast rate: it's a whole tick, not half of a slow one
+        assert!((st.out.damage[src(&c, "pain")] - 10_000.0).abs() < 1e-3, "{}", st.out.damage[src(&c, "pain")]);
+        // without the buff: 8 ticks
+        let mut st = state(&c);
+        cast(&mut st, "pain");
+        advance(&mut st, 16.5);
+        assert_eq!(st.out.hits[src(&c, "pain")], 8);
+    }
+
+    #[test]
+    fn rolling_pandemic_keeps_the_damage_left_and_partial_strength_adds_to_it() {
+        let c = compile(DOTS);
+        let s = src(&c, "madness");
+        let di = c.dots.iter().position(|d| d.def.name == "madness").unwrap();
+        let mut st = state(&c);
+        cast(&mut st, "madness");
+        advance(&mut st, 4.0);
+        assert_eq!(st.out.hits[s], 2);
+        // 2s (one tick) left at full strength, plus 6s at 25%, over 6 + 1.8s
+        cast(&mut st, "tentacle");
+        assert!((st.var(&Var::DotRemains(di)) - 7.8).abs() < 1e-9);
+        assert!((st.dot_roll[di] - 3.5 / 7.8).abs() < 1e-12);
+        advance(&mut st, 20.0);
+        // ticks at 6, 8, 10 and a 0.9 one at 11.8: all 3.5 ticks' worth is dealt
+        assert_eq!(st.out.hits[s], 6);
+        assert!((st.out.damage[s] - 3750.0).abs() < 1e-2, "{}", st.out.damage[s]);
+        // a fresh partial application ticks at its strength
+        cast(&mut st, "tentacle");
+        advance(&mut st, 27.0);
+        assert!((st.out.damage[s] - 3750.0 - 750.0).abs() < 1e-2, "{}", st.out.damage[s]);
+        // a full refresh with all 6s left: pandemic caps the time at 7.8s, the damage is kept
+        cast(&mut st, "madness");
+        cast(&mut st, "madness");
+        assert!((st.dot_roll[di] - 12.0 / 7.8).abs() < 1e-12);
+    }
+
+    #[test]
+    fn full_recharge_time_counts_every_missing_charge() {
+        let c = compile(DOTS);
+        let slam = ab(&c, "slam");
+        let mut st = state(&c);
+        assert_eq!(st.var(&Var::CdFullRecharge(slam)), 0.0);
+        cast(&mut st, "slam");
+        cast(&mut st, "slam");
+        advance(&mut st, 5.0);
+        assert!((st.var(&Var::CdFullRecharge(slam)) - 25.0).abs() < 1e-9);
+        advance(&mut st, 20.0);
+        assert_eq!(st.var(&Var::CdCharges(slam)), 1.0);
+        assert!((st.var(&Var::CdFullRecharge(slam)) - 10.0).abs() < 1e-9);
+        advance(&mut st, 31.0);
+        assert_eq!(st.var(&Var::CdFullRecharge(slam)), 0.0);
+    }
+
+    #[test]
+    fn dot_feature_errors() {
+        let bad = |t: &str| Compiled::new(toml::from_str(t).unwrap()).err().unwrap();
+        let e = bad(&DOTS.replace("refresh = \"rolling\"\nrolling_pandemic = true\n", ""));
+        assert!(e.contains("strength needs refresh"), "{e}");
+        let e = bad(&DOTS.replace("tick_rate_pct = { pain = 100 }", "tick_rate_pct = { payne = 100 }"));
+        assert!(e.contains("unknown dot 'payne'"), "{e}");
     }
 
     #[test]

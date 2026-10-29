@@ -23,7 +23,7 @@ if = "cooldown.hammer_of_wrath.charges=2"
 Effects: `buff` (optionally with its own `duration`), `consume`,
 `reset_cooldown`, `reduce_cooldown`, `gain`, `trigger` (with `chance`,
 `delay`, `mastery_chance`), `extend_dot`, `dot_stack` (add, remove or `set`
-a DoT's stacks), `cancel_dot`, `extend_buff`, and `if` (`{ type = "if", if = "<condition>", then = [...],
+a DoT's stacks), `cancel_dot`, `apply_dot`, `extend_buff`, and `if` (`{ type = "if", if = "<condition>", then = [...],
 else = [...] }`). Abilities run `on_start` (before the hit), `on_crit` /
 `on_noncrit` (per hit) and `on_cast` (after) effects, can have a `cast_time`,
 and can report under a shared `source`. Damage can take a share of mastery
@@ -37,7 +37,7 @@ on refresh (`refresh_extend`), retain their original expiry when stacked
 `on_expire` effects, copy a share of each hit as another ability's damage
 (`echo`), grow with haste (`haste_duration`) or change auto-attack speed only
 (`attack_speed_pct`, `attack_speed_per_haste`). DoTs support hasted ticks, partial final ticks (or
-`whole_ticks` only), `pandemic`/`extend`/`reset` refresh, stacks
+`whole_ticks` only), `pandemic`/`extend`/`reset`/`rolling` refresh, tick-rate buffs, stacks
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
 on-crit effects, and `banked` rolling damage fed by direct hits or ticks. Feed entries may
 restrict contributions with `crit_only = true` and an `if` expression.
@@ -139,7 +139,8 @@ on_cast = [
 
 A `rolling` refresh keeps the tick cadence, runs a full duration from the next
 tick, and rolls the damage of the ticks left into the new ones (SimC's
-`rolling_ta_multiplier`). A channel's `ticks_expr` is evaluated as it starts
+`rolling_ta_multiplier`); `rolling_pandemic` and `apply_dot`'s `strength`
+change that (see "Tick-rate buffs and partial rolling applications" below). A channel's `ticks_expr` is evaluated as it starts
 (with `tick_time_expr` on its DoT, more ticks in the same time).
 `reduce_cooldown` takes `seconds_expr`. `reset_cooldown` with `keep_recharge`
 gives a charge back and lets the recharge in progress carry on, as SimC's
@@ -248,8 +249,9 @@ their base cap, starting value and regeneration by `1 + coefficient * player.mas
 Buffs can multiply regeneration with `resource_regen_pct = { mana = 100 }`.
 An ability can replace fixed costs with `cost_expr = { mana = "mana.max*0.02" }`;
 negative expression results are clamped to zero. Expressions also expose
-`resource.max`, `resource.pct`, `mastery`, `haste`, `gcd.remains` and
-`prev_gcd.<ability>`. A `gain` with `amount_expr` may subtract resource.
+`resource.max`, `resource.pct`, `mastery`, `haste`, `gcd.remains`,
+`prev_gcd.<ability>` and `cooldown.X.full_recharge_time` (time until every
+charge is back, 0 at full charges). A `gain` with `amount_expr` may subtract resource.
 A trigger may use `count = "<expression>"` and `interval` to schedule repeated
 activations; the count is evaluated at the trigger and limited to 1000.
 
@@ -274,3 +276,46 @@ Haste and the existing refresh rules apply to those values.
 For shared buffs, `refresh_duration = false` preserves the existing expiration
 when stacks are added or set. `extend_buff` accepts negative seconds to shorten
 an active timer, expiring it no earlier than the current time.
+
+## Tick-rate buffs and partial rolling applications
+
+```toml
+[[buffs]]
+name = "screams_of_the_void"
+duration = 3
+tick_rate_pct = { shadow_word_pain = 40, vampiric_touch = 40 }   # per stack, by DoT name
+
+[[abilities]]
+name = "shadow_word_madness"
+[abilities.dot]
+name = "shadow_word_madness"
+sp_coeff = 2.61625
+tick_time = 2
+duration = 6
+refresh = "rolling"
+rolling_pandemic = true    # pandemic-capped duration on a refresh
+
+[[abilities]]
+name = "tentacle_slam"
+on_cast = [{ type = "apply_dot", dot = "shadow_word_madness", strength = 0.25 }]
+```
+
+- **`tick_rate_pct`** divides the named DoTs' tick interval by
+  `1 + Σ pct/100 × stacks` while the buff is up. As in SimC, the interval is
+  re-evaluated when each tick is scheduled: gaining or losing the buff changes
+  the tick after the one already pending. The tick in flight still deals a
+  whole tick, and the shortened final tick is measured against the interval it
+  was scheduled with. A channel takes the rate in effect when it starts.
+- **`rolling_pandemic = true`** (only with `refresh = "rolling"`) makes a
+  refresh's new duration the `pandemic` one (duration plus up to 30% of it
+  carried over) instead of the time to the next tick plus a full duration.
+  The damage is still rolled: the per-tick multiplier becomes
+  `(ticks_left × old_mult + duration/tick × strength) / new_ticks_left`
+  (SimC's `rolling_ta_multiplier`), ticks counted fractionally from the
+  pending tick on. A fresh application ticks at its `strength`. Rolling DoTs
+  can't be `overlap` or `banked`. `extend_dot` adds time at the current
+  multiplier.
+- **`apply_dot`** applies another ability's DoT (by DoT name) as if that
+  ability had been cast, without its direct damage, cost or cooldown.
+  `strength` (default 1) scales the new ticks and needs a `rolling` DoT.
+  Channel DoTs can't be applied this way.

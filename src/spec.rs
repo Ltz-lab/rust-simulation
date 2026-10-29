@@ -459,6 +459,11 @@ pub struct DotDef {
     /// damage of the ticks left rolled into the new ticks: nothing is lost).
     #[serde(default = "default_refresh")]
     pub refresh: String,
+    /// With `refresh = "rolling"`: the new duration is pandemic-capped
+    /// (duration plus up to 30% of it carried over) instead of the time to
+    /// the next tick plus a full duration.
+    #[serde(default)]
+    pub rolling_pandemic: bool,
     #[serde(default)]
     pub on_tick: Vec<Effect>,
     /// Effects when a tick crits.
@@ -570,6 +575,14 @@ pub enum Effect {
     /// Stop a DoT.
     CancelDot {
         dot: String,
+    },
+    /// Apply another ability's DoT as if that ability had been cast, at
+    /// `strength` (1 = a normal application). A strength other than 1 needs
+    /// `refresh = "rolling"`.
+    ApplyDot {
+        dot: String,
+        #[serde(default = "one")]
+        strength: f64,
     },
     /// Add time to a buff that is currently up.
     ExtendBuff {
@@ -702,6 +715,10 @@ pub struct BuffDef {
     /// Per-ability recharge speed-up while up (percent; 50 = recharges 1.5x faster).
     #[serde(default)]
     pub cooldown_rate_pct: HashMap<String, f64>,
+    /// Per-DoT tick rate increase while up, keyed by DoT name (percent per
+    /// stack; 40 = ticks 1.4x as often). Takes effect from the next tick.
+    #[serde(default)]
+    pub tick_rate_pct: HashMap<String, f64>,
     /// While up, this percent of all damage dealt is stored (for a later burst).
     #[serde(default)]
     pub store_damage_pct: f64,

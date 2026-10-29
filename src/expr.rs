@@ -24,6 +24,8 @@ pub enum Var {
     CdChargesFrac(usize),
     /// Current (hasted) cooldown length.
     CdDuration(usize),
+    /// Time until every charge is back (`full_recharge_time`).
+    CdFullRecharge(usize),
     BuffUp(usize),
     BuffRemains(usize),
     BuffStack(usize),
