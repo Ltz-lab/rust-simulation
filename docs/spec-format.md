@@ -27,7 +27,8 @@ a DoT's stacks), `cancel_dot`, `apply_dot`, `extend_buff`, and `if` (`{ type = "
 else = [...] }`). Abilities run `on_start` (before the hit), `on_crit` /
 `on_noncrit` (per hit) and `on_cast` (after) effects, can have a `cast_time`,
 and can report under a shared `source`. Damage can take a share of mastery
-(`mastery_scale`) and grow with crit chance (`crit_scaling`).
+(`mastery_scale`), grow with crit chance (`crit_scaling`), or have its crit
+chance multiplied (`crit_chance_multiplier`, e.g. Improved Shatter's x1.5).
 Buffs can modify damage, crit (globally or per ability), crit damage, haste,
 mastery, power, GCD, per-ability cast time and recharge rate, or store a
 percentage of damage dealt for a later burst; they can stack with independent

@@ -354,6 +354,9 @@ pub struct DamageDef {
     /// Damage is further increased by the player's crit chance.
     #[serde(default)]
     pub crit_scaling: bool,
+    /// Crit chance is multiplied by this (Improved Shatter: x1.5).
+    #[serde(default = "one")]
+    pub crit_chance_multiplier: f64,
     /// Residual multiplier: talents/auras not modelled individually.
     /// This is the knob log calibration tunes.
     #[serde(default = "one")]

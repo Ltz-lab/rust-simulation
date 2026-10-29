@@ -31,6 +31,7 @@ profiles (core kit, 300s Patchwerk):
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
 | [Arcane Mage (Spellslinger)](docs/arcane-mage.md) | 133,260 | 133,980 | +0.54% | mastery +0.51 pts | — |
 | [Affliction Warlock (Hellcaller)](docs/affliction-warlock.md) | 157,898 | 157,573 | -0.21% | haste -0.60 pts | — |
+| [Frost Mage (Spellslinger)](docs/frost-mage.md) | 149,542 | 150,315 | +0.52% | haste +0.79 pts | — |
 | [Subtlety Rogue (Deathstalker)](docs/subtlety-rogue.md) | 179,254 | 181,350 | +1.17% | crit -0.40 pts | ~4× |
 | [Elemental Shaman (Farseer)](docs/elemental-shaman.md) | 161,888 | 163,606 | +1.06% | haste +0.80 pts | — |
 | [Demonology Warlock (Diabolist)](docs/demonology-warlock.md) | 160,301 | 158,236 | -1.29% | haste +0.74 pts | — |

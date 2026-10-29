@@ -1,0 +1,486 @@
+# Frost Mage — Spellslinger, Midnight Season 2 core kit.
+# [db2]: build 12.1.5.70575, tools/spelldb.py. [simc]: sc_mage.cpp / mage.cpp APL.
+# [obs]: reference/frost_*.json and seed-controlled 300 s SimC logs.
+# Damage calibration fits damage per hit only; casts and hits come out of the
+# mechanics and the rotation.
+#
+# The core of the spec is Shatter: Frostbolt, Flurry, Glacial Spike, Ray of
+# Frost and splinters stack Freezing on the target; Ice Lance spends it (6
+# stacks, 12 while Thermal Void is up) for a big hit of its own. Fingers of
+# Frost lets Ice Lance shatter without consuming; Brain Freeze makes the next
+# Flurry instant, +50% and grants Thermal Void; Icicles tick up to five and
+# unlock Glacial Spike. Spellslinger splinters chain through Augury Abounds.
+name = "Frost Mage (Spellslinger, core kit)"
+precombat = ["frostbolt", "icicle_clock"] # [simc] precast Frostbolt; [obs] icicle clock starts
+
+[player]
+spell_power = 3319 # [obs] reference snapshot
+crit = 0.3357 # [obs] average crit rate of unmodified spells (0.2974 snapshot + gear procs)
+haste = 0.29 # [obs] GCD 1.16 s and a 3.9 s icicle tick at the reference haste
+mastery = 0.625 # [obs] 0.5621 snapshot + time-averaged mastery procs; mastery_value is the damage bonus
+versatility = 0.0528 # [obs] snapshot (gear vers procs net ~0)
+crit_multiplier = 2.19 # [obs] average crit/noncrit ratio of Ray of Frost ticks
+
+[gear]
+primary = "intellect"
+base_primary = 619 # [obs] level-90 tauren base intellect
+primary_mult = 1.071 # [obs] Arcane Intellect x1.05, Inspired Intellect x1.02
+spell_power_per_primary = 1.0 # [obs] spell power = buffed intellect
+crit_bonus = 0.07 # [obs] 5% base + raid crit
+haste_mult = 1.03 # [db2 417489] Winter's Blessing, 3% haste
+mastery_points = 13 # [obs] base + Skyfury
+mastery_coeff = 1.0 # [obs] 1018 rating -> 43.2% + 13 points = 56.2%
+versatility_bonus = 0.03 # [simc] Mark of the Wild
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
+spec_id = 64 # [db2] mage frost
+use_after = "potion" # [simc]
+
+[gear.kit]
+enabled = 1 # [simc] full raid kit when gear is supplied
+precombat = ["full_kit"] # [simc] Bloodlust at pull
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil
+primary_buffs = { lights_potential = 695 } # [db2 1236616] rank 2 potion
+
+# Time-averaged gear stat procs, folded into [player] so --gear lands on the
+# same final stats. They belong to this gear set; other gear keeps the averages.
+[gear.procs]
+crit = 0.0383 # [obs] rituals / Rune of Critical Power / venomcursed
+haste = 0.0271 # [obs] rituals / Soul Fang Alacrity / venomcursed
+mastery = 0.063 # [obs] Masterful Ritual / Venomcursed Mastery
+versatility = 0.0 # [obs]
+
+[fight]
+duration = 300 # [obs]
+variance = 0.2 # [simc] reference fight-length variation
+
+# Augury Abounds' bad-luck-protected 10% roll: chance grows with the attempts
+# since the last success (SimC accumulated RNG), reset on success.
+[resources.augury_attempts]
+max = 100 # [simc] numerical guard
+start = 1 # [simc] first chance is the PRD constant
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "freezing" # [db2 1221389] target debuff: Shatter stacks
+duration = 15 # [db2]
+max_stacks = 20 # [db2]
+
+[[buffs]]
+name = "fingers_of_frost" # [db2 44544: 15 s, 2 stacks]
+duration = 15 # [db2]
+max_stacks = 2 # [db2]
+
+[[buffs]]
+name = "brain_freeze" # [db2 190446: 15 s]
+duration = 15 # [db2]
+
+[[buffs]]
+name = "thermal_void" # [db2 1247730: 8 s, spent by Ice Lance for a double shatter]
+duration = 8 # [db2]
+
+[[buffs]]
+name = "icicles" # [db2 205473: 5 stacks, one every 5 s hasted]
+duration = 1e9 # [db2] no expiry
+max_stacks = 5 # [db2 1246832]
+flat = true # [simc] stacks only count, no per-stack bonus
+
+[[buffs]]
+name = "glacial_spike" # [db2 1222865] castable marker at 5 Icicles
+duration = 1e9 # [db2]
+
+[[buffs]]
+name = "overflowing_energy" # [db2 394195] +10% Frostbolt/Glacial Spike crit per stack
+duration = 1e9 # [db2]
+max_stacks = 10 # [db2]
+ability_crit_pct = { frostbolt = 10, glacial_spike = 10 } # [db2] 394195 effect 2
+
+[[buffs]]
+name = "brainstorm" # [db2 461531] +1% intellect, 5 stacks, overlapping
+duration = 8 # [db2]
+max_stacks = 5 # [db2]
+overlap = true # [simc] multiple instances may overlap
+power_pct = 1 # [db2]
+
+[[buffs]]
+name = "splinterstorm" # [db2 1247908] Ray of Frost doubles splinter conjures
+duration = 10 # [db2 443783]
+
+[[buffs]]
+name = "permafrost_lances" # [db2 455122] Frozen Orb: +10% Shatter damage
+duration = 15 # [db2]
+ability_pct = { shatter_ice_lance = 10 } # [db2 460590, simc shatter_t::action_multiplier]
+
+[[buffs]]
+name = "hand_of_frost" # [db2 1263263] 5 stacks of +1% mage damage
+duration = 8 # [db2]
+max_stacks = 5 # [db2]
+damage_pct = 1 # [db2 1262981] 1% per stack, all mage spells (affected_by.hand_of_frost)
+pets = true # [simc] also pet/guardian damage
+
+[[buffs]]
+name = "ray_toggle" # [simc] Hand of Frost on every second Ray of Frost tick
+duration = 1e9
+
+# ---------------------------------------------------------------- full raid kit (--gear)
+
+[[buffs]]
+name = "full_kit" # [simc]
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust" # [db2 2825]
+duration = 40 # [db2]
+haste_pct = 30 # [db2]
+
+[[buffs]]
+name = "lights_potential" # [db2 1236616]
+duration = 30 # [db2]
+power_pct = 20 # [obs] replaced from gear
+
+[[abilities]]
+name = "full_kit" # [simc]
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion" # [db2]
+spell_id = 1236616
+gcd = 0
+cooldown = 300 # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
+# ---------------------------------------------------------------- procs / helpers
+
+[[abilities]]
+name = "fingers_of_frost_proc" # [simc] mage_t::trigger_fof
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "fingers_of_frost" }]
+
+[[abilities]]
+name = "brain_freeze_proc" # [simc] mage_t::trigger_brain_freeze
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "brain_freeze" },
+  { type = "buff", buff = "brainstorm" }, # [db2 461261]
+  { type = "reset_cooldown", ability = "flurry", keep_recharge = true }, # [simc] cooldowns.flurry->reset(): one charge
+  { type = "trigger", ability = "frost_splinter", count = "2*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 444675] Shifting Shards
+]
+
+[[abilities]]
+name = "augury_attempt" # [simc] Augury Abounds: 10% PRD on every splinter, 0.5 s ICD
+gcd = 0
+triggered_only = true
+cooldown = 0.5 # [simc] internal cooldown
+on_cast = [
+  { type = "trigger", ability = "augury_success", chance_expr = "0.014745845*augury_attempts" }, # [simc] PRD for 10% mean
+  { type = "gain", resource = "augury_attempts", amount = 1 },
+]
+
+[[abilities]]
+name = "augury_success"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "gain", resource = "augury_attempts", amount_expr = "-augury_attempts" },
+  { type = "trigger", ability = "frost_splinter", count = "8*(1+buff.splinterstorm.up)", delay = 1.3, interval = 0.1 }, # [db2 1280165]
+]
+
+[[abilities]]
+name = "hand_of_frost" # [db2 1262769] 5 SP, no mastery; 1 Freezing
+spell_id = 1262769
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 5.0, school = "frost" } # [db2]
+on_cast = [
+  { type = "buff", buff = "freezing" }, # [db2 1262935] 1 stack
+  { type = "buff", buff = "hand_of_frost", set = "5" }, # [db2 1263263]
+]
+
+[[abilities]]
+name = "icicle_clock" # [obs] one Icicle every 5 s, hasted
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "icicle_timer"
+tick_time = 5 # [obs] 3.9 s at the reference haste (db2 1246832 lists 6 s)
+duration = 1e9
+hasted = true
+school = "frost"
+on_tick = [
+  { type = "buff", buff = "icicles" },
+  { type = "if", if = "buff.icicles.stack=5", then = [{ type = "buff", buff = "glacial_spike" }] }, # [db2 1246832]
+]
+
+# ---------------------------------------------------------------- splinters
+
+[[abilities]]
+name = "frost_splinter" # [db2 443722] Spellslinger splinter
+spell_id = 443722
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 0.453, school = "frost", mastery = true, mastery_scale = 1.0 } # [db2]
+on_cast = [
+  { type = "buff", buff = "freezing", chance = 0.15 }, # [db2 1261080] Infused Splinters, 15% for 1 stack
+  { type = "reduce_cooldown", ability = "frozen_orb", seconds = 0.3 }, # [db2 444986] Spellfrost Teachings
+  { type = "trigger", ability = "augury_attempt" },
+]
+
+# ---------------------------------------------------------------- shatter
+
+[[abilities]]
+name = "shatter_fof" # [db2 1246949] 0.9154 SP per stack, Fingers of Frost: 6 stacks, 12 with Thermal Void
+source = "shatter_ice_lance"
+spell_id = 1246949
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 0.9154, school = "frost", mastery = true, mastery_scale = 1.0, crit_chance_multiplier = 1.5, crit_damage_bonus = 0.200, scale = "6+6*buff.thermal_void.up" } # [db2, obs] crit x1.5 Improved Shatter; Deep Shatter +50% x crit
+on_cast = [
+  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.22+0.10*buff.thermal_void.up" }, # [simc] 10% + 1% per shatter stack
+  { type = "trigger", ability = "frost_splinter", count = "(3+3*buff.thermal_void.up)*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 444719] Force of Will: stacks/2
+  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "1.2+1.2*buff.thermal_void.up" }, # [db2 1247798] Glaciate; [obs] fitted to 8 Ray casts
+]
+
+[[abilities]]
+name = "shatter_freezing" # [db2 1246949] no Fingers of Frost: min(6*(1+TV), stacks) and consume them
+source = "shatter_ice_lance"
+spell_id = 1246949
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 0.9154, school = "frost", mastery = true, mastery_scale = 1.0, crit_chance_multiplier = 1.5, crit_damage_bonus = 0.200, scale = "buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up)" }
+on_cast = [
+  { type = "trigger", ability = "hand_of_frost", chance_expr = "0.22+0.10*buff.thermal_void.up" },
+  { type = "trigger", ability = "frost_splinter", count = "(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))/2*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 444719] Force of Will
+  { type = "reduce_cooldown", ability = "ray_of_frost", seconds_expr = "0.2*(buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up))" }, # [db2 1247798]; [obs] fitted
+]
+
+# ---------------------------------------------------------------- player casts
+
+[[abilities]]
+name = "frostbolt" # [db2 116, damage 228597]
+spell_id = 116
+cast_time = 1.75 # [db2]
+damage = { sp_coeff = 2.448, school = "frost", mastery = true, mastery_scale = 1.0, crit_damage_bonus = 0.238 } # [db2 228597; obs] Piercing Cold +20% crit bonus
+on_cast = [
+  { type = "buff", buff = "freezing" }, # [db2 1246769] Shatter effect 1
+  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.15 }, # [db2 112965] Fingers of Frost
+  { type = "trigger", ability = "brain_freeze_proc", chance = 0.35 }, # [obs] 35% in the reference logs
+  { type = "trigger", ability = "frost_splinter", count = "1+buff.splinterstorm.up", delay = 1.2, interval = 0.1 }, # [simc]
+]
+on_crit = [
+  { type = "buff", buff = "freezing" }, # [db2 1248825] Frostbite
+  { type = "consume", buff = "overflowing_energy", all = true }, # [db2 394195]
+]
+on_noncrit = [{ type = "buff", buff = "overflowing_energy" }]
+
+[[abilities]]
+name = "flurry" # [db2 44614: 2 charges, 30 s recharge]
+spell_id = 44614
+charges = 2 # [db2]
+cooldown = 30 # [db2]
+on_cast = [
+  { type = "if", if = "buff.brain_freeze.up", then = [{ type = "consume", buff = "brain_freeze", all = true }, { type = "buff", buff = "thermal_void" }, { type = "trigger", ability = "flurry_bolt_bf", count = "4", delay = 0.2, interval = 0.4 }], else = [{ type = "trigger", ability = "flurry_bolt", count = "4", delay = 0.2, interval = 0.4 }] }, # [db2 1247729] Thermal Void; [db2 1247769] Improved Flurry: 4 bolts
+  { type = "trigger", ability = "frost_splinter", count = "1+buff.splinterstorm.up", delay = 1.2, interval = 0.1 }, # [simc]
+]
+
+[[abilities]]
+name = "flurry_bolt" # [db2 228354]
+spell_id = 228354
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.2852, school = "frost", mastery = true, mastery_scale = 1.0, crit_damage_bonus = 0.238 } # [db2; obs] Piercing Cold
+on_cast = [{ type = "buff", buff = "freezing" }] # [db2 1246769] Shatter effect 2
+
+[[abilities]]
+name = "flurry_bolt_bf" # Brain Freeze: +50% damage [db2 190446 effect 2]
+source = "flurry_bolt"
+spell_id = 228354
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.9278, school = "frost", mastery = true, mastery_scale = 1.0, crit_damage_bonus = 0.238 }
+on_cast = [{ type = "buff", buff = "freezing" }]
+
+[[abilities]]
+name = "ice_lance_fof" # [db2 30455 / damage 228598] Fingers of Frost: shatters 6 (12 with Thermal Void), consumes nothing
+source = "ice_lance"
+spell_id = 30455
+requires_buff = "fingers_of_frost"
+free_with = "fingers_of_frost" # spends one Fingers of Frost stack
+damage = { sp_coeff = 1.8375, school = "frost", mastery = true, mastery_scale = 1.0 } # [db2]
+on_cast = [
+  { type = "trigger", ability = "shatter_fof" },
+  { type = "consume", buff = "thermal_void", all = true }, # [simc] ice_lance_t::execute
+]
+
+[[abilities]]
+name = "ice_lance_freezing" # [db2 30455] no Fingers of Frost: shatter and spend 6 Freezing (12 with Thermal Void)
+source = "ice_lance"
+spell_id = 30455
+damage = { sp_coeff = 1.8375, school = "frost", mastery = true, mastery_scale = 1.0 }
+on_cast = [
+  { type = "trigger", ability = "shatter_freezing" },
+  { type = "buff", buff = "freezing", set = "buff.freezing.stack-6-6*buff.thermal_void.up" }, # [db2 1246769] Shatter effect 4
+  { type = "consume", buff = "thermal_void", all = true },
+]
+
+[[abilities]]
+name = "frozen_orb" # [db2 84714: 60 s cooldown]
+spell_id = 84714
+cooldown = 60 # [db2]
+on_cast = [
+  { type = "trigger", ability = "brain_freeze_proc" }, # [db2 378406] Wintertide 100%
+  { type = "buff", buff = "fingers_of_frost" }, # [db2 385167] Everlasting Frost
+  { type = "buff", buff = "permafrost_lances" }, # [db2 460590]
+  { type = "trigger", ability = "frozen_orb_bolt", count = "30", delay = 0.5, interval = 0.5 }, # [simc] 30 pulses, 0.5 s apart
+  { type = "trigger", ability = "frost_splinter", count = "4*(1+buff.splinterstorm.up)", delay = 0.5, interval = 0.5 }, # [db2 444256] Splintering Orbs
+]
+
+[[abilities]]
+name = "frozen_orb_bolt" # [db2 84721] 0.777 SP per pulse
+spell_id = 84721
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 0.777, school = "frost", mastery = true, mastery_scale = 1.0 } # [db2]
+on_cast = [{ type = "trigger", ability = "fingers_of_frost_proc", chance = 0.03 }] # [db2 385167] 3% per bolt
+
+[[abilities]]
+name = "glacial_spike" # [db2 199786 / damage 228600] 13 SP, needs 5 Icicles
+spell_id = 199786
+cast_time = 1.75 # [db2]
+requires_buff = "glacial_spike"
+damage = { sp_coeff = 13.0, school = "frost", mastery = true, mastery_scale = 1.0, crit_damage_bonus = 0.238 } # [db2; obs] Piercing Cold
+on_cast = [
+  { type = "consume", buff = "icicles", all = true }, # [simc] glacial_spike_t::execute
+  { type = "consume", buff = "glacial_spike", all = true },
+  { type = "buff", buff = "freezing", stacks = 3 }, # [db2 1246769] Shatter effect 3
+  { type = "trigger", ability = "fingers_of_frost_proc" }, # [db2 379993] Flash Freeze, 100%
+  { type = "trigger", ability = "fingers_of_frost_proc", chance = 0.15 }, # [db2 112965] Fingers of Frost
+  { type = "trigger", ability = "brain_freeze_proc", chance = 0.25 }, # [db2 190447] Brain Freeze
+  { type = "trigger", ability = "frost_splinter", count = "3*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [simc] 1 + Signature Spell 2
+]
+on_crit = [
+  { type = "buff", buff = "freezing" }, # [db2 1248825] Frostbite
+  { type = "consume", buff = "overflowing_energy", all = true },
+]
+on_noncrit = [{ type = "buff", buff = "overflowing_energy" }]
+
+[[abilities]]
+name = "ray_of_frost" # [db2 205021: 60 s cooldown, 8 ticks of 4.5 SP]
+spell_id = 205021
+cooldown = 60 # [db2]
+on_start = [
+  { type = "consume", buff = "ray_toggle", all = true },
+  { type = "buff", buff = "ray_toggle" }, # first tick is an odd one
+]
+on_cast = [
+  { type = "trigger", ability = "frost_splinter", count = "4*(1+buff.splinterstorm.up)", delay = 1.2, interval = 0.1 }, # [db2 470021] Signature Spell
+  { type = "buff", buff = "splinterstorm" }, # [db2 443783]
+]
+channel = { ticks = 8 } # [db2]
+[abilities.dot]
+name = "ray_of_frost"
+sp_coeff = 4.5 # [db2]
+tick_time = 0.5 # [db2]
+duration = 4.0 # [db2]
+hasted = true
+school = "frost"
+mastery = true
+mastery_scale = 1.0
+on_tick = [
+  { type = "buff", buff = "freezing" }, # [simc] ray_of_frost_t::tick
+  { type = "trigger", ability = "frost_splinter", count = "1+buff.splinterstorm.up", delay = 1.2 }, # [db2 443783]
+  { type = "if", if = "buff.ray_toggle.up", then = [{ type = "consume", buff = "ray_toggle", all = true }, { type = "trigger", ability = "hand_of_frost" }], else = [{ type = "buff", buff = "ray_toggle" }] }, # [db2 1263249] Hand of Frost every second tick
+]
+
+# ---------------------------------------------------------------- gear procs
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.06 # [obs]
+
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.32 # [obs]
+
+[[procs]]
+ability = "void_eruption"
+per_minute = 5.79 # [obs]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -10 } # [db2; obs] never crits
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+sp_coeff = 0.12 # [db2 1287663]
+tick_time = 1 # [db2]
+duration = 8 # [db2]
+hasted = false
+school = "cosmic"
+crit_bonus = -10 # [obs] cannot crit
+refresh = "extend" # [obs] stacked applications keep ticking
+
+[[abilities]]
+name = "acidbrood_scourge"
+spell_id = 1310088 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 2.7, school = "nature" } # [db2]
+
+[[abilities]]
+name = "void_eruption"
+spell_id = 1310209 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.5, school = "shadow" } # [db2]
+
+# ---------------------------------------------------------------- rotation
+# [simc] default single-target Spellslinger APL (MID2_Mage_Frost.simc), no tier.
+
+[[rotation]]
+action = "flurry"
+if = "buff.brain_freeze.up&!buff.thermal_void.up"
+
+[[rotation]]
+action = "ice_lance_fof"
+if = "buff.fingers_of_frost.stack=2"
+
+[[rotation]]
+action = "frozen_orb"
+
+[[rotation]]
+action = "glacial_spike"
+if = "buff.glacial_spike.up"
+
+[[rotation]]
+action = "ice_lance_fof"
+if = "buff.fingers_of_frost.up"
+
+[[rotation]]
+action = "ice_lance_freezing"
+if = "buff.freezing.stack>=6"
+
+[[rotation]]
+action = "ray_of_frost"
+if = "buff.icicles.stack<=3"
+
+[[rotation]]
+action = "flurry"
+
+[[rotation]]
+action = "glacial_spike"
+if = "buff.glacial_spike.up"
+
+[[rotation]]
+action = "frostbolt"

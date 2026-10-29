@@ -48,6 +48,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../calibration/fire_mage.toml"),
     ),
     (
+        "frost_mage_spellslinger",
+        include_str!("../specs/frost_mage_spellslinger.toml"),
+        include_str!("../calibration/frost_mage_spellslinger.toml"),
+    ),
+    (
         "destruction_hellcaller",
         include_str!("../specs/destruction_hellcaller.toml"),
         include_str!("../calibration/destruction_hellcaller.toml"),
