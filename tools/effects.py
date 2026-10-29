@@ -238,6 +238,8 @@ def buff_patches(db, sp, spec, obs, srcs):
     """buff name -> ({source: pct}, [(source, pct, mod)]) from the buff spells' own modifiers."""
     out = {}
     for b in spec.get("buffs", []):
+        if not b.get("derive_damage", True):
+            continue
         o = obs["buffs"].get(b["name"])
         sid = b.get("spell_id") or (o and o["spell_id"])
         if not sid:

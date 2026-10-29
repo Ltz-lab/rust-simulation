@@ -1,0 +1,488 @@
+# Arcane Mage — Spellslinger, Midnight Season 2 core kit.
+# [db2]: build 12.1.5.70575, tools/spelldb.py. [simc]: sc_mage.cpp / mage_arcane.simc.
+# [obs]: reference/arcane_*.json and 24 seed-controlled, 300s SimC logs.
+# Damage calibration fits damage per hit only; resources and rotation produce counts.
+name = "Arcane Mage (Spellslinger, core kit)"
+precombat = ["arcane_blast", "summon_familiar"] # [simc] precast Blast, persistent Familiar
+
+[player]
+spell_power = 3333 # [obs] reference snapshot
+crit = 0.25556 # [obs] .24869565 + average 31.57 crit rating / 4600
+haste = 0.29251 # [obs] .23594791 + average 244.01 haste rating (Arcane Tempo x1.04)
+mastery = 0.48942 # [obs] .42584348 + average 221.55 mastery rating; Savant mana fraction
+versatility = 0.12753 # [obs] .12277778 + average 25.66 versatility rating / 5400
+crit_multiplier = 2.12 # [simc] Force of Will / class crit damage; residual offsets calibrated
+
+[gear]
+primary = "intellect"
+base_primary = 611 # [obs] level-90 Void Elf base intellect
+primary_mult = 1.1025 # [obs] Inspired Intellect and Arcane Intellect, x1.05 each
+spell_power_per_primary = 1.0 # [obs] buffed intellect = spell power
+crit_bonus = 0.07 # [obs] 5% base + raid crit
+haste_mult = 1.0404 # [db2 383980] Arcane Tempo, 2 ranks of spell-haste aura
+mastery_points = 13 # [obs] base + Skyfury
+mastery_coeff = 1.32 # [db2 190740] Savant mana regen/max per mastery point
+versatility_bonus = 0.03 # [simc] Mark of the Wild
+effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
+
+[gear.procs]
+crit = 0.00686 # [obs] time-averaged gear procs, also included in player above
+haste = 0.05656 # [obs]
+mastery = 0.06358 # [obs]
+versatility = 0.00475 # [obs]
+
+[fight]
+duration = 300 # [obs]
+variance = 0.2 # [simc] reference fight-length variation
+
+[resources.mana]
+max = 275000 # [simc] 250000 base mana x1.1 Arcane Familiar
+start = 275000 # [simc]
+max_per_mastery = 1 # [db2 190740] mastery expressed as the mana fraction
+regen = 5000 # [obs] SimC base_mana_regen_per_second
+regen_per_mastery = 1 # [db2 190740]
+
+[resources.charges]
+max = 4 # [db2 36032]
+
+[resources.clearcasting_attempts]
+max = 100 # [simc] unbounded linear accumulated RNG, numerical guard
+start = 1 # [simc] first chance is the PRD constant
+
+[resources.augury_attempts]
+max = 100 # [simc]
+start = 1 # [simc]
+
+# ---------------------------------------------------------------- buffs
+[[buffs]]
+name = "arcane_charge"
+derive_damage = false # [simc] damage.scale includes base and mastery per charge
+duration = 1e9 # [db2 36032] infinite, mirrored by charges resource
+max_stacks = 4 # [db2]
+cast_time_pct = { arcane_blast = 8 } # [db2 36032] additive per charge
+
+[[buffs]]
+name = "arcane_salvo"
+duration = 1e9 # [db2 1242974] infinite
+max_stacks = 20 # [db2]
+ability_pct = { arcane_barrage = 7 } # [db2] 3 + Arcane Singularity 2x2
+
+[[buffs]]
+name = "intuition"
+duration = 10 # [db2 1223797]
+ability_pct = { arcane_barrage = 25 } # [db2]
+
+[[buffs]]
+name = "clearcasting"
+duration = 20 # [db2 263725]
+max_stacks = 3 # [db2] 1 + Improved Clearcasting 2
+
+[[buffs]]
+name = "clearcasting_reaction"
+duration = 0.05 # [simc] first stack cannot be queued immediately
+
+[[buffs]]
+name = "brainstorm"
+duration = 8 # [db2 461531]
+max_stacks = 5 # [db2]
+overlap = true # [simc]
+power_pct = 1 # [db2]
+
+[[buffs]]
+name = "overpowered_missiles"
+duration = 30 # [db2 1277009]
+ability_pct = { arcane_missiles = 100 } # [db2]
+
+[[buffs]]
+name = "overpowered_banked"
+duration = 30 # [simc] bank a proc until the running channel ends
+
+[[buffs]]
+name = "channeling"
+duration = 10 # [simc] marker, explicitly removed on channel finish
+
+[[buffs]]
+name = "prismatic_bolt"
+duration = 30 # [db2 1295942]
+
+[[buffs]]
+name = "overflowing_energy"
+duration = 1e9 # [db2 394195] until a Barrage crit
+max_stacks = 10 # [db2]
+ability_crit_pct = { arcane_barrage = 10 } # [db2 390218]
+
+[[buffs]]
+name = "arcane_surge"
+derive_damage = false # [simc] the power_pct above already supplies this modifier
+duration = 15 # [db2 365362]
+power_pct = 35 # [db2] all spell power, not just the Arcane school
+resource_regen_pct = { mana = 425 } # [db2]
+
+[[buffs]]
+name = "touch_of_the_magi"
+duration = 12 # [db2 210824]
+store_damage_pct = 20 # [db2] bank final damage, explosion does not reapply multipliers
+on_expire = [{ type = "trigger", ability = "touch_of_the_magi_explosion" }]
+
+[[buffs]]
+name = "evocation"
+duration = 10 # [simc] marker removed on channel finish
+resource_regen_pct = { mana = 1500 } # [db2 12051]
+
+# ---------------------------------------------------------------- mechanic helpers
+[[abilities]]
+name = "sync_charges"
+gcd = 0 # [simc] helper
+triggered_only = true
+on_cast = [{ type = "buff", buff = "arcane_charge", set = "charges" }]
+
+[[abilities]]
+name = "salvo_check"
+gcd = 0 # [simc] only a new cap crossing grants Intuition
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.arcane_salvo.stack=20&!buff.intuition.up", then = [{ type = "buff", buff = "intuition" }] }]
+
+[[abilities]]
+name = "random_clearcasting"
+gcd = 0 # [simc] accumulated RNG, 12% mean chance (prd::find_constant)
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "random_clearcasting_success", chance_expr = "0.02098323*clearcasting_attempts" },
+  { type = "gain", resource = "clearcasting_attempts", amount = 1 }, # [simc]
+]
+
+[[abilities]]
+name = "random_clearcasting_success"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [
+  { type = "gain", resource = "clearcasting_attempts", amount_expr = "-clearcasting_attempts" },
+  { type = "trigger", ability = "gain_clearcasting" },
+]
+
+[[abilities]]
+name = "gain_clearcasting"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [
+  { type = "if", if = "!buff.clearcasting.up", then = [{ type = "buff", buff = "clearcasting_reaction" }] },
+  { type = "buff", buff = "clearcasting" },
+  { type = "buff", buff = "brainstorm" },
+  { type = "trigger", ability = "overpowered_proc", chance = 0.25 }, # [db2 1244329]
+]
+
+[[abilities]]
+name = "overpowered_proc"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.channeling.up", then = [{ type = "buff", buff = "overpowered_banked" }], else = [{ type = "buff", buff = "overpowered_missiles" }] }]
+
+[[abilities]]
+name = "conjure_splinter"
+gcd = 0 # [simc] Splinterstorm doubles conjures during Surge
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "arcane_splinter", count = "1+buff.arcane_surge.up", delay = 1.22, interval = 0.1 }] # [obs] travel; [simc] stagger
+
+[[abilities]]
+name = "augury_attempt"
+gcd = 0 # [simc]
+cooldown = 1 # [simc] Augury Abounds internal cooldown
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "augury_success", chance_expr = "0.014745845*augury_attempts" }, # [simc] PRD for 10% mean
+  { type = "gain", resource = "augury_attempts", amount = 1 }, # [simc]
+]
+
+[[abilities]]
+name = "augury_success"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [
+  { type = "gain", resource = "augury_attempts", amount_expr = "-augury_attempts" },
+  { type = "trigger", ability = "conjure_splinter", count = "8", delay = 0.1, interval = 0.1 }, # [db2 1280165]
+]
+
+# ---------------------------------------------------------------- active spells
+[[abilities]]
+name = "arcane_blast"
+spell_id = 30451 # [db2]
+cast_time = 2.25 # [db2]
+cost_expr = { mana = "6204.45*(1+charges)" } # [obs] base cost with Bauble and Mana Confluence
+# [db2 36032,190740,384612] Charge damage +60%, Savant +1.2/1.32 x1.2 per charge.
+damage = { sp_coeff = 1.487, school = "arcane", scale = "1+charges*(0.6+mastery*1.09090909)" }
+on_cast = [
+  { type = "gain", resource = "charges", amount = 2 }, # [db2] Impetus adds one
+  { type = "trigger", ability = "sync_charges" },
+  { type = "buff", buff = "arcane_salvo", stacks = 2 }, # [db2 1243557]
+  { type = "trigger", ability = "salvo_check" },
+  { type = "trigger", ability = "random_clearcasting" },
+  { type = "trigger", ability = "conjure_splinter" }, # [simc]
+]
+
+[[abilities]]
+name = "arcane_barrage"
+spell_id = 44425 # [db2]
+on_start = [{ type = "trigger", ability = "orb_barrage", chance_expr = "buff.arcane_salvo.stack*0.04" }] # [db2 384858]
+damage = { sp_coeff = 0.87952, school = "arcane", scale = "1+charges*(0.9+mastery*0.76363636)" } # [db2] Savant + Prodigious Savant
+on_crit = [{ type = "consume", buff = "overflowing_energy", all = true }]
+on_noncrit = [{ type = "buff", buff = "overflowing_energy" }]
+on_cast = [
+  { type = "trigger", ability = "conjure_splinter", count = "buff.arcane_salvo.stack/5", interval = 0.1 }, # [db2 444719]
+  { type = "trigger", ability = "prismatic_proc", chance_expr = "buff.arcane_salvo.stack*0.02" }, # [db2 1295923,1295946] 1% + apex rank 3 adds 1%
+  { type = "gain", resource = "charges", amount_expr = "-charges" },
+  { type = "trigger", ability = "sync_charges" },
+  { type = "consume", buff = "intuition", all = true },
+  { type = "if", if = "buff.arcane_salvo.stack>=20", then = [{ type = "buff", buff = "arcane_salvo", set = "3" }], else = [{ type = "consume", buff = "arcane_salvo", all = true }] }, # [db2 1261082]
+  { type = "trigger", ability = "random_clearcasting" },
+]
+
+[[abilities]]
+name = "prismatic_proc"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [{ type = "buff", buff = "prismatic_bolt" }]
+
+[[abilities]]
+name = "prismatic_bolt"
+spell_id = 1295924 # [db2]
+cast_time = 2.5 # [db2]
+requires_buff = "prismatic_bolt"
+damage = { sp_coeff = 32, school = "arcane", mastery = true, mastery_scale = 0.833333333 } # [db2 190740]
+on_cast = [
+  { type = "consume", buff = "prismatic_bolt", all = true },
+  { type = "gain", resource = "charges", amount = 4 }, # [db2]
+  { type = "trigger", ability = "sync_charges" },
+  { type = "buff", buff = "arcane_salvo", stacks = 4 }, # [db2 1243557]
+  { type = "trigger", ability = "salvo_check" },
+  { type = "trigger", ability = "gain_clearcasting" }, # [simc] two ranks, guaranteed
+]
+
+[[abilities]]
+name = "arcane_missiles"
+spell_id = 5143 # [db2] per-tick damage is 7268
+requires_buff = "clearcasting"
+free_with = "clearcasting"
+on_start = [{ type = "buff", buff = "channeling" }]
+on_cast = [{ type = "trigger", ability = "random_clearcasting" }]
+channel = { ticks = 7, finish_delay = 0.25, interrupt_if = "!buff.overpowered_missiles.up&(buff.arcane_salvo.stack>=19|(buff.prismatic_bolt.up&buff.arcane_salvo.stack>13))", on_finish = [ { type = "consume", buff = "channeling", all = true }, { type = "consume", buff = "overpowered_missiles", all = true }, { type = "if", if = "buff.overpowered_banked.up", then = [{ type = "consume", buff = "overpowered_banked", all = true }, { type = "buff", buff = "overpowered_missiles" }] } ] } # [simc] interrupt priority after GCD; full overpowered channels
+[abilities.dot]
+name = "arcane_missiles"
+sp_coeff = 1.078 # [db2 7268]
+school = "arcane"
+mastery = true
+mastery_scale = 0.833333333 # [db2 190740]
+tick_time = 0.35 # [db2] .625 x.7 Amplification x.8 Concentrated Power
+duration = 2.1 # [simc] round(2.5/.4375) = 6 intervals, plus tick zero
+hasted = true
+tick_on_apply = true
+whole_ticks = true
+on_tick = [
+  { type = "buff", buff = "arcane_salvo" },
+  { type = "buff", buff = "arcane_salvo", chance = 0.5 }, # [db2 461257] Focusing Crystal
+  { type = "if", if = "buff.overpowered_missiles.up", then = [{ type = "buff", buff = "arcane_salvo", stacks = 2 }] }, # [db2 1244329]
+  { type = "trigger", ability = "salvo_check" },
+  { type = "gain", resource = "charges", amount = 1, chance = 0.5 }, # [db2 461248]
+  { type = "trigger", ability = "sync_charges" },
+]
+
+[[abilities]]
+name = "arcane_orb"
+spell_id = 153626 # [db2]
+cooldown = 20 # [db2]
+charges = 2 # [db2 384651]
+cost = { mana = 2375 } # [obs]
+on_cast = [
+  { type = "gain", resource = "charges", amount = 1 }, # [simc] cast charge, then impact charge
+  { type = "trigger", ability = "sync_charges" },
+  { type = "buff", buff = "arcane_salvo" }, # [db2 1243557]
+  { type = "trigger", ability = "salvo_check" },
+  { type = "trigger", ability = "random_clearcasting" },
+  { type = "trigger", ability = "arcane_orb_bolt", delay = 0.333 }, # [obs] travel
+  { type = "trigger", ability = "conjure_splinter", count = "2", delay = 0.333, interval = 0.1 }, # [db2 444256]
+]
+
+[[abilities]]
+name = "orb_barrage"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [
+  { type = "gain", resource = "charges", amount = 1 },
+  { type = "trigger", ability = "sync_charges" },
+  { type = "buff", buff = "arcane_salvo" },
+  { type = "trigger", ability = "salvo_check" },
+  { type = "trigger", ability = "random_clearcasting" },
+  { type = "trigger", ability = "orb_barrage_arcane_orb_bolt", delay = 0.333 }, # [obs]
+  { type = "trigger", ability = "conjure_splinter", count = "2", delay = 0.333, interval = 0.1 }, # [db2 444256]
+]
+
+[[abilities]]
+name = "arcane_orb_bolt"
+spell_id = 153640 # [db2]
+triggered_only = true
+damage = { sp_coeff = 2.432, school = "arcane", mastery = true, mastery_scale = 0.833333333 } # [db2]
+on_cast = [{ type = "gain", resource = "charges", amount = 1 }, { type = "trigger", ability = "sync_charges" }]
+
+[[abilities]]
+name = "orb_barrage_arcane_orb_bolt"
+spell_id = 153640 # [db2]
+triggered_only = true
+damage = { sp_coeff = 2.432, school = "arcane", mastery = true, mastery_scale = 0.833333333 } # [db2]
+on_cast = [{ type = "gain", resource = "charges", amount = 1 }, { type = "trigger", ability = "sync_charges" }]
+
+[[abilities]]
+name = "arcane_surge"
+spell_id = 365350 # [db2]
+cast_time = 2.5 # [db2]
+cooldown = 90 # [db2]
+on_start = [{ type = "buff", buff = "arcane_surge" }, { type = "trigger", ability = "gain_clearcasting" }]
+damage = { sp_coeff = 3.72, school = "arcane", mastery = true, mastery_scale = 0.833333333, scale = "1+mana/mana.max" } # [db2] mana increases damage up to 2x
+on_cast = [
+  { type = "gain", resource = "mana", amount_expr = "-mana+0.01*mana.max" }, # [simc] drain all, then 1% refund
+  { type = "trigger", ability = "conjure_splinter", count = "8", interval = 0.1 }, # [db2 443783]
+]
+
+[[abilities]]
+name = "touch_of_the_magi"
+spell_id = 321507 # [db2]
+gcd = 0 # [simc] use_off_gcd
+cooldown = 40 # [db2] 45 -5 Aegwynn's Technique
+on_cast = [
+  { type = "buff", buff = "touch_of_the_magi" },
+  { type = "gain", resource = "charges", amount = 4 }, # [db2]
+  { type = "trigger", ability = "sync_charges" },
+  { type = "trigger", ability = "gain_clearcasting" }, # [simc] Aegwynn's Technique
+  { type = "trigger", ability = "random_clearcasting" },
+  { type = "trigger", ability = "conjure_splinter", count = "4", interval = 0.1 }, # [db2 470021]
+]
+
+[[abilities]]
+name = "touch_of_the_magi_explosion"
+spell_id = 210833 # [db2]
+triggered_only = true
+no_procs = true
+damage = { stored_from = "touch_of_the_magi", school = "arcane", crit_bonus = -10 } # [simc] final stored damage, cannot crit
+
+[[abilities]]
+name = "evocation"
+spell_id = 12051 # [db2]
+cooldown = 45 # [db2]
+on_start = [{ type = "buff", buff = "evocation" }]
+channel = { ticks = 6, finish_delay = 0.25, interrupt_if = "mana.pct>=95", on_finish = [{ type = "consume", buff = "evocation", all = true }] } # [simc] stop at 95%
+[abilities.dot]
+name = "evocation_ticks"
+tick_time = 0.5 # [db2]
+duration = 3 # [db2]
+hasted = true
+
+# ---------------------------------------------------------------- hero / familiar
+[[abilities]]
+name = "arcane_splinter"
+spell_id = 443763 # [db2]
+triggered_only = true
+damage = { sp_coeff = 0.4365, school = "arcane", mastery = true, mastery_scale = 0.833333333 } # [db2]
+on_cast = [
+  { type = "buff", buff = "arcane_salvo", chance = 0.25 }, # [db2 1261080]
+  { type = "trigger", ability = "salvo_check" },
+  { type = "reduce_cooldown", ability = "arcane_orb", seconds = 0.3 }, # [db2 444986] effect time value 300ms
+  { type = "trigger", ability = "augury_attempt" },
+]
+
+[[abilities]]
+name = "summon_familiar"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "familiar_clock", delay = 3 }]
+
+[[abilities]]
+name = "familiar_clock"
+gcd = 0 # [simc] hasted Familiar attack clock implemented by persistent DoT
+triggered_only = true
+[abilities.dot]
+name = "familiar_timer"
+tick_time = 3 # [simc]
+duration = 1e9 # [simc] persistent
+hasted = true
+on_tick = [
+  { type = "trigger", ability = "arcane_assault" },
+  { type = "if", if = "buff.arcane_surge.up", then = [{ type = "trigger", ability = "arcane_assault", count = "3", delay = 0.075, interval = 0.075 }] }, # [db2 452997]
+]
+
+[[abilities]]
+name = "arcane_assault"
+spell_id = 225119 # [db2]
+triggered_only = true
+damage = { sp_coeff = 0.1725, school = "arcane" } # [db2] Familiar does not scale with Savant
+on_cast = [{ type = "trigger", ability = "conjure_splinter", chance = 0.5 }, { type = "gain", resource = "mana", amount_expr = "mana.max*0.02", chance = 0.06 }] # [db2 1261106,452997,454020]
+
+# ---------------------------------------------------------------- fixed gear procs (core profile still has enchants / embellishments)
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 9.989 # [obs]
+[[procs]]
+ability = "acidbrood_scourge"
+per_minute = 4.336 # [obs]
+[[procs]]
+ability = "void_eruption"
+per_minute = 5.798 # [obs]
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -10 } # [db2]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+sp_coeff = 0.12 # [db2 1287663]
+tick_time = 1 # [db2]
+duration = 8 # [db2]
+hasted = false
+school = "cosmic"
+crit_bonus = -10 # [obs] cannot crit
+refresh = "extend" # [obs] stacked applications keep ticking
+[[abilities]]
+name = "acidbrood_scourge"
+spell_id = 1310088 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 2.7, school = "nature" } # [db2]
+[[abilities]]
+name = "void_eruption"
+spell_id = 1310209 # [db2]
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 1.5, school = "shadow" } # [db2]
+
+# ---------------------------------------------------------------- APL [simc] default single-target Spellslinger, no tier
+[[rotation]]
+action = "arcane_orb"
+if = "time=0"
+[[rotation]]
+action = "touch_of_the_magi"
+if = "(prev_gcd.prismatic_bolt|prev_gcd.arcane_barrage|(buff.arcane_surge.up&buff.arcane_surge.remains<12))&(buff.arcane_surge.up|cooldown.arcane_surge.remains>30)"
+[[rotation]]
+action = "arcane_surge"
+[[rotation]]
+action = "evocation"
+if = "mana.pct<10&!buff.arcane_surge.up&!buff.touch_of_the_magi.up&cooldown.arcane_surge.remains>10"
+[[rotation]]
+action = "prismatic_bolt"
+if = "buff.arcane_salvo.stack>13"
+[[rotation]]
+action = "arcane_barrage"
+if = "buff.arcane_salvo.stack>=19|(prev_gcd.arcane_surge&buff.arcane_salvo.stack>=15)|(fight_remains<gcd*2&charges=4)"
+[[rotation]]
+action = "arcane_missiles"
+if = "(buff.arcane_salvo.stack<15|buff.clearcasting.stack=3)&!buff.clearcasting_reaction.up"
+[[rotation]]
+action = "prismatic_bolt"
+[[rotation]]
+action = "arcane_orb"
+if = "charges<3"
+[[rotation]]
+action = "arcane_blast"
+if = "!buff.prismatic_bolt.up"

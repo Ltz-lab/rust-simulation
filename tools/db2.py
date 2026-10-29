@@ -74,6 +74,8 @@ TABLES = [
     "SpellName", "SpellEffect", "SpellMisc", "SpellClassOptions", "SpellLabel", "SpecializationSpells",
     "ChrSpecialization", "TraitTreeLoadout", "SkillLineXTraitTree", "TraitNode", "TraitNodeXTraitNodeEntry",
     "TraitNodeEntry", "TraitDefinition", "TraitSubTree",
+    "SpellCooldowns", "SpellCategories", "SpellCategory", "SpellPower", "SpellAuraOptions",
+    "SpellDuration", "SpellCastTimes", "SpellProcsPerMinute",
 ]
 
 if __name__ == "__main__":

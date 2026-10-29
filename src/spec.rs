@@ -196,6 +196,11 @@ pub struct ResourceDef {
     /// Regeneration scales with the player's current haste (buffs included).
     #[serde(default)]
     pub regen_hasted: bool,
+    /// Multiply the resource cap / base regen by 1 + this * player mastery.
+    #[serde(default)]
+    pub max_per_mastery: f64,
+    #[serde(default)]
+    pub regen_per_mastery: f64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -221,8 +226,14 @@ pub struct AbilityDef {
     pub cast_time: f64,
     #[serde(default = "yes")]
     pub cast_hasted: bool,
+    /// A channel starts immediately and delivers its attached DoT's whole ticks.
+    #[serde(default)]
+    pub channel: Option<ChannelDef>,
     #[serde(default)]
     pub cost: HashMap<String, f64>,
+    /// Per-resource expressions replacing the corresponding fixed cost.
+    #[serde(default)]
+    pub cost_expr: HashMap<String, String>,
     /// Spend up to this much of a resource in total (at least `cost`), like
     /// a finisher spending every combo point. `spent.<resource>` in
     /// expressions is what the last cast that paid it paid.
@@ -265,6 +276,21 @@ pub struct AbilityDef {
     /// Only ever fired by triggers/procs, never chosen by the rotation.
     #[serde(default)]
     pub triggered_only: bool,
+}
+
+/// Player channel. Tick interval and tick-zero behaviour come from its DoT.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ChannelDef {
+    pub ticks: u32,
+    /// Unhasted recovery after natural completion; interrupted channels skip it.
+    #[serde(default)]
+    pub finish_delay: f64,
+    /// Re-evaluated after each tick, once the global cooldown is over.
+    #[serde(default)]
+    pub interrupt_if: Option<String>,
+    /// Runs on both natural completion and interruption.
+    #[serde(default)]
+    pub on_finish: Vec<Effect>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -515,6 +541,12 @@ pub enum Effect {
         /// Proc chance from a condition-language expression (overrides `chance`).
         #[serde(default)]
         chance_expr: Option<String>,
+        /// Number of executions, evaluated once after a successful roll.
+        #[serde(default)]
+        count: Option<String>,
+        /// Delay between executions of a multi-trigger.
+        #[serde(default)]
+        interval: f64,
     },
 }
 
@@ -579,6 +611,9 @@ pub struct BuffDef {
     /// While up, this percent of all damage dealt is stored (for a later burst).
     #[serde(default)]
     pub store_damage_pct: f64,
+    /// Regeneration speed-up per resource (percent per stack).
+    #[serde(default)]
+    pub resource_regen_pct: HashMap<String, f64>,
     /// Per-ability cast time reduction while up (percent; 100 = instant).
     #[serde(default)]
     pub cast_time_pct: HashMap<String, f64>,

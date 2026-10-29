@@ -60,7 +60,7 @@ enum CEffect {
     Reset { ab: usize, chance: f64, rid: usize },
     Reduce { ab: usize, secs: f64, chance: f64, rid: usize },
     Gain { res: usize, amt: f64, expr: Option<Expr>, chance: f64, rid: usize },
-    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, chance_expr: Option<Expr>, rid: usize },
+    Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, chance_expr: Option<Expr>, count: Option<Expr>, interval: f64, rid: usize },
     ExtendDot { dot: usize, secs: f64 },
     DotStack { dot: usize, add: i32, set: Option<Expr>, min: u32 },
     CancelDot { dot: usize },
@@ -86,6 +86,9 @@ enum BuffKind {
 struct CAbility {
     def: AbilityDef,
     cost: Vec<(usize, f64)>,
+    cost_expr: Vec<(usize, Expr)>,
+    channel_interrupt: Option<Expr>,
+    channel_finish: Vec<CEffect>,
     /// (resource, most spent in total) for abilities that spend "up to".
     cost_max: Vec<(usize, f64)>,
     gain: Vec<(usize, f64)>,
@@ -188,6 +191,7 @@ pub struct Compiled {
     res_start: Vec<f64>,
     res_regen: Vec<f64>,
     res_regen_hasted: Vec<bool>,
+    res_regen_buffs: Vec<Vec<(usize, f64)>>,
     /// Resources that regenerate.
     regen_res: Vec<usize>,
     echoes: Vec<CEcho>,
@@ -269,6 +273,12 @@ impl<'a> Resolver for Names<'a> {
         let parts: Vec<&str> = name.split('.').collect();
         Ok(match parts.as_slice() {
             ["gcd"] => Var::Gcd,
+            ["gcd", "remains"] => Var::GcdRemains,
+            ["mastery"] => Var::Mastery,
+            ["haste"] => Var::Haste,
+            ["prev_gcd", a] => Var::PrevGcd(self.ab(a)?),
+            [r, "max"] if self.res.contains_key(*r) => Var::ResourceMax(self.res[*r]),
+            [r, "pct"] if self.res.contains_key(*r) => Var::ResourcePct(self.res[*r]),
             ["time"] => Var::Time,
             ["fight_remains"] | ["target", "time_to_die"] => Var::FightRemains,
             ["target", "health", "pct"] => Var::HealthPct,
@@ -396,11 +406,13 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             each: compile_effects(each, n, &format!("{site}/each"), rolls)?,
         },
         Effect::ExtendPet { pet, seconds } => CEffect::ExtendPet { pet: get(n.pet, "pet", pet)?, secs: *seconds },
-        Effect::Trigger { ability, chance, delay, mastery_chance, chance_expr } => CEffect::Trigger {
+        Effect::Trigger { ability, chance, delay, mastery_chance, chance_expr, count, interval } => CEffect::Trigger {
             ab: n.ab(ability)?,
             chance: *chance,
             delay: *delay,
             mastery_chance: *mastery_chance,
+            count: count.as_ref().map(|e| expr::parse(e, n)).transpose()?,
+            interval: *interval,
             chance_expr: chance_expr.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("trigger chance '{e}': {err}"))).transpose()?,
             rid: rid(),
         },
@@ -550,6 +562,9 @@ impl Compiled {
                     .and_then(|d| d.scale.as_ref())
                     .map(|e| expr::parse(e, &n).map_err(|err| ctx(format!("damage scale '{e}': {err}"))))
                     .transpose()?,
+                cost_expr: a.cost_expr.iter().map(|(r, e)| Ok((get(&res, "resource", r)?, expr::parse(e, &n)?))).collect::<Result<_, String>>().map_err(ctx)?,
+                channel_interrupt: a.channel.as_ref().and_then(|ch| ch.interrupt_if.as_ref()).map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
+                channel_finish: effects(a.channel.as_ref().map_or(&[], |ch| ch.on_finish.as_slice()), &format!("{}/channel_finish", a.name)).map_err(ctx)?,
                 cost,
                 gain: rmap(&a.gain).map_err(ctx)?,
                 free_with: a.free_with.as_ref().map(|b| get(&buff, "buff", b)).transpose().map_err(ctx)?,
@@ -705,6 +720,15 @@ impl Compiled {
             .filter(|(_, b)| b.crit_pct != 0.0)
             .map(|(i, b)| (i, b.crit_pct / 100.0))
             .collect();
+        for a in &abilities {
+            if let Some(ch) = &a.def.channel {
+                let Some(di) = a.dot else { return Err(format!("channel '{}' needs a dot", a.def.name)); };
+                let d = &dots[di].def;
+                if a.pet.is_some() || ch.ticks == 0 || d.tick_time <= 0.0 || d.banked || a.def.cast_time != 0.0 {
+                    return Err(format!("channel '{}': requires player, positive ticks/interval, unbanked dot, no cast_time", a.def.name));
+                }
+            }
+        }
         for d in &dots {
             if d.def.banked && d.def.tick_on_apply {
                 return Err(format!("dot '{}': banked dots can't tick on apply", d.def.name));
@@ -806,9 +830,10 @@ impl Compiled {
             .collect();
 
         Ok(Compiled {
-            res_max: res_names.iter().map(|n| spec.resources[n].max).collect(),
-            res_start: res_names.iter().map(|n| spec.resources[n].start).collect(),
-            res_regen: res_names.iter().map(|n| spec.resources[n].regen).collect(),
+            res_max: res_names.iter().map(|n| spec.resources[n].max * (1.0 + spec.resources[n].max_per_mastery * spec.player.mastery)).collect(),
+            res_start: res_names.iter().map(|n| spec.resources[n].start * (1.0 + spec.resources[n].max_per_mastery * spec.player.mastery)).collect(),
+            res_regen: res_names.iter().map(|n| spec.resources[n].regen * (1.0 + spec.resources[n].regen_per_mastery * spec.player.mastery)).collect(),
+            res_regen_buffs: res_names.iter().map(|n| per_buff(&spec.buffs, |b| b.resource_regen_pct.get(n).copied().unwrap_or(0.0))).collect(),
             res_regen_hasted: res_names.iter().map(|n| spec.resources[n].regen_hasted).collect(),
             regen_res: (0..res_names.len()).filter(|&i| spec.resources[&res_names[i]].regen > 0.0).collect(),
             echoes,
@@ -886,6 +911,7 @@ enum Ev {
     Trigger(u32),
     Proc(u32),
     CastEnd(u32),
+    ChannelTick(u32, u32, u32),
     BuffExpire(u32),
     // (pet key, generation)
     PetAct(u32, u32),
@@ -984,6 +1010,9 @@ struct State<'a> {
     gcd_ready: f64,
     /// The player is casting until this time.
     cast_end: f64,
+    channel_gen: u32,
+    channel_tick_time: f64,
+    prev_gcd: Option<usize>,
     q: BinaryHeap<Queued>,
     seq: u64,
     depth: u32,
@@ -998,6 +1027,12 @@ impl<'a> Env for State<'a> {
         let b = |x: bool| if x { 1.0 } else { 0.0 };
         match *v {
             Var::Resource(i) => self.res_now(i),
+            Var::ResourceMax(i) => self.c.res_max[i],
+            Var::ResourcePct(i) => 100.0 * self.res_now(i) / self.c.res_max[i],
+            Var::Mastery => self.mastery(),
+            Var::Haste => self.haste_mult() - 1.0,
+            Var::GcdRemains => (self.gcd_ready - self.now).max(0.0),
+            Var::PrevGcd(i) => b(self.prev_gcd == Some(i)),
             Var::Spent(i) => self.spent[i],
             Var::Gcd => self.gcd_len(1.5, true),
             Var::Time => self.now,
@@ -1086,6 +1121,9 @@ impl<'a> State<'a> {
             swing_gen: [0; 2],
             gcd_ready: 0.0,
             cast_end: 0.0,
+            channel_gen: 0,
+            channel_tick_time: 0.0,
+            prev_gcd: None,
             q: BinaryHeap::new(),
             seq: 0,
             depth: 0,
@@ -1175,13 +1213,13 @@ impl<'a> State<'a> {
         }
         let max = self.c.res_max[r];
         let (mut v, mut a) = (self.res[r], self.res_t[r]);
-        if !self.c.res_regen_hasted[r] {
+        if !self.c.res_regen_hasted[r] && self.c.res_regen_buffs[r].is_empty() {
             return (v + rate * (self.now - a)).min(max);
         }
         // next haste-buff expiry after `a` (and before now), one segment at a time
         loop {
             let mut b = self.now;
-            for &(x, _) in &self.c.haste_buffs {
+            for &(x, _) in self.c.haste_buffs.iter().chain(self.c.res_regen_buffs[r].iter()) {
                 match self.c.buff_kind[x] {
                     BuffKind::Shared => {
                         let t = self.buff_exp[x];
@@ -1199,7 +1237,17 @@ impl<'a> State<'a> {
                     BuffKind::Health(..) => {}
                 }
             }
-            v = (v + rate * self.haste_at(0.5 * (a + b)) * (b - a)).min(max);
+            let mid = 0.5 * (a + b);
+            let h = if self.c.res_regen_hasted[r] { self.haste_at(mid) } else { 1.0 };
+            let mult: f64 = self.c.res_regen_buffs[r].iter().map(|&(x, p)| {
+                let k = match self.c.buff_kind[x] {
+                    BuffKind::Shared => if self.buff_exp[x] > mid { self.buff_stk[x] as f64 } else { 0.0 },
+                    BuffKind::Overlap => self.ov_exp[x].iter().filter(|&&t| t > mid).count() as f64,
+                    BuffKind::Health(..) => self.stacks(x),
+                };
+                1.0 + p * if self.c.buffs[x].flat { k.min(1.0) } else { k }
+            }).product();
+            v = (v + rate * h * mult * (b - a)).min(max);
             if b >= self.now {
                 return v;
             }
@@ -1228,7 +1276,7 @@ impl<'a> State<'a> {
             return None;
         }
         let mut t = self.now;
-        for &(r, amt) in &a.cost {
+        for &(r, amt) in self.costs(i).iter() {
             let have = self.res_now(r);
             if have + 1e-9 >= amt {
                 continue;
@@ -1349,6 +1397,13 @@ impl<'a> State<'a> {
         }
     }
 
+    fn costs(&self, i: usize) -> std::borrow::Cow<'_, [(usize, f64)]> {
+        let a = &self.c.abilities[i];
+        if a.cost_expr.is_empty() { return std::borrow::Cow::Borrowed(&a.cost); }
+        std::borrow::Cow::Owned(a.cost.iter().filter(|(r, _)| !a.cost_expr.iter().any(|(x, _)| x == r)).copied()
+            .chain(a.cost_expr.iter().map(|(r, e)| (*r, e.eval(self).max(0.0)))).collect())
+    }
+
     fn usable(&self, i: usize) -> bool {
         let a = &self.c.abilities[i];
         if a.def.triggered_only {
@@ -1363,7 +1418,7 @@ impl<'a> State<'a> {
             }
         let free = a.free_with.is_some_and(|b| self.buff_up(b));
         if !free {
-            for &(r, amt) in &a.cost {
+            for &(r, amt) in self.costs(i).iter() {
                 if self.res_now(r) + 1e-9 < amt {
                     return false;
                 }
@@ -1375,7 +1430,7 @@ impl<'a> State<'a> {
     fn gain(&mut self, r: usize, amt: f64) {
         self.settle();
         let before = self.res[r];
-        self.res[r] = (before + amt).min(self.c.res_max[r]);
+        self.res[r] = (before + amt).clamp(0.0, self.c.res_max[r]);
         if let Some(&src) = self.cur.last() {
             self.out.res_gain[src] += amt;
             self.out.res_waste[src] += amt - (self.res[r] - before);
@@ -1576,7 +1631,7 @@ impl<'a> State<'a> {
             CEffect::Summon { pet, count, dur } => self.summon(pet, count, dur),
             CEffect::Dismiss { pet, count, ref each } => self.dismiss(pet, count, each),
             CEffect::ExtendPet { pet, secs } => self.extend_pet(pet, secs),
-            CEffect::Trigger { ab, chance, delay, mastery_chance, ref chance_expr, rid } => {
+            CEffect::Trigger { ab, chance, delay, mastery_chance, ref chance_expr, ref count, interval, rid } => {
                 let chance = match (mastery_chance, chance_expr) {
                     (Some(f), _) => self.mastery() * f,
                     (None, Some(e)) => e.eval(self),
@@ -1585,10 +1640,14 @@ impl<'a> State<'a> {
                 if !self.roll(rid, chance) {
                     return;
                 }
-                if delay > 0.0 {
-                    self.push(self.now + delay, Ev::Trigger(ab as u32));
-                } else {
-                    self.execute(ab, true);
+                let n = count.as_ref().map_or(1, |e| e.eval(self).clamp(0.0, 1000.0) as u32);
+                for k in 0..n {
+                    let wait = delay + interval * k as f64;
+                    if wait > 0.0 {
+                        self.push(self.now + wait, Ev::Trigger(ab as u32));
+                    } else {
+                        self.execute(ab, true);
+                    }
                 }
             }
         }
@@ -1824,12 +1883,13 @@ impl<'a> State<'a> {
                 }
             } else {
                 self.settle();
-                for &(r, amt) in &a.cost {
+                let costs = self.costs(i).into_owned();
+                for &(r, amt) in &costs {
                     self.res[r] -= amt;
                     self.spent[r] = amt;
                 }
                 for &(r, most) in &a.cost_max {
-                    let paid = a.cost.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
+                    let paid = costs.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
                     let more = (most - paid).min(self.res[r]).max(0.0);
                     self.res[r] -= more;
                     self.spent[r] = paid + more;
@@ -1870,13 +1930,14 @@ impl<'a> State<'a> {
                 }
             }
         }
-        if let Some(di) = a.dot {
+        if let Some(di) = a.dot.filter(|_| a.def.channel.is_none()) {
             self.apply_dot(di);
         }
         for e in &a.on_cast {
             self.apply(e);
         }
         self.out.casts[a.src] += 1;
+        if !triggered && a.def.gcd > 0.0 { self.prev_gcd = Some(i); }
         self.cur_pet = prev_pet;
         self.cur.pop();
         self.depth -= 1;
@@ -2237,6 +2298,28 @@ impl<'a> State<'a> {
                 self.execute(c.procs[k].0, true);
                 self.schedule_proc(k);
             }
+            Ev::ChannelTick(i, generation, tick) => {
+                if generation != self.channel_gen { return true; }
+                let i = i as usize;
+                let a = &c.abilities[i];
+                let ch = a.def.channel.as_ref().unwrap();
+                let di = a.dot.unwrap();
+                self.cur.push(a.src);
+                self.dot_tick(di, 1.0);
+                self.cur.pop();
+                let stop = tick + 1 >= ch.ticks || (self.now + 1e-6 >= self.gcd_ready
+                    && a.channel_interrupt.as_ref().is_some_and(|e| e.eval(self) != 0.0));
+                if stop {
+                    self.cancel_dot(di);
+                    self.channel_gen += 1;
+                    self.cast_end = self.now + if tick + 1 >= ch.ticks { ch.finish_delay } else { 0.0 };
+                    for e in &a.channel_finish { self.apply(e); }
+                    self.push(self.gcd_ready.max(self.cast_end), Ev::Ready);
+                } else {
+                    let next = self.now + self.channel_tick_time;
+                    self.push(next, Ev::ChannelTick(i as u32, generation, tick + 1));
+                }
+            }
             Ev::CastEnd(i) => {
                 self.execute(i as usize, false);
                 self.push(self.gcd_ready.max(self.now), Ev::Ready);
@@ -2312,7 +2395,22 @@ impl<'a> State<'a> {
                     Some(i) => {
                         let d = &c.abilities[i].def;
                         let ct = self.cast_time(i);
-                        if ct > 0.0 {
+                        if let Some(ch) = &d.channel {
+                            if d.gcd > 0.0 {
+                                self.gcd_ready = self.now + self.gcd_len(d.gcd, d.gcd_hasted);
+                            }
+                            self.execute(i, false);
+                            let di = c.abilities[i].dot.unwrap();
+                            self.dot_gen[di] += 1;
+                            self.dot_stk[di] = 1;
+                            self.dot_exp[di] = self.end;
+                            self.channel_gen += 1;
+                            self.cast_end = self.end;
+                            self.channel_tick_time = self.tick_len(&c.dots[di].def);
+                            let first = if c.dots[di].def.tick_on_apply { self.now } else { self.now + self.channel_tick_time };
+                            self.push(first, Ev::ChannelTick(i as u32, self.channel_gen, 0));
+                            let _ = ch;
+                        } else if ct > 0.0 {
                             // the GCD runs from the start of the cast; the spell resolves at its end
                             if d.gcd > 0.0 {
                                 self.gcd_ready = self.now + self.gcd_len(d.gcd, d.gcd_hasted);

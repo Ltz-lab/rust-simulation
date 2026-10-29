@@ -6,6 +6,12 @@
 #[derive(Debug, Clone)]
 pub enum Var {
     Resource(usize),
+    ResourceMax(usize),
+    ResourcePct(usize),
+    Mastery,
+    Haste,
+    GcdRemains,
+    PrevGcd(usize),
     /// What the player's last cast paid of a resource (`spent.<resource>`).
     Spent(usize),
     Gcd,
