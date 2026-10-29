@@ -1,0 +1,563 @@
+# Feral Druid — Wildstalker, Midnight Season 2, single target, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Druid_Feral.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py / SimC's
+#          spell_query
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_druid.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# Cat form: energy (140, 12.1/s hasted), combo points (5). Builders are Rake,
+# Shred and Lunar Inspiration (Moonfire); finishers are Rip (a bleed whose
+# length grows with combo points) and Ferocious Bite (spends all combo points
+# and up to 25 extra energy). Tiger's Fury (+50 energy, +21% damage, bleeds
+# +31% for their full duration) drives Berserk (15s, +15% damage, +1 combo
+# point per builder, 1 combo point every 1.5s) and Feral Frenzy / Convoke the
+# Spirits. Wildstalker: Rip/Rake ticks grow Bloodseeker Vines, whose stacks
+# burst as Bursting Growth and can proc Rampancy; Tiger's Fury makes the next
+# two builders deliver an Unseen Slash, and Ferocious Bite can too.
+
+name = "Feral Druid (Wildstalker, core kit)"
+precombat = ["prowl_precast"]
+
+[player]
+# SimC's buffed snapshot (core kit). The time-averaged gear stat procs
+# (Rune of Burning Haste, Arcanoweave Insight, Might of the Void, Venomcursed)
+# are not modelled individually; only Rune of Burning Haste's haste is folded
+# into `haste` below, the rest sits in the calibration residual.
+attack_power = 2577        # [obs] buffed snapshot
+# [obs] the weapon's share of ability damage, fitted to the +200 agility probe
+# (AP 2577 -> 2798 gives +5.99% per hit on every source: 1112 AP-equivalent)
+weapon_attack_power = 1112
+crit = 0.2689              # [obs] buffed snapshot
+haste = 0.3017             # [obs] 26.57% snapshot + 3.6% from Rune of Burning Haste's average
+mastery = 0.7474           # [obs] buffed snapshot (Mastery: Razor Claws)
+versatility = 0.0798       # [obs] buffed snapshot
+crit_multiplier = 2.0808   # [obs] crit/non-crit in the log (2.0 x 1.0404 physical crit damage)
+weapon = { min = 0, max = 0, speed = 1.0 }   # [simc] cat form beast weapon, 1.0s
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.1            # [simc] druid_t::available(): re-check on energy thresholds
+ready_tolerance = 1e-5
+
+[resources.energy]
+max = 140                  # [simc] 100 + Tireless Energy 2/2 (+40)
+start = 140                # [obs] full out of combat
+regen = 12.65              # [obs/simc] SimC base_energy_regen_per_second (10/s x 1.1 Tireless x 1.15)
+regen_hasted = true        # [obs] energy regen follows haste
+
+[resources.combo_points]
+max = 5                    # [db2] Overflowing Power's over-cap storage is not modelled
+start = 0
+
+[auto_attack]
+replace_with = "cat_melee"
+wakes = false              # [simc] a waiting feral re-checks on resources and cooldowns, not swings
+on_hit = [{ type = "trigger", ability = "cat_melee", chance = 0.20 }]   # [simc 462854] Skyfury repeats the swing
+
+# Omen of Clarity: 7 real PPM on auto attacks, hasted [simc melee_t; obs 9.0/min]
+[[procs]]
+ability = "clearcasting_proc"
+per_minute = 7
+hasted = true
+on_hit = true
+sources = ["cat_melee"]
+
+# Rune of Unleashed Fire (main-hand enchant) [obs 49.5 procs a fight]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.1
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "prowl"             # [db2 5215] out of combat stealth, broken by the opener
+duration = 1000000000
+ability_pct = { rake = 60, shred = 60 }   # [db2 1822#4/5221#3] Pouncing Strikes / Improved Prowl
+ability_crit_pct = { shred = 27 }          # [simc] Shred's crit chance multiplier x2 from stealth
+
+[[buffs]]
+name = "tigers_fury"       # [db2 5217 + 202021] 15s (Predator +5s)
+duration = 15
+damage_pct = 21            # [db2 5217#1/#3/#4 + 390902] +15% + Carnivorous Instinct 6%
+ability_pct = { rip = 10, rake = 10, bloodseeker_vines = 10, lunar_inspiration = 10, feral_frenzy = 10, unseen_slash = 10 }   # [db2 391872#3] Tiger's Tenacity: bleeds +10% more
+
+[[buffs]]
+name = "berserk"           # [db2 106951] 15s
+duration = 15
+damage_pct = 15            # [db2 106951#3/#4/#5]
+
+[[buffs]]
+name = "clearcasting"      # [db2 135700 + 236068] 2 stacks, next Shred +15%
+duration = 15
+max_stacks = 2
+ability_pct = { shred = 15 }
+
+[[buffs]]
+name = "sudden_ambush"     # [db2 1244483] 6% per combo point on finishers
+duration = 15
+ability_pct = { rake = 50, shred = 50 }
+ability_crit_pct = { rake = 100, shred = 100 }
+
+[[buffs]]
+name = "frantic_momentum"  # [db2 391876] 3% per combo point on finishers
+duration = 6
+haste_pct = 10
+
+[[buffs]]
+name = "savage_fury"       # [db2 449646] Tiger's Fury: +10% haste, +25% energy regen
+duration = 8
+haste_pct = 10
+resource_regen_pct = { energy = 25 }
+
+[[buffs]]
+name = "tigers_tenacity"   # [db2 391873] next 3 finishers restore 1 combo point
+duration = 15
+max_stacks = 3
+
+[[buffs]]
+name = "stalking_predator" # [db2 1263962] Tiger's Fury: next 2 builders deliver an Unseen Slash
+duration = 15
+max_stacks = 2
+
+[[buffs]]
+name = "unseen_predators_craving"   # [db2 1263939, simc value override] 1s per combo point
+duration = 5
+refresh_extend = true
+damage_pct = 15
+
+[[buffs]]
+name = "sabertooth"        # [db2 391722] Ferocious Bite: bleeds +6% per combo point, 6s
+duration = 6
+max_stacks = 5
+ability_pct = { rip = 6, rake = 6, bloodseeker_vines = 6, lunar_inspiration = 6, feral_frenzy = 6, unseen_slash = 6 }
+
+# ---------------------------------------------------------------- builders
+
+[[abilities]]
+name = "clearcasting_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "clearcasting" }]
+
+[[abilities]]
+name = "cat_melee"         # [simc] cat form auto attack: weapon damage + AP/6
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.166667, school = "physical" }   # [simc] 1/6 weapon power coefficient
+
+[[abilities]]
+name = "prowl_precast"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "prowl" }]
+
+[[abilities]]
+name = "rake"
+spell_id = 1822
+gcd = 1.0
+cost = { energy = 35 }     # [db2]
+gain = { combo_points = 1 } # [db2 1822#2]
+free_with = "clearcasting"
+damage = { ap_coeff = 0.291, school = "physical" }   # [db2 1822#1]
+on_crit = [{ type = "gain", resource = "combo_points", amount = 1 }]   # [db2 16953] Primal Fury
+on_cast = [
+  { type = "if", if = "buff.berserk.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] },   # [db2 106951#2]
+  { type = "if", if = "buff.stalking_predator.up", then = [
+    { type = "consume", buff = "stalking_predator" },
+    { type = "trigger", ability = "unseen_slash" },
+  ] },
+  { type = "if", if = "buff.sudden_ambush.up", then = [{ type = "consume", buff = "sudden_ambush" }] },
+  { type = "consume", buff = "prowl" },
+]
+[abilities.dot]
+name = "rake"
+ap_coeff = 0.294           # [db2 155722#1] per 3s tick
+tick_time = 2.4            # [db2 155722] 3s, x0.8 Circle of Life and Death [db2 400320]
+duration = 12              # [db2 155722] 15s, x0.8 Circle of Life and Death
+hasted = true
+school = "physical"
+mastery = true             # [obs] +500 mastery probe: x1.107 on the tick
+refresh = "pandemic"
+on_tick = [{ type = "trigger", ability = "bloodseeker_vines_apply", chance = 0.137 }]   # [obs] Thriving Growth rate
+
+[[abilities]]
+name = "shred"
+spell_id = 5221
+gcd = 1.0
+cost = { energy = 40 }     # [db2]
+gain = { combo_points = 1 } # [db2 5221#2]
+free_with = "clearcasting"
+damage = { ap_coeff = 2.6048, school = "physical" }   # [db2 5221#1]
+on_crit = [{ type = "gain", resource = "combo_points", amount = 1 }]   # [db2 16953]
+on_cast = [
+  { type = "if", if = "buff.berserk.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] },
+  { type = "if", if = "buff.stalking_predator.up", then = [
+    { type = "consume", buff = "stalking_predator" },
+    { type = "trigger", ability = "unseen_slash" },
+  ] },
+  { type = "if", if = "buff.sudden_ambush.up", then = [{ type = "consume", buff = "sudden_ambush" }] },
+  { type = "trigger", ability = "panthers_guile", chance = 0.25 },   # [db2 1280316]
+  { type = "consume", buff = "prowl" },
+]
+
+[[abilities]]
+name = "lunar_inspiration"
+spell_id = 155625
+gcd = 1.0
+cost = { energy = 30 }     # [db2]
+gain = { combo_points = 1 } # [db2 155625#3]
+free_with = "clearcasting"
+damage = { ap_coeff = 0.216, school = "arcane", mastery = true }   # [db2 155625#2]
+on_crit = [{ type = "gain", resource = "combo_points", amount = 1 }]
+on_cast = [
+  { type = "if", if = "buff.berserk.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] },
+  { type = "if", if = "buff.stalking_predator.up", then = [
+    { type = "consume", buff = "stalking_predator" },
+    { type = "trigger", ability = "unseen_slash" },
+  ] },
+  { type = "trigger", ability = "panthers_guile", chance = 0.25 },   # [db2 1280316]
+]
+[abilities.dot]
+name = "lunar_inspiration"
+ap_coeff = 0.24            # [db2 155625#1] per 2s tick
+tick_time = 1.6            # [db2 155625] 2s, x0.8 Circle of Life and Death
+duration = 14.4            # [db2 155625] 18s, x0.8 Circle of Life and Death
+hasted = true
+school = "arcane"
+mastery = true
+refresh = "pandemic"
+
+[[abilities]]
+name = "panthers_guile"    # [db2 1280316] Shred/Moonfire: 25% to generate full combo points
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "combo_points<5", then = [
+  { type = "gain", resource = "combo_points", amount_expr = "5-combo_points" },
+] }]
+
+# ---------------------------------------------------------------- finishers
+
+[[abilities]]
+name = "rip"
+spell_id = 1079
+gcd = 1.0
+cost = { energy = 20, combo_points = 1 }   # [db2]
+cost_max = { combo_points = 5 }
+free_with = "clearcasting"
+on_cast = [{ type = "trigger", ability = "finisher_common" }]
+[abilities.dot]
+name = "rip"
+ap_coeff = 0.3113          # [db2 1079#1] per 2s tick
+tick_time = 1.6            # [db2 1079] 2s, x0.8 Circle of Life and Death
+duration = 19.2            # [db2 1079] 4s x (1+CP), x0.8 Circle of Life and Death; overridden per cast
+duration_expr = "3.2*(1+spent.combo_points)"
+hasted = true
+school = "physical"
+mastery = true
+refresh = "pandemic"
+on_tick = [{ type = "trigger", ability = "bloodseeker_vines_apply", chance = 0.137 }]
+
+[[abilities]]
+name = "ferocious_bite"
+spell_id = 22568
+gcd = 1.0
+cost = { energy = 25, combo_points = 1 }   # [db2]
+cost_max = { energy = 50, combo_points = 5 }
+damage = { ap_coeff = 1.452, school = "physical", mastery = true, scale = "(spent.combo_points/5)*(1+(spent.energy-25)/25)" }   # [db2 22568#1/#2]
+on_cast = [
+  { type = "trigger", ability = "finisher_common" },
+  { type = "buff", buff = "sabertooth", set = "spent.combo_points" },   # [db2 391722]
+  { type = "trigger", ability = "unseen_slash", chance_expr = "0.15*spent.combo_points" },   # [db2 1263657]
+  { type = "if", if = "dot.bloodseeker_vines.up", then = [{ type = "trigger", ability = "bursting_growth" }] },   # [simc ferocious_bite_t]
+]
+
+[[abilities]]
+name = "finisher_common"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "gain", resource = "energy", amount_expr = "2*spent.combo_points" },   # [db2 158476] Soul of the Forest
+  { type = "trigger", ability = "frantic_momentum_proc", chance_expr = "0.03*spent.combo_points" },   # [db2 391875]
+  { type = "trigger", ability = "sudden_ambush_proc", chance_expr = "0.06*spent.combo_points" },      # [db2 384667]
+  { type = "if", if = "buff.tigers_tenacity.up", then = [
+    { type = "consume", buff = "tigers_tenacity" },
+    { type = "gain", resource = "combo_points", amount = 1 },   # [db2 391874]
+  ] },
+]
+
+[[abilities]]
+name = "frantic_momentum_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "frantic_momentum" }]
+
+[[abilities]]
+name = "sudden_ambush_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "sudden_ambush" }]
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "tigers_fury"
+spell_id = 5217
+gcd = 1.0
+cooldown = 30              # [db2]
+on_cast = [
+  { type = "buff", buff = "tigers_fury" },
+  { type = "buff", buff = "tigers_tenacity", stacks = 3 },
+  { type = "buff", buff = "savage_fury" },
+  { type = "buff", buff = "stalking_predator", stacks = 2 },
+  { type = "gain", resource = "energy", amount = 50 },   # [db2 5217#2]
+]
+
+[[abilities]]
+name = "berserk"
+spell_id = 106951
+gcd = 1.0
+cooldown = 120             # [db2 106951] 180s, -60s Berserk: Heart of the Lion [db2 391174]
+on_cast = [
+  { type = "buff", buff = "berserk" },
+  { type = "trigger", ability = "berserk_clock" },
+]
+
+[[abilities]]
+name = "berserk_clock"     # [db2 106951#1 / 343216] 1 combo point every 1.5s
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "berserk_clock"
+tick_time = 1.5
+duration = 15
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [{ type = "gain", resource = "combo_points", amount = 1 }]
+
+[[abilities]]
+name = "feral_frenzy"
+spell_id = 274837
+gcd = 1.0
+cooldown = 30              # [db2] 45s, -15s Focused Frenzy [db2 1244544]
+cost = { energy = 25 }     # [db2]
+gain = { combo_points = 5 } # [db2 274838#4] one per tick
+damage = { ap_coeff = 0.163, school = "physical", mastery = true, hits = 5 }   # [db2 274838#1]
+on_cast = [{ type = "if", if = "buff.berserk.up", then = [{ type = "gain", resource = "combo_points", amount = 1 }] }]
+[abilities.dot]
+name = "feral_frenzy"
+ap_coeff = 0.6534          # [db2 274838#2+#3] two 0.3267 periodic effects per 2s
+tick_time = 1.6            # [db2 274838] 2s, x0.8 Circle of Life and Death
+duration = 6               # [db2 274838]
+hasted = true
+school = "physical"
+mastery = true
+refresh = "reset"
+
+# ---------------------------------------------------------------- Convoke the Spirits
+# [simc convoke_the_spirits_t] 16 ticks in 4s, no haste. Each tick casts one of:
+# ~4 Ferocious Bite, ~7 Shred, ~2 Moonfire (Wrath if the Moonfire dot is up),
+# ~1 Wrath, a heal (no damage) and a rare Feral Frenzy.
+
+[[abilities]]
+name = "convoke_the_spirits"
+spell_id = 391528
+gcd = 1.5
+cooldown = 120             # [db2]
+channel = { ticks = 16 }
+[abilities.dot]
+name = "convoke_clock"
+tick_time = 0.25
+duration = 4
+hasted = false
+whole_ticks = true
+on_tick = [{ type = "choose", choices = [
+  { effects = [{ type = "trigger", ability = "ferocious_bite_convoke" }] },
+  { effects = [{ type = "trigger", ability = "ferocious_bite_convoke" }] },
+  { effects = [{ type = "trigger", ability = "ferocious_bite_convoke" }] },
+  { effects = [{ type = "trigger", ability = "ferocious_bite_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "shred_convoke" }] },
+  { effects = [{ type = "trigger", ability = "wrath_convoke" }] },
+  { if = "dot.lunar_inspiration.up", effects = [{ type = "trigger", ability = "wrath_convoke" }] },
+  { if = "!dot.lunar_inspiration.up", effects = [{ type = "trigger", ability = "lunar_inspiration_convoke" }] },
+  { effects = [{ type = "trigger", ability = "wrath_convoke" }] },
+  { effects = [{ type = "trigger", ability = "wrath_convoke" }] },
+  { effects = [{ type = "trigger", ability = "feral_frenzy_convoke", chance = 0.25 }] },
+] }]
+
+[[abilities]]
+name = "ferocious_bite_convoke"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.452, school = "physical", mastery = true }   # [db2 22568#1]
+
+[[abilities]]
+name = "shred_convoke"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.6048, school = "physical" }   # [db2 5221#1]
+
+[[abilities]]
+name = "lunar_inspiration_convoke"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.216, school = "arcane", mastery = true }   # [db2 155625#2]
+[abilities.dot]
+name = "lunar_inspiration_convoke"
+ap_coeff = 0.24
+tick_time = 1.6
+duration = 14.4
+hasted = true
+school = "arcane"
+mastery = true
+refresh = "pandemic"
+
+[[abilities]]
+name = "wrath_convoke"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.5876, school = "nature" }   # [db2 5176] off-spec Wrath, 0.6122 spell coeff x 96% AP
+
+[[abilities]]
+name = "feral_frenzy_convoke"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.163, school = "physical", mastery = true, hits = 5 }
+[abilities.dot]
+name = "feral_frenzy_convoke"
+ap_coeff = 0.6534
+tick_time = 1.6
+duration = 6
+hasted = true
+school = "physical"
+mastery = true
+refresh = "reset"
+
+# ---------------------------------------------------------------- Wildstalker
+
+[[abilities]]
+name = "bloodseeker_vines_apply"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "dot.bloodseeker_vines.up", then = [{ type = "trigger", ability = "bursting_growth" }] }]
+[abilities.dot]
+name = "bloodseeker_vines"
+ap_coeff = 0.325           # [db2 439531#1] per 2s tick, per stack
+tick_time = 1.6            # [db2 439531] 2s, x0.8 Circle of Life and Death
+duration = 4.8             # [db2 439531] 6s, x0.8 Circle of Life and Death
+hasted = true
+school = "physical"
+mastery = true
+overlap = true             # each application is its own stack with its own timer
+max_stacks = 20
+per_stack = true
+refresh = "reset"
+on_tick = [{ type = "trigger", ability = "rampancy", chance = 0.30 }]   # [db2 1270586#1] 30%
+on_expire = [{ type = "trigger", ability = "bursting_growth" }]        # [db2 440122, simc]
+
+[[abilities]]
+name = "bursting_growth"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.0, school = "physical" }   # [db2 440122#1]
+
+[[abilities]]
+name = "rampancy"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.0, school = "physical" }   # [db2 1270586#3] 100% of Bursting Growth
+
+[[abilities]]
+name = "unseen_slash"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.657, school = "physical" }   # [db2 1263890#1]
+on_cast = [{ type = "buff", buff = "unseen_predators_craving" }]   # [db2 1263939]
+[abilities.dot]
+name = "unseen_slash"
+ap_coeff = 0.46            # [db2 1271863#1] per 2s tick
+tick_time = 1.6            # [db2 1271863] 2s, x0.8 Circle of Life and Death
+duration = 4.8             # [db2 1271863] 6s, x0.8 Circle of Life and Death
+hasted = true
+school = "physical"
+mastery = true
+refresh = "pandemic"
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { amount = 6666, school = "fire", crit_bonus = -1 }   # [obs] fixed damage, never crits
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+ap_coeff = 0.1152           # [db2 1287663#1] 0.12 spell coeff x 96% AP
+tick_time = 1.0
+duration = 8
+hasted = false
+school = "cosmic"
+crit_bonus = -1
+refresh = "pandemic"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Feral APL, single target, Wildstalker.
+
+[[rotation]]
+action = "rake"
+if = "buff.prowl.up"       # [simc] rake out of stealth
+
+[[rotation]]
+action = "tigers_fury"
+if = "cooldown.berserk.remains<=1|cooldown.berserk.remains>10"
+
+[[rotation]]
+action = "berserk"
+if = "buff.tigers_fury.up"
+
+[[rotation]]
+action = "feral_frenzy"
+if = "combo_points<=2+(2*buff.berserk.up)"
+
+[[rotation]]
+action = "convoke_the_spirits"
+if = "(buff.berserk.up&buff.tigers_fury.up&(prev_gcd.rip|prev_gcd.ferocious_bite))|fight_remains<5"
+
+[[rotation]]
+action = "rip"
+if = "combo_points>=5&dot.rip.remains<7&(buff.tigers_fury.up|dot.rip.remains<cooldown.tigers_fury.remains)"
+
+[[rotation]]
+action = "ferocious_bite"
+if = "combo_points>=5&energy>=50"   # [simc] max_energy=1
+
+[[rotation]]
+action = "rake"
+if = "combo_points<=4&(dot.rake.remains<2|(buff.tigers_fury.up&dot.rake.remains<4.8))"
+
+[[rotation]]
+action = "lunar_inspiration"
+if = "combo_points<=4&(dot.lunar_inspiration.remains<2|(buff.tigers_fury.up&dot.lunar_inspiration.remains<5.8))"
+
+[[rotation]]
+action = "shred"
+if = "combo_points<=4"
