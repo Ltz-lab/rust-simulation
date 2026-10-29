@@ -21,7 +21,7 @@ real logs. Because SimC is GPL-3.0, azsim is licensed under GPL-3.0 too (see
 
 ## Status
 
-Fifteen specs so far, all Midnight Season 2, compared against SimC's sample
+Sixteen specs so far, all Midnight Season 2, compared against SimC's sample
 profiles (core kit, 300s Patchwerk):
 
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
@@ -74,7 +74,8 @@ cargo build --release
   [Demonology Warlock](docs/demonology-warlock.md), [Balance Druid](docs/balance-druid.md),
   [Arms Warrior](docs/arms-warrior.md), [Shadow Priest](docs/shadow-priest.md),
   [Feral Druid](docs/feral-druid.md), [Devourer Demon Hunter](docs/devourer-demon-hunter.md),
-  [Havoc Demon Hunter](docs/havoc-demon-hunter.md) (results, validation, known gaps)
+  [Havoc Demon Hunter](docs/havoc-demon-hunter.md),
+  [Survival Hunter](docs/survival-hunter.md) (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer
 - [Gear → stats](docs/gear.md): computing stats from /simc gear lines
