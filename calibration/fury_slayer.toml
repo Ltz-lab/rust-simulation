@@ -3,171 +3,179 @@
 # residual fitted to observed logs on top. Hit counts are NOT fitted.
 
 [sources."auto_attack_mh"]
-mult = 1.025884
-crit_bonus = +0.000740
+mult = 1.130570
+crit_bonus = -0.000273
 
 [sources."auto_attack_oh"]
 derived = 1.000000
-mult = 1.023878
-crit_bonus = -0.000131
+mult = 1.131023
+crit_bonus = +0.000406
 
 [sources."bladestorm_mh"]
 derived = 1.551840
-mult = 1.466597
-crit_bonus = -0.001839
+mult = 1.642737
+crit_bonus = +0.000479
 
 [sources."bladestorm_oh"]
 derived = 1.551840
-mult = 1.440363
-crit_bonus = +0.001895
+mult = 1.613693
+crit_bonus = +0.000125
 
 [sources."bloodbath"]
 derived = 2.133780
-mult = 0.893519
-crit_bonus = -0.034721
+mult = 0.975573
+crit_bonus = +0.019339
 
 [sources."bloodbath_bladestorm_unhinged"]
 derived = 2.133780
-mult = 0.931806
-crit_bonus = +0.005450
+mult = 1.046252
+crit_bonus = +0.002589
 
 [sources."bloodbath_dot"]
 derived = 1.293200
-mult = 1.752840
-crit_bonus = +0.006540
+mult = 1.980377
+crit_bonus = +0.008770
 
 [sources."bloodthirst"]
 derived = 2.133780
-mult = 0.817612
-crit_bonus = +0.000476
+mult = 0.940386
+crit_bonus = -0.002918
 
 [sources."bloodthirst_bladestorm_unhinged"]
 derived = 2.133780
-mult = 0.846881
-crit_bonus = +0.013500
+mult = 0.955353
+crit_bonus = +0.005496
+
+[sources."charge_impact"]
+mult = 0.520009
+crit_bonus = -0.026987
 
 [sources."crushing_blow_mh"]
 derived = 3.104116
-mult = 0.959558
-crit_bonus = -0.003496
+mult = 1.029353
+crit_bonus = -0.002019
 
 [sources."crushing_blow_oh"]
 derived = 3.104116
-mult = 0.941805
-crit_bonus = +0.000397
+mult = 1.010971
+crit_bonus = +0.002933
 
 [sources."deep_wounds"]
 derived = 1.293200
-mult = 1.859997
-crit_bonus = -0.007468
+mult = 2.239437
+crit_bonus = +0.001118
 
 [sources."execute_mainhand"]
 derived = 1.710257
-mult = 0.564886
-crit_bonus = -0.006228
+mult = 0.636110
+crit_bonus = +0.013219
 
 [sources."execute_offhand"]
 derived = 1.710257
-mult = 0.549667
-crit_bonus = +0.002049
+mult = 0.619402
+crit_bonus = +0.008437
 
 [sources."gushing_wound"]
 derived = 1.293200
-mult = 1.779960
-crit_bonus = +0.037172
+mult = 2.028488
+crit_bonus = +0.018494
 
 [sources."odyns_fury_mh"]
 derived = 1.293200
-mult = 1.409086
-crit_bonus = +0.008696
+mult = 1.628313
+crit_bonus = +0.009513
 
 [sources."odyns_fury_oh"]
 derived = 1.293200
-mult = 1.118798
-crit_bonus = +0.010524
+mult = 1.237858
+crit_bonus = +0.009253
 
 [sources."raging_blow_mh"]
 derived = 3.104116
-mult = 0.820428
-crit_bonus = -0.000931
+mult = 0.951202
+crit_bonus = +0.000060
 
 [sources."raging_blow_oh"]
 derived = 3.104116
-mult = 0.805536
-crit_bonus = -0.003819
+mult = 0.934345
+crit_bonus = -0.001674
 
 [sources."rampage1"]
 derived = 1.422520
-mult = 1.216865
-crit_bonus = +0.009985
+mult = 1.363101
+crit_bonus = +0.001198
 
 [sources."rampage2"]
 derived = 1.422520
-mult = 1.202607
-crit_bonus = +0.009801
+mult = 1.343429
+crit_bonus = +0.004020
 
 [sources."rampage3"]
 derived = 1.422520
-mult = 1.250909
-crit_bonus = +0.001020
+mult = 1.419768
+crit_bonus = +0.000654
 
 [sources."rampage4"]
 derived = 1.422520
-mult = 1.225689
-crit_bonus = -0.002816
+mult = 1.383292
+crit_bonus = -0.001801
 
 [sources."reap_the_storm_execute"]
 derived = 1.293200
-mult = 1.211132
-crit_bonus = -0.002731
+mult = 1.359396
+crit_bonus = +0.007837
 
 [sources."rend_dot"]
 derived = 1.293200
-mult = 1.744388
-crit_bonus = +0.001817
+mult = 2.098951
+crit_bonus = -0.002339
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.622473
+mult = 0.703594
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.595671
+mult = 0.674377
 crit_bonus = +0.000000
 
 [sources."slayers_strike"]
 derived = 1.293200
-mult = 1.219564
-crit_bonus = -0.013318
+mult = 1.366211
+crit_bonus = +0.006906
+
+[sources."storm_bolt"]
+mult = 1.247407
+crit_bonus = +0.006466
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.690355
-crit_bonus = -0.000614
+mult = 0.790688
+crit_bonus = -0.001602
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.627515
-crit_bonus = +0.001030
+mult = 0.710693
+crit_bonus = -0.001329
 
 [sources."whirlwind_mh_first"]
 derived = 1.564772
-mult = 0.880798
-crit_bonus = -0.032085
+mult = 0.996381
+crit_bonus = -0.016160
 
 [sources."whirlwind_mh_others"]
 derived = 1.564772
-mult = 0.853536
-crit_bonus = -0.023006
+mult = 0.968364
+crit_bonus = +0.002546
 
 [sources."whirlwind_oh_first"]
 derived = 1.564772
-mult = 0.880587
-crit_bonus = -0.022084
+mult = 1.000036
+crit_bonus = -0.005366
 
 [sources."whirlwind_oh_others"]
 derived = 1.564772
-mult = 0.853702
-crit_bonus = -0.022557
+mult = 0.971884
+crit_bonus = -0.002318
 

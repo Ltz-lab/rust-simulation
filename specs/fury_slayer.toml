@@ -14,20 +14,21 @@
 # (`damage.amount`: 606.2 main hand, 268.5 off hand after the off-hand
 # penalty) plus an attack-power coefficient; off-hand hits deal half, so their
 # coefficient and amount are halved. Rage comes from auto attacks (7.6 main
-# hand, 3.8 off hand, x1.5 in Recklessness), Bloodthirst/Bloodbath (+8),
-# Raging Blow (+12, 18 in Recklessness), Execute (+20, it costs nothing with
-# Improved Execute) and Odyn's Fury (+20); Rampage spends 60 (80 less the 20
-# Berserk refunds) and Whirlwind 20. Every 20 rage spent takes a second off
-# Recklessness (Anger Management), so the 90s cooldown comes back about every
-# 40s. Enrage (+15% haste, refreshed by Bloodthirst/Bloodbath and every
-# Rampage, 99% uptime) and Unshackled Fury turn mastery into damage while
-# enraged, so every source takes mastery. Recklessness (+20% crit, 18s) swaps
-# Raging Blow for Crushing Blow and Bloodthirst for Bloodbath. Slayer: special
-# attacks proc Slayer's Strike (stacking Executioner), every 3rd one grants
-# Sudden Death; Sudden Death Executes fire Reap the Storm and stack Imminent
-# Demise (extra Bladestorm strikes). Bladestorm's strikes auto-cast Bloodthirst
-# (Unhinged) and it ends with Brutal Finish (+50% Rampage) and Violent
-# Euphoria (+15% haste).
+# hand, 3.8 off hand), Bloodthirst/Bloodbath (+8), Raging Blow (+12, 18 for
+# Crushing Blow), Execute (+25, it costs nothing with Improved Execute),
+# Bladestorm strikes (+5), Cold Steel, Hot Blood (+4) and Odyn's Fury (+20);
+# everything sourced from damage gains 50% more while Reckless, so each reads
+# x1.5 there. Rampage spends 80 (50 while Reckless) and Whirlwind 20. Every 20
+# rage spent takes a second off Recklessness (Anger Management), so the 90s
+# cooldown comes back about every 40s. Enrage (+15% haste, refreshed by
+# Bloodthirst/Bloodbath and every Rampage, 99% uptime) and Unshackled Fury
+# turn mastery into damage while enraged, so every source takes mastery.
+# Recklessness (+20% crit, 18s) swaps Raging Blow for Crushing Blow and
+# Bloodthirst for Bloodbath. Slayer: special attacks proc Slayer's Strike
+# (stacking Executioner), every 3rd one grants Sudden Death; Sudden Death
+# Executes fire Reap the Storm and stack Imminent Demise (extra Bladestorm
+# strikes). Bladestorm's strikes auto-cast Bloodthirst (Unhinged) and it ends
+# with Brutal Finish (+50% Rampage) and Violent Euphoria (+15% haste).
 
 name = "Fury Warrior (Slayer, core kit)"
 
@@ -157,7 +158,7 @@ name = "recklessness"       # [db2 1719: 18s (12s x 1.5 Rampaging Berserker), 90
 duration = 18
 # +20% critical chance to the spells Recklessness lists [db2 1719 #4]; auto
 # attacks and Odyn's Fury are not on that list (they crit 30% in the log)
-ability_crit_pct = { rampage1 = 20, rampage2 = 20, rampage3 = 20, rampage4 = 20, raging_blow_mh = 20, raging_blow_oh = 20, crushing_blow_mh = 20, crushing_blow_oh = 20, bladestorm_mh = 20, bladestorm_oh = 20, execute_mainhand = 20, execute_offhand = 20, slayers_strike = 20, reap_the_storm_execute = 20, bloodthirst = 20, bloodbath = 20, bloodthirst_bladestorm_unhinged = 20, bloodbath_bladestorm_unhinged = 20, whirlwind_mh_first = 20, whirlwind_mh_others = 20, whirlwind_oh_first = 20, whirlwind_oh_others = 20, deep_wounds = 20, bloodbath_dot = 20, gushing_wound = 20, rend_dot = 20 }
+ability_crit_pct = { rampage1 = 20, rampage2 = 20, rampage3 = 20, rampage4 = 20, raging_blow_mh = 20, raging_blow_oh = 20, crushing_blow_mh = 20, crushing_blow_oh = 20, bladestorm_mh = 20, bladestorm_oh = 20, execute_mainhand = 20, execute_offhand = 20, slayers_strike = 20, reap_the_storm_execute = 20, bloodthirst = 20, bloodbath = 20, bloodthirst_bladestorm_unhinged = 20, bloodbath_bladestorm_unhinged = 20, whirlwind_mh_first = 20, whirlwind_mh_others = 20, whirlwind_oh_first = 20, whirlwind_oh_others = 20, deep_wounds = 20, bloodbath_dot = 20, gushing_wound = 20, rend_dot = 20, storm_bolt = 20 }
 
 [[buffs]]
 name = "sudden_death"       # Execute usable at any health, free [db2 52437: 12s, 2 stacks]
@@ -214,12 +215,14 @@ ability_pct = { rampage1 = 50, rampage2 = 50, rampage3 = 50, rampage4 = 50 }
 name = "berserk"            # Rampage (Rampaging Berserker): +3% strength per stack, 12s, 10 stacks
 duration = 12               # [db2 1269349: 8s x 1.5 Rampaging Berserker 1269310]
 max_stacks = 10
+overlap = true              # each stack expires on its own timer [simc: ASYNCHRONOUS]
 power_pct = 3
 
 [[buffs]]
 name = "frenzy"             # Rampage's 4th hit: +2% haste per stack, 12s, 10 stacks [db2 335082/335077]
 duration = 12
 max_stacks = 10
+overlap = true              # each stack expires on its own timer [simc: ASYNCHRONOUS]
 haste_pct = 2
 
 [[buffs]]
@@ -292,6 +295,13 @@ spell_id = 100
 gcd = 0
 triggered_only = true
 gain = { rage = 20 }        # [obs] charge_impact
+on_cast = [{ type = "trigger", ability = "charge_impact" }]
+
+[[abilities]]
+name = "charge_impact"      # [db2 126664: 0.21 AP]
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.21, amount = 606.2, mastery = true }
 
 # ---------------------------------------------------------------- cooldowns
 
@@ -377,8 +387,11 @@ name = "bladestorm_mh"
 spell_id = 50622
 triggered_only = true
 damage = { ap_coeff = 2.71635, amount = 606.2, mastery = true }   # [db2]
-gain = { rage = 5 }         # [db2 50622 #2: 5 rage a strike]
-on_cast = [{ type = "buff", buff = "overwhelmed" }]   # Overwhelming Blades
+gain = { rage = 5 }         # [db2 50622 #2: 5 rage a strike], x1.5 while Reckless
+on_cast = [
+  { type = "gain", resource = "rage", amount_expr = "2.5*buff.recklessness.up" },
+  { type = "buff", buff = "overwhelmed" },
+]
 
 [[abilities]]
 name = "bladestorm_oh"
@@ -393,7 +406,7 @@ damage = { ap_coeff = 1.358175, amount = 268.48, mastery = true }   # [db2] x0.5
 [[abilities]]
 name = "rampage"
 spell_id = 184367
-cost_expr = { rage = "80-20*buff.berserk.up" }   # [db2 1269349] Berserk refunds 20
+cost_expr = { rage = "50+30*(1-buff.recklessness.up)" }   # [obs] 80, 50 while Reckless
 on_cast = [
   { type = "buff", buff = "enrage" },
   { type = "gain", resource = "rage", amount_expr = "0.1*spent.rage", chance = 0.20 },   # Frothing Berserker [db2 392792 #2]
@@ -435,7 +448,7 @@ damage = { ap_coeff = 1.523, amount = 606.2, mastery = true }   # [db2]
 on_cast = [
   { type = "buff", buff = "frenzy" },                     # Frenzy [db2 335077]
   { type = "buff", buff = "berserk" },                    # Rampaging Berserker [db2 1269308]
-  { type = "trigger", ability = "slayers_strike", chance = 0.125 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.1365 },
 ]
 
 [[abilities]]
@@ -445,7 +458,9 @@ gcd = 0
 cooldown = 0.5
 on_cast = [
   { type = "buff", buff = "hack_and_slash" },
-  { type = "reset_cooldown", ability = "raging_blow" },
+  # cooldown_t::reset(true) hands back every charge [simc]
+  { type = "reset_cooldown", ability = "raging_blow", keep_recharge = true },
+  { type = "reset_cooldown", ability = "raging_blow", keep_recharge = true },
 ]
 
 # ---------------------------------------------------------------- Raging Blow
@@ -479,7 +494,7 @@ spell_id = 96103
 triggered_only = true
 gcd = 0
 damage = { ap_coeff = 2.06998, amount = 606.2, mastery = true, crit_bonus = 0.10 }   # [db2]; [obs] crits 40% vs 30%
-on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.125 }]
+on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.1365 }]
 
 [[abilities]]
 name = "raging_blow_oh"
@@ -487,14 +502,15 @@ spell_id = 85384
 triggered_only = true
 gcd = 0
 damage = { ap_coeff = 1.03499, amount = 268.48, mastery = true, crit_bonus = 0.10 }   # [db2] x0.5 off hand
-on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.125 }]
+on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.1365 }]
 
 [[abilities]]
 name = "raging_blow_reset"  # 25% (+10% from Wrath and Fury while enraged) to reset
 triggered_only = true
 gcd = 0
 on_cast = [
-  { type = "reset_cooldown", ability = "raging_blow" },
+  { type = "reset_cooldown", ability = "raging_blow", keep_recharge = true },
+  { type = "reset_cooldown", ability = "raging_blow", keep_recharge = true },
   { type = "if", if = "!buff.opportunist.up", then = [{ type = "buff", buff = "opportunist" }] },
 ]
 
@@ -504,7 +520,7 @@ spell_id = 335098
 triggered_only = true
 gcd = 0
 damage = { ap_coeff = 2.48396, amount = 606.2, mastery = true, crit_damage_bonus = 0.20, crit_bonus = 0.10 }   # [db2 1719 #13]
-on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.125 }]
+on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.1365 }]
 
 [[abilities]]
 name = "crushing_blow_oh"
@@ -512,7 +528,7 @@ spell_id = 335100
 triggered_only = true
 gcd = 0
 damage = { ap_coeff = 1.24198, amount = 268.48, mastery = true, crit_damage_bonus = 0.20, crit_bonus = 0.10 }   # [db2] x0.5
-on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.125 }]
+on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.1365 }]
 
 # ---------------------------------------------------------------- Bloodthirst
 # 4.5s cooldown, 8 rage, 30% (+15% Fresh Meat) to Enrage, 4 rage on a crit
@@ -523,12 +539,13 @@ on_cast = [{ type = "trigger", ability = "slayers_strike", chance = 0.125 }]
 name = "bloodthirst"
 spell_id = 23881
 cooldown = 4.5              # [db2]
-gain = { rage = 8 }         # [db2 23881 #1]
+gain = { rage = 8 }         # [db2 23881 #1], x1.5 while Reckless
 damage = { ap_coeff = 4.24203, amount = 606.2, mastery = true }   # [db2]
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },      # 30% + Fresh Meat 15% [db2 23881 #3, 215568]
+  { type = "gain", resource = "rage", amount_expr = "4*buff.recklessness.up" },
   { type = "buff", buff = "bloodborne" },
-  { type = "trigger", ability = "slayers_strike", chance = 0.125 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.1365 },
 ]
 on_crit = [
   { type = "trigger", ability = "gushing_wound_apply" },
@@ -539,11 +556,12 @@ on_crit = [
 name = "bloodbath"          # replaces Bloodthirst while Reckless [db2 1719 #12, 335096]
 spell_id = 335096
 cooldown = 4.5
-gain = { rage = 8 }
+gain = { rage = 8 }         # [db2 335096 #2], x1.5 while Reckless
 damage = { ap_coeff = 4.45413, amount = 606.2, mastery = true }   # [db2]
 requires_buff = "recklessness"
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },
+  { type = "gain", resource = "rage", amount_expr = "4*buff.recklessness.up" },
   { type = "buff", buff = "bloodborne" },
   { type = "trigger", ability = "bloodbath_dot_apply" },
 ]
@@ -557,12 +575,13 @@ name = "bloodthirst_bladestorm_unhinged"   # Unhinged: every other Bladestorm st
 spell_id = 23881
 triggered_only = true
 gcd = 0
-gain = { rage = 8 }         # [db2 23881 #1]
+gain = { rage = 8 }         # [db2 23881 #1], x1.5 while Reckless
 damage = { ap_coeff = 4.24203, amount = 606.2, mastery = true }
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },
+  { type = "gain", resource = "rage", amount_expr = "4*buff.recklessness.up" },
   { type = "buff", buff = "bloodborne" },
-  { type = "trigger", ability = "slayers_strike", chance = 0.125 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.1365 },
 ]
 on_crit = [
   { type = "trigger", ability = "gushing_wound_apply" },
@@ -574,10 +593,11 @@ name = "bloodbath_bladestorm_unhinged"
 spell_id = 335096
 triggered_only = true
 gcd = 0
-gain = { rage = 8 }         # [db2 335096 #2]
+gain = { rage = 8 }         # [db2 335096 #2], x1.5 while Reckless
 damage = { ap_coeff = 4.45413, amount = 606.2, mastery = true }
 on_cast = [
   { type = "buff", buff = "enrage", chance = 0.45 },
+  { type = "gain", resource = "rage", amount_expr = "4*buff.recklessness.up" },
   { type = "buff", buff = "bloodborne" },
   { type = "trigger", ability = "bloodbath_dot_apply" },
 ]
@@ -591,7 +611,8 @@ name = "cold_steel_hot_blood"   # 4 rage on a Bloodthirst/Bloodbath crit, 0.5s I
 triggered_only = true
 gcd = 0
 cooldown = 0.5
-gain = { rage = 4 }
+gain = { rage = 4 }         # [db2 383978], x1.5 while Reckless
+on_cast = [{ type = "gain", resource = "rage", amount_expr = "2*buff.recklessness.up" }]
 
 [[abilities]]
 name = "bloodbath_dot_apply"
@@ -611,16 +632,15 @@ name = "gushing_wound_apply"
 triggered_only = true
 gcd = 0
 [abilities.dot]
-name = "gushing_wound"      # [db2 385042: 6s, 2s period, 0.405 AP], extends on refresh
+name = "gushing_wound"      # [db2 385042: 6s, 2s period, 0.405 AP], re-applied fresh
 ap_coeff = 0.405
 tick_time = 2.0
 duration = 6.0
 mastery = true
-hasted = false
-refresh = "extend"
+hasted = false              # [simc gushing_wound_dot_t: hasted_ticks = false]
 
 # ---------------------------------------------------------------- Execute
-# Costs nothing and generates 20 rage (Improved Execute), 4.5s cooldown
+# Costs nothing (Improved Execute) and generates 25 rage, 4.5s cooldown
 # (Massacre), usable below 35% health or with Sudden Death; the damage is
 # doubled because a free Execute counts as a full 40-rage one [simc
 # execute_damage_t::action_multiplier].
@@ -630,7 +650,7 @@ name = "execute"
 spell_id = 5308
 cooldown = 4.5              # [db2 5308] 6s less Massacre 1.5s [db2 206315 #2]
 on_cast = [
-  { type = "gain", resource = "rage", amount_expr = "20*(1+0.5*buff.recklessness.up)" },   # [db2 316402 #3]
+  { type = "gain", resource = "rage", amount_expr = "25*(1+0.5*buff.recklessness.up)" },   # [obs] 25, 37.5 while Reckless
   { type = "trigger", ability = "execute_mainhand" },
   { type = "trigger", ability = "execute_offhand" },
   { type = "buff", buff = "executioners_wrath" },   # [db2 1265570]
@@ -640,7 +660,7 @@ on_cast = [
     { type = "trigger", ability = "reap_the_storm_execute" },
     { type = "trigger", ability = "unrelenting_onslaught" },
   ] },
-  { type = "trigger", ability = "slayers_strike", chance = 0.125 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.1365 },
 ]
 
 [[abilities]]
@@ -651,7 +671,7 @@ gcd = 0
 damage = { ap_coeff = 7.70536, amount = 606.2, mastery = true }   # [db2] 3.85268 x2 free
 on_cast = [
   { type = "trigger", ability = "deep_wounds_apply" },   # [db2 1261060]
-  { type = "trigger", ability = "slayers_strike", chance = 0.125 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.1365 },
 ]
 
 [[abilities]]
@@ -721,10 +741,16 @@ on_cast = [
 # ---------------------------------------------------------------- builders
 
 [[abilities]]
-name = "whirlwind"          # 20 rage, +5 rage, six hits: main hand and off hand now, at 200ms and 400ms
+name = "storm_bolt"         # [db2 107570: 30s cooldown, 1.5s gcd, 0.285 AP]
+spell_id = 107570
+cooldown = 30
+damage = { ap_coeff = 0.285, amount = 606.2, mastery = true }
+
+[[abilities]]
+name = "whirlwind"          # 20 rage, +3 rage, six hits: main hand and off hand now, at 200ms and 400ms
 spell_id = 1680
 cost = { rage = 20 }        # [db2 1680]
-gain = { rage = 5 }
+gain = { rage = 3 }         # [obs] SimC log
 on_cast = [
   { type = "trigger", ability = "whirlwind_mh_first" },
   { type = "trigger", ability = "whirlwind_oh_first" },
@@ -769,10 +795,11 @@ name = "rend_apply"
 triggered_only = true
 gcd = 0
 [abilities.dot]
-name = "rend_dot"           # [db2 388539: 15s, 3s period], hasted ticks
+name = "rend_dot"           # [db2 388539: 15s, 3s period]
 ap_coeff = 0.380931
 tick_time = 3.0
 duration = 15.0
+hasted = true               # [simc rend_dot_t: hasted_ticks = true]
 mastery = true
 
 # ---------------------------------------------------------------- auto attacks
@@ -874,15 +901,15 @@ action = "recklessness"
 
 [[rotation]]
 action = "rampage"
-if = "buff.enrage.remains<gcd"
+if = "(buff.enrage.remains<gcd)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "rampage"
-if = "buff.recklessness.up&rage>=100"
+if = "(buff.recklessness.up&rage>=100)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "rampage"
-if = "buff.recklessness.up&cooldown.bladestorm.ready"
+if = "(buff.recklessness.up&cooldown.bladestorm.ready)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "bladestorm"
@@ -890,49 +917,56 @@ if = "buff.recklessness.up|fight_remains<=5"
 
 [[rotation]]
 action = "execute"
-if = "buff.recklessness.up&buff.sudden_death.up"
+if = "(buff.recklessness.up&buff.sudden_death.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "rampage"
-if = "buff.recklessness.up&!buff.hack_and_slash.up"
+if = "(buff.recklessness.up&!buff.hack_and_slash.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "raging_blow"
-if = "buff.recklessness.up"
+if = "(buff.recklessness.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "odyns_fury"
-if = "buff.recklessness.up"
+if = "(buff.recklessness.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "execute"
-if = "buff.recklessness.up&(target.health.pct<35|buff.sudden_death.up)"
+if = "(buff.recklessness.up&(target.health.pct<35|buff.sudden_death.up))&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "bloodbath"
+if = "!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "rampage"
-if = "rage>100"
+if = "(rage>100)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "execute"
-if = "target.health.pct<35|buff.sudden_death.up"
+if = "(target.health.pct<35|buff.sudden_death.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "odyns_fury"
+if = "!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "raging_blow"
-if = "!buff.recklessness.up"
+if = "(!buff.recklessness.up)&!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "rampage"
+if = "!dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "bloodthirst"
-if = "!buff.recklessness.up"
+if = "(!buff.recklessness.up)&!dot.bladestorm_dot.up"
+
+[[rotation]]
+action = "storm_bolt"
+if = "dot.bladestorm_dot.up"
 
 [[rotation]]
 action = "whirlwind"
-
+if = "!dot.bladestorm_dot.up"
