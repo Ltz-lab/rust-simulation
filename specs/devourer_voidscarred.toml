@@ -16,7 +16,7 @@
 # Cull eat up to 4 fragments (10 while Moment of Craving is up), each giving one
 # Void Metamorphosis stack (outside Meta) or one Collapsing Star stack (inside).
 # 35 stacks open Void Metamorphosis, which drains fury and ends at 0 (modelled
-# as a fixed 24s window [obs]); inside it Consume becomes Devour, Reap becomes Cull,
+# as a fixed 25s window [obs]); inside it Consume becomes Devour, Reap becomes Cull,
 # Voidblade becomes Pierce the Veil and Hungering Slash becomes Reaper's Toll.
 # 30 Collapsing Star stacks open Collapsing Star.
 
@@ -234,8 +234,9 @@ on_cast = [
 ]
 
 # Reap and Cull share an 8s cooldown with two charges (Second Helping) and the
-# recharge is hasted (Umbral Blade) [db2 1239537, 1272842]. Void Ray's last
-# tick gives one charge back and Devour knocks a second off the recharge [simc].
+# recharge is hasted (Umbral Blade) [db2 1239537, 1272842]. A Void Ray's last
+# tick gives one charge back (Reap's outside, Cull's inside Metamorphosis) and
+# Devour knocks a second off the Cull recharge [simc].
 [[abilities]]
 name = "reap"
 spell_id = 1226019
