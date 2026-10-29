@@ -81,27 +81,28 @@ per_minute = 9.2
 # Poison application. With Dragon-Tempered Blades the rogue runs two lethal
 # poisons (Deadly and Amplifying); each rolls separately on every direct hit.
 # chance = (0.30 base + 0.30 Envenom) x 0.70 DTB + 0.05 Improved Poisons
-# = 0.26 outside Envenom, 0.47 inside (Envenom uptime 95% [obs]: 0.47 average,
-# 657 procs against ~1213 eligible hits). Decimating while Deathmark ticks is a
-# second, independent roll for the same poison [simc sc_rogue.cpp rogue_poison_t::trigger].
+# [db2 2823, 32645 #2, 381801 #2, 381624 #1]: 0.26 outside Envenom, 0.47 inside.
+# The Envenom half is its own entry, so the buff decides whether it rolls:
+# a second roll of 0.21 on top of the 0.26 gives the same expected 0.47 procs
+# per hit while Envenom is up [simc sc_rogue.cpp rogue_poison_t::proc_chance].
 [[procs]]
 ability = "deadly_poison_instant"
-chance = 0.47
+chance = 0.26
 on_hit = true
 
 [[procs]]
-ability = "deadly_poison_deathmark"
-chance = 0.47
+ability = "deadly_poison_envenom"
+chance = 0.21
 on_hit = true
 
 [[procs]]
 ability = "amplifying_poison"
-chance = 0.47
+chance = 0.26
 on_hit = true
 
 [[procs]]
-ability = "amplifying_poison_deathmark"
-chance = 0.47
+ability = "amplifying_poison_envenom"
+chance = 0.21
 on_hit = true
 
 # ---------------------------------------------------------------- buffs
@@ -293,8 +294,11 @@ gcd = 0
 on_cast = [{ type = "buff", buff = "regicides_reward", set = "buff.kingsbane.stack/5" }]
 
 # ---------------------------------------------------------------- auto attacks
-# 16.0% of main-hand swings miss and 20.76% of off-hand swings [obs]; Skyfury
-# repeats an attack 16% of the time [obs 67+68 procs a fight].
+# Reference: 541 main-hand executions and 452 hits per fight [obs], i.e. 0.974
+# hits per swing at this cadence: a 0.84 hit plus a Skyfury repeat at
+# 0.84 x 0.16. Skyfury's repeat always lands (it runs with may_miss = false)
+# and only rolls on hits [simc unique_gear.cpp generic::skyfury], so white
+# misses live in the 0.84 and the repeat carries no chance to miss of its own.
 
 [[abilities]]
 name = "mh_swing"
@@ -302,7 +306,7 @@ triggered_only = true
 gcd = 0
 on_cast = [
   { type = "trigger", ability = "auto_attack_mh", chance = 0.84 },
-  { type = "trigger", ability = "mh_repeat", chance = 0.16 },
+  { type = "trigger", ability = "mh_repeat", chance = 0.1344 },
 ]
 
 [[abilities]]
@@ -316,8 +320,8 @@ name = "oh_swing"
 triggered_only = true
 gcd = 0
 on_cast = [
-  { type = "trigger", ability = "auto_attack_oh", chance = 0.7924 },
-  { type = "trigger", ability = "oh_repeat", chance = 0.16 },
+  { type = "trigger", ability = "auto_attack_oh", chance = 0.84 },
+  { type = "trigger", ability = "oh_repeat", chance = 0.1344 },
 ]
 
 [[abilities]]
@@ -351,6 +355,8 @@ no_procs = true
 damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
 on_cast = [
   { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+  # Deathmark makes the proc fire the poison a second time [simc rogue_poison_t::trigger]
+  { type = "if", if = "buff.deathmark.up", then = [{ type = "trigger", ability = "deadly_poison_deathmark" }] },
 ]
 [abilities.dot]
 name = "deadly_poison_dot"
@@ -363,11 +369,23 @@ mastery = true
 refresh = "pandemic"
 
 [[abilities]]
-name = "deadly_poison_deathmark"   # Deathmark's second lethal poison roll [simc]
+name = "deadly_poison_envenom"     # the Envenom half of the proc chance [simc]
 triggered_only = true
 gcd = 0
 no_procs = true
-requires_buff = "deathmark"
+requires_buff = "envenom"
+source = "deadly_poison_instant"
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [
+  { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+  { type = "if", if = "buff.deathmark.up", then = [{ type = "trigger", ability = "deadly_poison_deathmark" }] },
+]
+
+[[abilities]]
+name = "deadly_poison_deathmark"   # Deathmark's second lethal poison hit [simc]
+triggered_only = true
+gcd = 0
+no_procs = true
 source = "deadly_poison_instant"
 damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
 on_cast = [{ type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] }]
@@ -382,6 +400,21 @@ damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
 on_cast = [
   { type = "buff", buff = "amplifying_poison" },
   { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+  { type = "if", if = "buff.deathmark.up", then = [{ type = "trigger", ability = "amplifying_poison_deathmark" }] },
+]
+
+[[abilities]]
+name = "amplifying_poison_envenom"
+triggered_only = true
+gcd = 0
+no_procs = true
+requires_buff = "envenom"
+source = "amplifying_poison"
+damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
+on_cast = [
+  { type = "buff", buff = "amplifying_poison" },
+  { type = "if", if = "dot.kingsbane.ticking", then = [{ type = "buff", buff = "kingsbane" }] },
+  { type = "if", if = "buff.deathmark.up", then = [{ type = "trigger", ability = "amplifying_poison_deathmark" }] },
 ]
 
 [[abilities]]
@@ -389,7 +422,6 @@ name = "amplifying_poison_deathmark"
 triggered_only = true
 gcd = 0
 no_procs = true
-requires_buff = "deathmark"
 source = "amplifying_poison"
 damage = { ap_coeff = 0.0814, school = "nature", mastery = true }
 on_cast = [
@@ -416,13 +448,12 @@ on_cast = [
   { type = "if", if = "!buff.deathstalkers_mark.up", then = [{ type = "trigger", ability = "dm_apply" }] },
   # a stealth/Early Improved Garrote cast does not start the cooldown [simc garrote_t::update_ready]
   { type = "if", if = "buff.stealth.up|buff.vanish.up|buff.improved_garrote.up", then = [{ type = "reset_cooldown", ability = "garrote" }] },
-  # direct hit for 0 damage in SimC: poisons still roll [obs 71% per cast]
-  { type = "trigger", ability = "deadly_poison_instant", chance = 0.47 },
-  { type = "trigger", ability = "amplifying_poison", chance = 0.47 },
-  { type = "if", if = "buff.deathmark.up", then = [
-    { type = "trigger", ability = "deadly_poison_deathmark", chance = 0.47 },
-    { type = "trigger", ability = "amplifying_poison_deathmark", chance = 0.47 },
-  ] },
+  # direct hit for 0 damage in SimC, so it is not an on-hit proc source: the
+  # poison rolls are written out here with the same chance [db2 2823, 32645 #2]
+  { type = "trigger", ability = "deadly_poison_instant", chance = 0.26 },
+  { type = "trigger", ability = "deadly_poison_envenom", chance = 0.21 },
+  { type = "trigger", ability = "amplifying_poison", chance = 0.26 },
+  { type = "trigger", ability = "amplifying_poison_envenom", chance = 0.21 },
   # a 0-damage hit still rolls a crit for Seal Fate and Cold Blood
   { type = "trigger", ability = "seal_fate_proc", chance = 0.33565 },
   { type = "trigger", ability = "cold_blood_proc", chance = 0.33565 },
@@ -449,12 +480,10 @@ gcd_hasted = false
 on_cast = [
   { type = "trigger", ability = "internal_bleeding_apply" },
   { type = "if", if = "spent.combo_points>=5&!buff.darkest_night.up", then = [{ type = "trigger", ability = "dm_consume" }] },
-  { type = "trigger", ability = "deadly_poison_instant", chance = 0.47 },
-  { type = "trigger", ability = "amplifying_poison", chance = 0.47 },
-  { type = "if", if = "buff.deathmark.up", then = [
-    { type = "trigger", ability = "deadly_poison_deathmark", chance = 0.47 },
-    { type = "trigger", ability = "amplifying_poison_deathmark", chance = 0.47 },
-  ] },
+  { type = "trigger", ability = "deadly_poison_instant", chance = 0.26 },
+  { type = "trigger", ability = "deadly_poison_envenom", chance = 0.21 },
+  { type = "trigger", ability = "amplifying_poison", chance = 0.26 },
+  { type = "trigger", ability = "amplifying_poison_envenom", chance = 0.21 },
   { type = "trigger", ability = "break_stealth" },
 ]
 [abilities.dot]
@@ -538,10 +567,10 @@ on_crit = [
 [[abilities]]
 name = "shiv"               # [db2 5938: 1.254 AP, 1 combo point]
 spell_id = 5938
-cost = { energy = 10 }      # [obs] the sim's Shiv costs 10, not the table's 30
+cost = { energy = 10 }      # [db2 5938 30 - 20 Toxic Stiletto 1267182 #1]
 gain = { combo_points = 1 } # [db2 5938 #2]
-cooldown = 20               # [obs] 15.3s apart at 1.31 haste: 20s, hasted
-cooldown_hasted = true
+cooldown = 15               # [db2 5938 30 - 15 Toxic Stiletto 1267182 #2], unhasted
+cooldown_hasted = false
 gcd = 1.0045
 gcd_hasted = false
 damage = { ap_coeff = 1.254, school = "physical", crit_damage_bonus = 0.2 }
@@ -742,7 +771,7 @@ duration = 8.0
 hasted = false
 school = "cosmic"
 crit_bonus = -2.0
-refresh = "extend"
+refresh = "reset"          # a new Rune re-applies it: the tick timer starts over [simc log]
 
 # ---------------------------------------------------------------- rotation
 # Paraphrase of SimC's default Assassination APL, single target, Deathstalker.
