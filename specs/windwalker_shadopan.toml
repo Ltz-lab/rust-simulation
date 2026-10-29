@@ -1,0 +1,549 @@
+# Windwalker Monk — Shado-Pan, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Monk_Windwalker.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_monk.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, the level-90 spell scaling of
+# each spell) live in a separate calibration file produced by tools/calibrate.py
+# — not hand-tuned here.
+#
+# The spec runs on energy (11/s, hasted) and chi (6). Tiger Palm builds chi and
+# Combo Breaker; Blackout Kick spends one chi, shortens Rising Sun Kick and
+# Fists of Fury (Sharp Reflexes) and cashes in Teachings of the Monastery
+# stacks as extra kicks. Rising Sun Kick crits take 4s off Fists of Fury
+# (Xuen's Battlegear), and with Combo Breaker up a Blackout Kick can reset the
+# kick and turn it into Rushing Wind Kick. Zenith is the 2-charge cooldown;
+# each cast stomps once and opens a 15s window of cheaper chi. Shado-Pan:
+# auto attacks store Flurry Charges that Fists of Fury, Spinning Crane Kick and
+# Rising Sun Kick cash out as Flurry Strikes, Dual Threat repeats auto attacks.
+
+name = "Windwalker Monk (Shado-Pan, core kit)"
+
+[player]
+# Final stats = SimC's buffed snapshot (core kit) [obs].
+attack_power = 2682         # [obs] buffed attack power
+# [obs] the weapon's share of ability damage: +200 agility (+229 AP) gives
+# +6.1% to every source, so ability damage scales with 2682 + 1072.
+weapon_attack_power = 1072
+crit = 0.2748               # [obs] 27.48% buffed
+haste = 0.2944              # [obs] 29.44% buffed
+versatility = 0.0528        # [obs] 5.28% buffed
+mastery = 0.8778            # [obs] Combo Strikes, 87.78% buffed
+crit_multiplier = 2.0       # [obs] +500 crit rating gives +8.50% (27.5% -> 38.3%)
+# [db2] two-handed polearm, 3.6s. Martial Agility adds a flat 30% auto-attack
+# speed [simc 1272685 #1], folded in: 3.6 / 1.3 = 2.77s, less a little for the
+# swing count the reference reports (207 a fight).
+weapon = { min = 0, max = 0, speed = 2.60 }
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.05            # [simc] the monk re-checks on energy/chi thresholds
+
+[resources.energy]
+max = 150                   # [db2] 100 + Ascension 20 + Inner Peace 30
+start = 150
+regen = 10                  # [db2] base 10, hasted [simc]
+regen_hasted = true         # [obs: 68.6 Tiger Palms in 300s]
+
+[resources.chi]
+max = 6                     # [db2] 5 + Ascension [simc 115396 #1]
+start = 2                   # [simc] Combat Wisdom sets 2 chi at the pull
+
+[auto_attack]
+replace_with = "mh_swing"
+wakes = false               # [simc] a waiting monk re-checks on resources, not swings
+
+# Combat Wisdom re-arms every 15s [simc 121817 #1], and the next Tiger Palm
+# cashes it as an Expel Harm hit.
+[[procs]]
+ability = "combat_wisdom_proc"
+per_minute = 4              # [simc] 15s period
+
+# Dance of Chi-Ji: a chi spend can arm a free Spinning Crane Kick [simc 325201]
+[[procs]]
+ability = "dance_of_chiji_proc"
+per_minute = 2.6            # [obs] 12.9 procs a fight
+hasted = true
+
+# Rune of Unleashed Fire, main-hand enchant [obs]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 9.9             # [obs] 49.5 procs a fight
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "combo_breaker"          # [db2 116768: 15s] free Blackout Kick, 8% per Tiger Palm [simc 137384 #1]
+duration = 15
+max_stacks = 2
+
+[[buffs]]
+name = "teachings_of_the_monastery"   # [db2 202090: 20s]
+duration = 20
+max_stacks = 8
+
+[[buffs]]
+name = "dance_of_chiji"         # [db2 325202: 6s], free spinning crane kick
+duration = 6
+max_stacks = 2
+
+[[buffs]]
+name = "whirling_dragon_punch"  # grace period: 1.5s hasted + the shorter of the two cooldowns left [simc]
+duration = 22
+refresh_duration = true
+
+[[buffs]]
+name = "momentum_boost_speed"   # [db2 451298: 8s, +60% auto-attack speed]
+duration = 8
+attack_speed_pct = 60
+
+[[buffs]]
+name = "momentum_boost_damage"  # [simc] Fists of Fury's per-tick ramp, 3s
+duration = 3
+
+[[buffs]]
+name = "zenith"                 # [db2 1249625: 15s] hasted [obs 19.4s]
+duration = 15
+haste_duration = 1.0
+
+[[buffs]]
+name = "rushing_wind_kick"      # [db2 1250554: 15s] next kick is Rushing Wind Kick
+duration = 15
+
+[[buffs]]
+name = "combat_wisdom"          # [db2 129914] next Tiger Palm is an Expel Harm hit
+duration = 8
+
+[[buffs]]
+name = "flurry_charge"          # [db2 451021] Shado-Pan charges, no expiry
+duration = 1e9
+max_stacks = 30
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "zenith"
+spell_id = 1249625
+gcd = 1.0
+cooldown = 90               # [db2] 2 charges, 90s recharge
+charges = 2
+on_cast = [
+  { type = "buff", buff = "zenith" },
+  { type = "trigger", ability = "zenith_stomp_trigger" },
+  { type = "reset_cooldown", ability = "rising_sun_kick" },   # [simc] resets the kick
+  { type = "trigger", ability = "stand_ready_flurry" },       # [simc 1262603 #1: 10 stacks of 70%
+]
+
+[[abilities]]
+name = "zenith_stomp_trigger"
+spell_id = 1272696
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 7.0, school = "nature", mastery = true }   # [db2 1285950]
+on_cast = [{ type = "gain", resource = "chi", amount = 2 }]      # [db2 1310821]
+
+[[abilities]]
+name = "stand_ready_flurry"     # 10 flurry strikes at 70% effectiveness [simc 1262603]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "flurry_strike_stand_ready", count = "10", interval = 0.15 },
+  { type = "trigger", ability = "flurry_strike_shado_over_the_battlefield", count = "10", interval = 0.15 },
+]
+
+[[abilities]]
+name = "touch_of_karma"
+spell_id = 122470
+gcd = 0                     # off the GCD [db2]
+cooldown = 90               # [db2]
+damage = { ap_coeff = 1.0, school = "nature", crit_bonus = -2.0 }   # [obs] fixed, never crits
+[abilities.dot]
+name = "touch_of_karma"
+ap_coeff = 1.0                # [obs] flat share of the target's damage, fitted by calibration
+tick_time = 1.0
+duration = 6.0                # [db2 124280]
+hasted = false
+whole_ticks = true
+school = "nature"
+crit_bonus = -2.0
+refresh = "reset"
+
+[[abilities]]
+name = "touch_of_death"
+spell_id = 322109
+gcd = 1.0
+cooldown = 180              # [db2]
+damage = { ap_coeff = 1.0, school = "physical" }   # [obs] fixed; calibration fits the share
+on_cast = [{ type = "gain", resource = "chi", amount = 3 }]   # [obs] 3 chi a cast
+
+# ---------------------------------------------------------------- kicks
+
+[[abilities]]
+name = "rising_sun_kick"
+spell_id = 107428
+cost = { chi = 2 }          # [db2]; Zenith's window takes 1 off [simc 1249625 #7]
+cost_expr = { chi = "2-1*buff.zenith.up" }
+cooldown = 10               # [db2], hasted
+cooldown_hasted = true
+gcd = 1.0
+on_cast = [
+  { type = "if", if = "buff.rushing_wind_kick.up", then = [
+    { type = "trigger", ability = "rushing_wind_kick_damage" },
+    { type = "consume", buff = "rushing_wind_kick" },
+  ], else = [
+    { type = "trigger", ability = "rising_sun_kick_damage" },
+  ] },
+  { type = "buff", buff = "whirling_dragon_punch" },
+  { type = "if", if = "buff.zenith.up", then = [{ type = "trigger", ability = "flurry_flush_wisdom" }] },
+]
+
+[[abilities]]
+name = "rising_sun_kick_damage"
+spell_id = 185099
+triggered_only = true
+damage = { ap_coeff = 1.438, school = "physical", mastery = true, crit_bonus = 0.33 }   # [db2 268390]; +20% base [simc 392993 #1], 60.1% observed [obs]
+on_crit = [{ type = "reduce_cooldown", ability = "fists_of_fury", seconds = 4 }]        # [simc 392993 #2]
+on_cast = [{ type = "trigger", ability = "glory_of_the_dawn_roll" }]
+
+[[abilities]]
+name = "rushing_wind_kick_damage"
+spell_id = 468179
+triggered_only = true
+damage = { ap_coeff = 1.7975, school = "nature", mastery = true, crit_bonus = 0.33 }   # [db2 1181673]; 60.4% observed [obs]
+on_crit = [{ type = "reduce_cooldown", ability = "fists_of_fury", seconds = 4 }]        # [simc 392993 #2]
+on_cast = [{ type = "trigger", ability = "glory_of_the_dawn_roll_rwk" }]
+
+# Glory of the Dawn fires off the kick: chance = 1.45 x (1/haste - 1) [simc
+# 392958 #2 gives 100% x (1/haste - 1); observed 20 procs in 59.8 kicks = 33%]
+[[abilities]]
+name = "glory_of_the_dawn_roll"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "glory_of_the_dawn_rising_sun_kick_damage", chance_expr = "1.1*haste" }]
+
+[[abilities]]
+name = "glory_of_the_dawn_roll_rwk"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "glory_of_the_dawn_rushing_wind_kick_damage", chance_expr = "1.1*haste" }]
+
+[[abilities]]
+name = "glory_of_the_dawn_rising_sun_kick_damage"
+spell_id = 392959
+triggered_only = true
+damage = { ap_coeff = 0.5, school = "physical", mastery = true, crit_bonus = 0.33 }   # [db2 1031561]; 60.1% observed [obs]
+on_cast = [{ type = "gain", resource = "chi", amount = 1 }]        # [db2 1031563]
+
+[[abilities]]
+name = "glory_of_the_dawn_rushing_wind_kick_damage"
+spell_id = 392959
+triggered_only = true
+damage = { ap_coeff = 0.5, school = "physical", mastery = true, crit_bonus = 0.33 }   # [db2 1031561]; 60.1% observed [obs]
+on_cast = [{ type = "gain", resource = "chi", amount = 1 }]
+
+[[abilities]]
+name = "fists_of_fury"
+spell_id = 113656
+cost = { chi = 3 }          # [db2]; Zenith's window takes 1 off [simc 1249625 #7]
+cost_expr = { chi = "3-1*buff.zenith.up" }
+cooldown = 24               # [db2], hasted
+cooldown_hasted = true
+channel = { ticks = 5, on_finish = [{ type = "trigger", ability = "jadefire_stomp" }] }
+on_start = [
+  { type = "buff", buff = "momentum_boost_speed" },     # [simc] after the last tick
+  { type = "buff", buff = "momentum_boost_damage" },
+  { type = "buff", buff = "whirling_dragon_punch" },
+  { type = "trigger", ability = "flurry_flush" },
+]
+[abilities.dot]
+name = "fists_of_fury"      # 5 ticks over a hasted 4s [db2 117418]
+ap_coeff = 2.6082
+tick_time = 1.0
+duration = 4.0
+hasted = true
+tick_on_apply = true
+refresh = "reset"
+school = "physical"
+mastery = true
+crit_bonus = 0.0
+
+[[abilities]]
+name = "jadefire_stomp"     # [db2 1248815] Nature, on the last Fists of Fury tick
+spell_id = 1248815
+triggered_only = true
+damage = { ap_coeff = 1.0, school = "nature", mastery = true }
+
+[[abilities]]
+name = "whirling_dragon_punch"
+spell_id = 152175
+gcd = 1.0
+cooldown = 35               # [db2]
+requires_buff = "whirling_dragon_punch"
+on_cast = [
+  { type = "trigger", ability = "whirling_dragon_punch_singletarget" },
+  { type = "trigger", ability = "whirling_dragon_punch_aoe", count = "3", interval = 1.0 },
+]
+
+[[abilities]]
+name = "whirling_dragon_punch_singletarget"
+spell_id = 451767
+triggered_only = true
+damage = { ap_coeff = 4.5, school = "physical", mastery = true }   # [db2 1152503]
+
+[[abilities]]
+name = "whirling_dragon_punch_aoe"
+spell_id = 158221
+triggered_only = true
+damage = { ap_coeff = 3.1395, school = "physical", mastery = true }   # [db2 220760]
+
+[[abilities]]
+name = "spinning_crane_kick"
+spell_id = 322729
+cost = { chi = 2 }          # [db2]; Zenith's window takes 1 off [simc 1249625 #7]
+cost_expr = { chi = "2-1*buff.zenith.up" }
+free_with = "dance_of_chiji"
+channel = { ticks = 4 }
+on_start = [
+  { type = "if", if = "buff.dance_of_chiji.up", then = [
+    { type = "buff", buff = "combo_breaker" },   # Sequenced Strikes, 100% [simc 451515]
+  ] },
+  { type = "if", if = "buff.zenith.up", then = [{ type = "trigger", ability = "flurry_flush_wisdom" }] },
+]
+[abilities.dot]
+name = "spinning_crane_kick_tick"
+ap_coeff = 0.1             # [db2 107270]
+tick_time = 0.5
+duration = 1.5             # [db2 101546]
+hasted = true
+tick_on_apply = true
+refresh = "reset"
+school = "physical"
+mastery = true
+on_tick = [{ type = "reduce_cooldown", ability = "fists_of_fury", seconds = 0.5 }]   # [simc 392993 #4]
+
+# ---------------------------------------------------------------- chi builders
+
+[[abilities]]
+name = "tiger_palm"
+spell_id = 100780
+cost = { energy = 50 }      # [db2 55, less Inner Peace's 5 [simc 397768 #2]]
+gain = { chi = 2 }          # [db2 134420]
+gcd = 1.0
+damage = { ap_coeff = 0.9, school = "physical", mastery = true, crit_bonus = 0.10 }   # [db2 108857]; 37.4% observed [obs]
+on_cast = [
+  { type = "buff", buff = "teachings_of_the_monastery" },          # [simc] every Tiger Palm
+  { type = "trigger", ability = "combo_breaker_roll" },
+  { type = "if", if = "buff.combat_wisdom.up", then = [
+    { type = "trigger", ability = "expel_harm_damage" },           # [simc] Combat Wisdom
+    { type = "consume", buff = "combat_wisdom" },
+  ] },
+]
+
+[[abilities]]
+name = "combo_breaker_roll"     # [simc 137384] every Tiger Palm can arm one; 22.3 a fight [obs]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "combo_breaker", chance = 0.32 }]
+
+[[abilities]]
+name = "blackout_kick"
+spell_id = 100784
+cost = { chi = 1 }          # [db2 100784 base_cost 1]
+free_with = "combo_breaker"
+gcd = 1.0
+damage = { ap_coeff = 0.847, school = "physical", mastery = true, crit_bonus = 0.09 }   # [db2 108867]; 36.5% observed [obs]
+on_cast = [
+  { type = "reduce_cooldown", ability = "rising_sun_kick", seconds_expr = "1+buff.zenith.up" },   # Sharp Reflexes + Zenith [simc 261917, 1249625 #3]
+  { type = "reduce_cooldown", ability = "fists_of_fury", seconds_expr = "1+buff.zenith.up" },
+  { type = "trigger", ability = "teachings_of_the_monastery", count = "buff.teachings_of_the_monastery.stack" },
+  { type = "consume", buff = "teachings_of_the_monastery", all = true },
+]
+on_free = [
+  { type = "trigger", ability = "rushing_wind_kick_roll" },
+  { type = "reduce_cooldown", ability = "rising_sun_kick", seconds_expr = "1+buff.zenith.up" },
+  { type = "reduce_cooldown", ability = "fists_of_fury", seconds_expr = "1+buff.zenith.up" },
+]
+
+[[abilities]]
+name = "rushing_wind_kick_roll"  # 60% with Combo Breaker up [simc 1250566 #1]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "reset_cooldown", ability = "rising_sun_kick", chance = 0.60, keep_recharge = true },
+  { type = "buff", buff = "rushing_wind_kick", chance = 0.60 },
+]
+
+[[abilities]]
+name = "teachings_of_the_monastery"    # a Teachings stack is a Blackout Kick hit [db2 228649]
+spell_id = 228649
+triggered_only = true
+damage = { ap_coeff = 0.847, school = "physical" }   # [db2]; no mastery [simc ww_mastery = false]
+on_cast = [{ type = "reset_cooldown", ability = "rising_sun_kick", chance = 0.12, keep_recharge = true }]   # [simc 116645 #1]
+
+[[abilities]]
+name = "expel_harm_damage"  # Combat Wisdom's free Expel Harm [db2 115129]
+spell_id = 115129
+triggered_only = true
+damage = { ap_coeff = 1.2, school = "nature" }   # [db2 128814] spell-power based, treated as AP
+
+[[abilities]]
+name = "dance_of_chiji_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "dance_of_chiji" }]
+
+[[abilities]]
+name = "combat_wisdom_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "combat_wisdom" }]
+
+# ---------------------------------------------------------------- Shado-Pan
+
+[[abilities]]
+name = "flurry_flush"           # Fists of Fury cashes all charges [simc]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "flurry_strike", count = "buff.flurry_charge.stack", interval = 0.15 },
+  { type = "trigger", ability = "flurry_strike_shado_over_the_battlefield", count = "buff.flurry_charge.stack", interval = 0.15 },
+  { type = "consume", buff = "flurry_charge", all = true },
+]
+
+[[abilities]]
+name = "flurry_flush_wisdom"    # the kick cashes them too, at 100% [simc WISDOM_OF_THE_WALL]
+triggered_only = true
+gcd = 0
+cooldown = 20                   # [obs] ~1-2 cashes a Zenith window
+on_cast = [
+  { type = "trigger", ability = "flurry_strike_wisdom_of_the_wall", count = "buff.flurry_charge.stack", interval = 0.15 },
+  { type = "trigger", ability = "flurry_strike_shado_over_the_battlefield", count = "buff.flurry_charge.stack", interval = 0.15 },
+  { type = "consume", buff = "flurry_charge", all = true },
+]
+
+[[abilities]]
+name = "flurry_strike"
+spell_id = 450617
+triggered_only = true
+damage = { ap_coeff = 0.6, school = "physical", crit_bonus = 0.28 }   # [db2 1150633]; 55.1% observed [obs]
+
+[[abilities]]
+name = "flurry_strike_wisdom_of_the_wall"
+spell_id = 450617
+triggered_only = true
+damage = { ap_coeff = 0.6, school = "physical", crit_bonus = 0.28 }   # [db2]; 55.1% observed [obs]
+
+[[abilities]]
+name = "flurry_strike_stand_ready"   # 70% effectiveness [simc 1262603 #2]
+spell_id = 450617
+triggered_only = true
+damage = { ap_coeff = 0.42, school = "physical", crit_bonus = 0.15 }
+
+[[abilities]]
+name = "flurry_strike_shado_over_the_battlefield"
+spell_id = 451250
+triggered_only = true
+damage = { ap_coeff = 0.52, school = "nature" }   # [db2 1151723]
+
+[[abilities]]
+name = "dual_threat"
+spell_id = 451839
+triggered_only = true
+damage = { ap_coeff = 5.81256, school = "physical", crit_bonus = 0.15 }   # [db2 1152602]
+
+# ---------------------------------------------------------------- auto attacks
+
+[[abilities]]
+name = "mh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "melee_main_hand", chance = 0.771 },   # [obs] 159.8 hits in 207.3 swings
+  { type = "trigger", ability = "dual_threat", chance = 0.231 },       # [obs] 30% of the 77% that land
+]
+
+[[abilities]]
+name = "melee_main_hand"
+triggered_only = true
+damage = { ap_coeff = 0.3, school = "physical" }   # [obs] fitted by calibration
+on_cast = [{ type = "buff", buff = "flurry_charge", stacks = 3 }]   # [obs] ~4.3 charges a swing over the fight
+on_crit = [{ type = "buff", buff = "flurry_charge", stacks = 3 }]   # [simc] One Versus Many doubles a crit's charges
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.0, school = "fire", crit_bonus = -2.0 }   # [obs] fixed damage, never crits
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+ap_coeff = 0.112              # [obs] 442 a tick, 1/16 of the rune's hit
+tick_time = 1.0
+duration = 8.0              # [db2 1287663]
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Windwalker APL, single target (default_st).
+
+[[rotation]]
+action = "touch_of_karma"
+if = "fight_remains>5"
+
+[[rotation]]
+action = "zenith"
+if = "!buff.zenith.up"
+
+[[rotation]]
+action = "touch_of_death"
+if = "fight_remains<12"
+
+[[rotation]]
+action = "fists_of_fury"
+if = "chi>=3"
+
+[[rotation]]
+action = "whirling_dragon_punch"
+if = "buff.whirling_dragon_punch.up&cooldown.rising_sun_kick.remains>1&cooldown.fists_of_fury.remains>1"
+
+[[rotation]]
+action = "rising_sun_kick"
+if = "chi>=2"
+
+[[rotation]]
+action = "spinning_crane_kick"
+if = "buff.dance_of_chiji.up"
+
+[[rotation]]
+action = "tiger_palm"
+if = "buff.combat_wisdom.up&energy>=50"
+
+[[rotation]]
+action = "blackout_kick"
+if = "buff.combo_breaker.up"
+
+[[rotation]]
+action = "tiger_palm"
+if = "chi<4"
+
+[[rotation]]
+action = "blackout_kick"
+if = "chi>=5"
+
+[[rotation]]
+action = "tiger_palm"

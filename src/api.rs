@@ -112,6 +112,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/unholy_rider.toml"),
         include_str!("../calibration/unholy_rider.toml"),
     ),
+    (
+        "windwalker_shadopan",
+        include_str!("../specs/windwalker_shadopan.toml"),
+        include_str!("../calibration/windwalker_shadopan.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
@@ -488,6 +493,27 @@ mod tests {
         assert!(hits("hunt_them_down") > 400);
         // clones and copies: Ancient Arts, Shadow Blades, Goremaw's Bite
         assert!(hits("eviscerate_shadow_clone") > 20 && hits("shadow_blades_attack") > 300 && hits("goremaws_bite_finisher") > 60);
+    }
+
+    #[test]
+    fn windwalker_chi_kicks_and_flurry_strikes() {
+        let b = builtin("windwalker_shadopan").unwrap();
+        let mut s: spec::Spec = toml::from_str(b.1).unwrap();
+        s.apply_calibration(&toml::from_str(b.2).unwrap()).unwrap();
+        let c = sim::Compiled::new(s).unwrap();
+        let r = sim::run_iteration(&c, 7, false);
+        let hits = |n: &str| r.hits[c.source_names().iter().position(|s| s == n).unwrap()];
+        // chi from Tiger Palm pays for ~35 kicks, ~28 Fists of Fury and ~17 Spinning Crane Kicks
+        assert!((25..50).contains(&hits("rising_sun_kick_damage")), "rising_sun_kick: {}", hits("rising_sun_kick_damage"));
+        assert!((100..180).contains(&hits("fists_of_fury")), "fists_of_fury ticks: {}", hits("fists_of_fury"));
+        assert!(hits("spinning_crane_kick_tick") > 40);
+        // Jade Fire Stomp rides the last Fists of Fury tick
+        assert!((15..40).contains(&hits("jadefire_stomp")), "jadefire_stomp: {}", hits("jadefire_stomp"));
+        // Shado-Pan: auto attacks stow charges that the kicks cash as flurry strikes
+        assert!(hits("flurry_strike") > 400 && hits("flurry_strike_shado_over_the_battlefield") > 400);
+        assert!(hits("melee_main_hand") > 120 && hits("dual_threat") > 30);
+        // Zenith's stomp and the two-charge cooldown
+        assert!((3..7).contains(&hits("zenith_stomp_trigger")), "zenith_stomp: {}", hits("zenith_stomp_trigger"));
     }
 
     #[test]
