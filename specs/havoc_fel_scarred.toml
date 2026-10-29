@@ -35,8 +35,11 @@ haste = 0.1686               # [obs] buffed snapshot; Metamorphosis and Furious 
 versatility = 0.0898         # [obs] buffed snapshot
 mastery = 0.877              # [obs] Mastery: Demonic Presence [db2 185164], all chaos-school abilities
 crit_multiplier = 2.4        # [obs] crit/non-crit of Chaos Strike; Know Your Enemy + Critical Chaos [db2 388118, 320413]
-weapon = { min = 7500, max = 8000, speed = 2.6 }   # [db2] 2.6s warglaives; damage fitted to the logged swings
-off_hand = { min = 0, max = 0, speed = 2.6 }
+# [db2] 2.6s warglaives. [obs] The effective cadence is slower: Vengeful Retreat
+# leaps out of melee range and cancels a swing or two each cast, so the reference
+# sees 139.8 landed main-hand hits a fight where a pure 2.6s cadence gives ~159.
+weapon = { min = 7500, max = 8000, speed = 2.94 }   # [obs] effective swing interval 2.04s
+off_hand = { min = 0, max = 0, speed = 3.02 }       # [obs] the off hand lands 136.1 a fight
 
 [fight]
 duration = 300
@@ -49,8 +52,8 @@ max = 170                    # [obs] "/170.00" in the log
 start = 0
 
 [auto_attack]
-replace_with = "auto_attack_mh"
-off_hand_replace_with = "auto_attack_oh"
+replace_with = "mh_swing"
+off_hand_replace_with = "oh_swing"
 
 # Isolated Prey is a passive; the marker just switches it on at the pull
 [[abilities]]
@@ -60,13 +63,49 @@ triggered_only = true
 on_cast = [{ type = "buff", buff = "isolated_prey" }]
 
 # ---------------------------------------------------------------- auto attacks
+# A dual-wielded white swing misses 16.3% of the time ([obs] SimC's own result
+# split: 139.8 of 167.1 a fight land), and the Skyfury raid buff repeats 20% of
+# swings [simc]. A repeat is a fresh swing with its own miss roll, so the swing
+# effects route through the wrapper and only landed hits run the on-hit procs.
+
+[[abilities]]
+name = "mh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_mh", chance = 0.837 },
+  { type = "trigger", ability = "mh_repeat", chance = 0.20 },
+]
+
+[[abilities]]
+name = "mh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.837 }]
+
+[[abilities]]
+name = "oh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "auto_attack_oh", chance = 0.837 },
+  { type = "trigger", ability = "oh_repeat", chance = 0.20 },
+]
+
+[[abilities]]
+name = "oh_repeat"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_oh", chance = 0.837 }]
 
 [[abilities]]
 name = "auto_attack_mh"
+triggered_only = true
 damage = { ap_coeff = 0.1857, weapon_mult = 1.0, school = "physical", feed = [{ dot = "burning_blades", pct = 35 }] }   # [simc] 2.6s/14 of AP on a swing, plus burning_blades_trigger_t
 
 [[abilities]]
 name = "auto_attack_oh"
+triggered_only = true
 damage = { ap_coeff = 0.1857, weapon_mult = 1.0, school = "physical", mult = 0.5, feed = [{ dot = "burning_blades", pct = 35 }] }   # [obs] off-hand hits at 49% of the main hand's
 
 # Demon Blades: every auto-attack hit deals shadow damage and builds fury [simc 203555]
@@ -92,7 +131,7 @@ damage = { ap_coeff = 0.736, school = "chaos", mastery = true, feed = [{ dot = "
 source = "chaos_strike_damage_1"
 on_cast = [
   { type = "trigger", ability = "chaos_strike_damage_2", delay = 0.3 },
-  { type = "trigger", ability = "chaos_strike_refund", chance = 0.45, delay = 0.3 },   # [obs] 0.42-0.46 refunds a cast
+  { type = "trigger", ability = "chaos_strike_refund", chance = 0.50, delay = 0.3 },   # [obs] 49% of casts refund, base 45% + Chaos Theory/Critical Chaos
   { type = "consume", buff = "chaos_theory", all = true },
 ]
 
@@ -115,7 +154,7 @@ damage = { ap_coeff = 0.9567, school = "chaos", mastery = true, feed = [{ dot = 
 source = "annihilation_damage_1"
 on_cast = [
   { type = "trigger", ability = "annihilation_damage_2", delay = 0.3 },
-  { type = "trigger", ability = "annihilation_refund", chance = 0.45, delay = 0.3 },   # [obs]
+  { type = "trigger", ability = "annihilation_refund", chance = 0.50, delay = 0.3 },   # [obs] 53% of casts refund
   { type = "consume", buff = "chaos_theory", all = true },
   { type = "extend_buff", buff = "metamorphosis", seconds = 0.333 },                   # [simc] Shattered Destiny: 0.1s per 12 fury [db2 388116]
   { type = "if", if = "buff.demonsurge_annihilation.up", then = [
@@ -134,13 +173,14 @@ name = "annihilation_refund"
 triggered_only = true
 gain = { fury = 20 }
 
-# Relentless Onslaught: 10% of off-hand hits repeat the strike, 1s ICD [simc 389977]
+# Relentless Onslaught: 10% of off-hand hits repeat the strike, 1s ICD [simc 389977].
+# The repeat is a full Chaos Strike or Annihilation, whichever the player is in.
 [[procs]]
 ability = "annihilation_onslaught_damage_1"
 on_hit = true
 chance = 0.10
 icd = 1.0
-sources = ["chaos_strike_damage_2", "annihilation_damage_2"]
+sources = ["annihilation_damage_2"]
 
 [[abilities]]
 name = "annihilation_onslaught_damage_1"
@@ -152,6 +192,26 @@ on_cast = [{ type = "trigger", ability = "annihilation_onslaught_damage_2", dela
 name = "annihilation_onslaught_damage_2"
 triggered_only = true
 damage = { ap_coeff = 1.5034, school = "chaos", mastery = true }   # [db2 201428]
+on_cast = [{ type = "trigger", ability = "annihilation_refund", chance = 0.50 }]   # [simc] the onslaught's off-hand hit can refund
+
+[[procs]]
+ability = "chaos_strike_onslaught_damage_1"
+on_hit = true
+chance = 0.10
+icd = 1.0
+sources = ["chaos_strike_damage_2"]
+
+[[abilities]]
+name = "chaos_strike_onslaught_damage_1"
+triggered_only = true
+damage = { ap_coeff = 0.736, school = "chaos", mastery = true }   # [db2 222031]
+on_cast = [{ type = "trigger", ability = "chaos_strike_onslaught_damage_2", delay = 0.3 }]
+
+[[abilities]]
+name = "chaos_strike_onslaught_damage_2"
+triggered_only = true
+damage = { ap_coeff = 1.1567, school = "chaos", mastery = true }   # [db2 199547]
+on_cast = [{ type = "trigger", ability = "chaos_strike_refund", chance = 0.50 }]   # [simc] the onslaught's off-hand hit can refund
 
 # Blade Dance: 3 AoE hits then a heavier one; First Blood splits the main target [simc 188499, 206416]
 [[abilities]]
@@ -159,9 +219,11 @@ name = "blade_dance"
 cost = { fury = 35 }                                 # [db2 188499]
 cooldown = 15                                        # [db2 188499] category cooldown
 cooldown_hasted = true                               # [simc] havoc_demon_hunter aura
-damage = { ap_coeff = 0.2475, school = "chaos", mastery = true, hits = 3, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 391374]
+damage = { ap_coeff = 0.2475, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 391374]
 source = "blade_dance_first_blood"
 on_cast = [
+  { type = "trigger", ability = "blade_dance_first_blood_2", delay = 0.15 },   # [db2 188499] the hits land at 0/150/450/700ms
+  { type = "trigger", ability = "blade_dance_first_blood_3", delay = 0.45 },
   { type = "trigger", ability = "blade_dance_first_blood_4", delay = 0.7 },
   { type = "buff", buff = "chaos_theory" },
   { type = "if", if = "buff.eternal_hunt.up", then = [
@@ -170,6 +232,16 @@ on_cast = [
       { type = "reset_cooldown", ability = "death_sweep" },
   ] },
 ]
+
+[[abilities]]
+name = "blade_dance_first_blood_2"
+triggered_only = true
+damage = { ap_coeff = 0.2475, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 391374]
+
+[[abilities]]
+name = "blade_dance_first_blood_3"
+triggered_only = true
+damage = { ap_coeff = 0.2475, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 391374]
 
 [[abilities]]
 name = "blade_dance_first_blood_4"
@@ -183,10 +255,12 @@ cost = { fury = 35 }                                 # [db2 210152]
 cooldown = 9                                         # [db2 210152] category cooldown
 cooldown_hasted = true
 requires_buff = "metamorphosis"
-damage = { ap_coeff = 0.3218, school = "chaos", mastery = true, hits = 3, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 393055]
+damage = { ap_coeff = 0.3218, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 393055]
 source = "death_sweep_first_blood"
 on_cast = [
-  { type = "trigger", ability = "death_sweep_first_blood_4", delay = 0.7 },
+  { type = "trigger", ability = "death_sweep_first_blood_2", delay = 0.15 },   # [db2 210152] the hits land at 0/150/450/950ms
+  { type = "trigger", ability = "death_sweep_first_blood_3", delay = 0.45 },
+  { type = "trigger", ability = "death_sweep_first_blood_4", delay = 0.95 },
   { type = "buff", buff = "chaos_theory" },
   { type = "extend_buff", buff = "metamorphosis", seconds = 0.292 },
   { type = "if", if = "buff.eternal_hunt.up", then = [
@@ -199,6 +273,16 @@ on_cast = [
       { type = "trigger", ability = "demonsurge", delay = 0.7 },                          # [simc] Death Sweep's 700ms delay
   ] },
 ]
+
+[[abilities]]
+name = "death_sweep_first_blood_2"
+triggered_only = true
+damage = { ap_coeff = 0.3218, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 393055]
+
+[[abilities]]
+name = "death_sweep_first_blood_3"
+triggered_only = true
+damage = { ap_coeff = 0.3218, school = "chaos", mastery = true, feed = [{ dot = "burning_blades", pct = 35 }] }   # [db2 393055]
 
 [[abilities]]
 name = "death_sweep_first_blood_4"
@@ -215,7 +299,7 @@ damage = { ap_coeff = 0.9646, school = "chaos", mastery = true, feed = [{ dot = 
 [[abilities]]
 name = "eye_beam"
 cost = { fury = 30 }                                 # [db2 198013]
-channel = { ticks = 11 }
+channel = { ticks = 11, on_finish = [{ type = "buff", buff = "eternal_hunt" }] }   # [simc] last tick triggers Eternal Hunt
 dot = { name = "eye_beam_tick", tick_time = 0.2, duration = 2.2, hasted = true, ap_coeff = 0.4026, school = "chaos", mastery = true, on_tick = [{ type = "gain", resource = "fury", amount = 2 }] }   # [db2 198030; obs 2 fury a tick]
 on_start = [
   { type = "buff", buff = "eye_beam_lockout", duration = 20 },
@@ -224,19 +308,18 @@ on_start = [
   ] },
   { type = "buff", buff = "demonsurge_annihilation" },
   { type = "buff", buff = "demonsurge_death_sweep" },
-  { type = "buff", buff = "metamorphosis", duration = 7.75 },                             # [obs] 5s Demonic + the hasted channel (~2.7s)
-  { type = "extend_buff", buff = "metamorphosis", seconds = 0.25 },                       # [simc] Shattered Destiny
+  { type = "buff", buff = "metamorphosis", duration = 6.9 },   # [simc] Demonic 5s [db2 213410] + the hasted channel (~1.65s) + Shattered Destiny                       # [simc] Shattered Destiny
 ]
 on_cast = [
   { type = "buff", buff = "furious_gaze" },
-  { type = "buff", buff = "eternal_hunt" },
+  { type = "gain", resource = "fury", amount = 15 },   # [db2 453239] Student of Suffering: 5 fury every 2s for 6s
   { type = "consume", buff = "empowered_eye_beam", all = true },
 ]
 
 [[abilities]]
 name = "eye_beam_empowered"
 cost = { fury = 30 }
-channel = { ticks = 11 }
+channel = { ticks = 11, on_finish = [{ type = "buff", buff = "eternal_hunt" }] }   # [simc] last tick triggers Eternal Hunt
 dot = { name = "eye_beam_empowered_tick", tick_time = 0.2, duration = 2.2, hasted = true, ap_coeff = 0.4026, mult = 2.0, school = "chaos", mastery = true, on_tick = [{ type = "gain", resource = "fury", amount = 2 }] }   # [obs] 19299 vs 9571 non-crit
 on_start = [
   { type = "buff", buff = "eye_beam_lockout", duration = 20 },
@@ -245,12 +328,11 @@ on_start = [
   ] },
   { type = "buff", buff = "demonsurge_annihilation" },
   { type = "buff", buff = "demonsurge_death_sweep" },
-  { type = "buff", buff = "metamorphosis", duration = 7.75 },
-  { type = "extend_buff", buff = "metamorphosis", seconds = 0.25 },
+  { type = "buff", buff = "metamorphosis", duration = 6.9 },   # [simc] Demonic 5s [db2 213410] + the hasted channel (~1.65s) + Shattered Destiny
 ]
 on_cast = [
   { type = "buff", buff = "furious_gaze" },
-  { type = "buff", buff = "eternal_hunt" },
+  { type = "gain", resource = "fury", amount = 15 },   # [db2 453239] Student of Suffering: 5 fury every 2s for 6s
   { type = "consume", buff = "empowered_eye_beam", all = true },
 ]
 
@@ -258,18 +340,17 @@ on_cast = [
 name = "abyssal_gaze"
 cost = { fury = 30 }
 requires_buff = "metamorphosis"
-channel = { ticks = 11 }
+channel = { ticks = 11, on_finish = [{ type = "buff", buff = "eternal_hunt" }] }   # [simc] last tick triggers Eternal Hunt
 dot = { name = "abyssal_gaze_tick", tick_time = 0.2, duration = 2.2, hasted = true, ap_coeff = 0.4026, mult = 1.313, school = "chaos", mastery = true, on_tick = [{ type = "gain", resource = "fury", amount = 2 }] }   # [db2 452489 #4] +30% Eye Beam
 on_start = [
   { type = "buff", buff = "eye_beam_lockout", duration = 20 },
   { type = "buff", buff = "demonsurge_annihilation" },
   { type = "buff", buff = "demonsurge_death_sweep" },
-  { type = "buff", buff = "metamorphosis", duration = 7.75 },
-  { type = "extend_buff", buff = "metamorphosis", seconds = 0.25 },
+  { type = "buff", buff = "metamorphosis", duration = 6.9 },   # [simc] Demonic 5s [db2 213410] + the hasted channel (~1.65s) + Shattered Destiny
 ]
 on_cast = [
   { type = "buff", buff = "furious_gaze" },
-  { type = "buff", buff = "eternal_hunt" },
+  { type = "gain", resource = "fury", amount = 15 },   # [db2 453239] Student of Suffering: 5 fury every 2s for 6s
   { type = "consume", buff = "empowered_eye_beam", all = true },
   { type = "if", if = "buff.demonsurge_abyssal_gaze.up", then = [
       { type = "consume", buff = "demonsurge_abyssal_gaze", all = true },
@@ -281,24 +362,36 @@ on_cast = [
 name = "abyssal_gaze_empowered"
 cost = { fury = 30 }
 requires_buff = "metamorphosis"
-channel = { ticks = 11 }
+channel = { ticks = 11, on_finish = [{ type = "buff", buff = "eternal_hunt" }] }   # [simc] last tick triggers Eternal Hunt
 dot = { name = "abyssal_gaze_empowered_tick", tick_time = 0.2, duration = 2.2, hasted = true, ap_coeff = 0.4026, mult = 2.626, school = "chaos", mastery = true, on_tick = [{ type = "gain", resource = "fury", amount = 2 }] }   # [obs] 25184 vs 9571 non-crit
 on_start = [
   { type = "buff", buff = "eye_beam_lockout", duration = 20 },
   { type = "buff", buff = "demonsurge_annihilation" },
   { type = "buff", buff = "demonsurge_death_sweep" },
-  { type = "buff", buff = "metamorphosis", duration = 7.75 },
-  { type = "extend_buff", buff = "metamorphosis", seconds = 0.25 },
+  { type = "buff", buff = "metamorphosis", duration = 6.9 },   # [simc] Demonic 5s [db2 213410] + the hasted channel (~1.65s) + Shattered Destiny
 ]
 on_cast = [
   { type = "buff", buff = "furious_gaze" },
-  { type = "buff", buff = "eternal_hunt" },
+  { type = "gain", resource = "fury", amount = 15 },   # [db2 453239] Student of Suffering: 5 fury every 2s for 6s
   { type = "consume", buff = "empowered_eye_beam", all = true },
   { type = "if", if = "buff.demonsurge_abyssal_gaze.up", then = [
       { type = "consume", buff = "demonsurge_abyssal_gaze", all = true },
       { type = "trigger", ability = "demonsurge", delay = 0.45 },
   ] },
 ]
+
+# Demonic Appetite: a real-PPM soul fragment on every Chaos Strike / Annihilation
+# [db2 206478: 6 ppm, hasted]; the APL picks fragments up below 40 fury for 20 each [obs].
+[[procs]]
+ability = "soul_fragment"
+on_hit = true
+per_minute = 5.6            # [obs] 27.7 fragments a fight (fragments above 40 fury go unpicked)
+sources = ["chaos_strike_damage_1", "annihilation_damage_1"]
+
+[[abilities]]
+name = "soul_fragment"
+triggered_only = true
+gain = { fury = 20 }                                # [obs] consume_soul_lesser_energize
 
 # ---------------------------------------------------------------- other damage
 
@@ -348,7 +441,7 @@ ability = "essence_break_proc_damage"
 on_hit = true
 chance = 1.0
 icd = 1.0                                            # [obs] one proc a second while the debuff is up
-sources = ["chaos_strike_damage_1", "chaos_strike_damage_2", "annihilation_damage_1", "annihilation_damage_2", "blade_dance_first_blood", "blade_dance_first_blood_4", "death_sweep_first_blood", "death_sweep_first_blood_4"]
+sources = ["chaos_strike_damage_1", "chaos_strike_damage_2", "annihilation_damage_1", "annihilation_damage_2", "blade_dance_first_blood", "blade_dance_first_blood_2", "blade_dance_first_blood_3", "blade_dance_first_blood_4", "death_sweep_first_blood", "death_sweep_first_blood_2", "death_sweep_first_blood_3", "death_sweep_first_blood_4"]
 
 [[abilities]]
 name = "essence_break_proc_damage"
@@ -414,7 +507,9 @@ tick_time = 2.0
 duration = 6.0
 hasted = false
 school = "fire"
-refresh = "rolling"                                  # [simc] residual_periodic_action_t
+# SimC's residual_periodic_action_t: `feed` banks 35% of each hit and each feed
+# restarts the full duration, which is what the banked model does (the engine's
+# `refresh = "rolling"` is for coefficient DoTs and can't be banked).
 
 # ---------------------------------------------------------------- default gear's embellishments
 # The core-kit profile still wears the neck/ring embellishments; their procs are
@@ -422,7 +517,7 @@ refresh = "rolling"                                  # [simc] residual_periodic_
 
 [[procs]]
 ability = "venomfang_proc"
-per_minute = 6.58        # [obs] 38.4 procs a fight at 1.169 haste
+per_minute = 5.62        # [obs] 37.7 venomfang executes a fight
 hasted = true
 
 [[procs]]
@@ -448,8 +543,8 @@ triggered_only = true
 [abilities.dot]
 name = "venomfang"           # [db2 1306635: 6s]
 ap_coeff = 0.581             # [obs] 1617.7 non-crit a tick
-tick_time = 1.2
-duration = 5.0
+tick_time = 1.2            # [db2] duration/tick: 5 ticks; [obs] 4.3 land per application once refreshes reset the cadence
+duration = 6.0            # [db2 1306635]
 hasted = false
 school = "nature"
 
@@ -479,6 +574,7 @@ duration = 20                                        # [db2 162264]
 refresh_extend = true                                # [simc] extend_duration_or_trigger
 haste_pct = 20                                       # [db2 162264 #3]
 on_expire = [
+  { type = "consume", buff = "demonsurge", all = true },   # [simc] the stacking buff ends with Meta
   { type = "consume", buff = "demonsurge_annihilation", all = true },
   { type = "consume", buff = "demonsurge_death_sweep", all = true },
   { type = "consume", buff = "demonsurge_abyssal_gaze", all = true },
@@ -543,14 +639,21 @@ max_stacks = 4
 damage_pct = 5                                       # [db2 452416 #1] +5% a stack
 
 # ---------------------------------------------------------------- rotation [simc APL, single target]
+#
+# SimC puts Blade Dance and Death Sweep on one shared cooldown (`cooldown.blade_dance`,
+# whose length is whichever was cast last). The two are modelled with their own
+# cooldowns here, so the APL's `!cooldown.blade_dance.up` gate on Metamorphosis is
+# dropped rather than being read as Blade Dance's longer 15s cooldown: with it, the
+# Blade Dance that follows every Demonic window blocks the hardcast Metamorphosis
+# for another 10s and Metamorphosis falls from 2.8 casts a fight to 2.1.
 
 [[rotation]]
 action = "metamorphosis"
-if = "!buff.demonsurge_annihilation.up&!buff.demonsurge_death_sweep.up&(!cooldown.blade_dance.up|!cooldown.death_sweep.up)&buff.eye_beam_lockout.remains>8"
+if = "!buff.demonsurge_annihilation.up&!buff.demonsurge_death_sweep.up&buff.eye_beam_lockout.remains>8"   # [simc] minus its shared Blade Dance/Death Sweep cooldown check, see the note above
 
 [[rotation]]
 action = "the_hunt"
-if = "buff.eye_beam_lockout.remains<10&buff.metamorphosis.remains>15|(buff.eye_beam_lockout.up&buff.metamorphosis.up)"
+if = "buff.eye_beam_lockout.remains<10&cooldown.metamorphosis.remains>15|(!buff.eye_beam_lockout.up&cooldown.metamorphosis.up)"   # [simc] lines The Hunt up with Eye Beam
 
 [[rotation]]
 action = "vengeful_retreat"

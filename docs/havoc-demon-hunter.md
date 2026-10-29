@@ -16,33 +16,41 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 159,675 |
-| azsim | 160,287 (±70) |
-| difference | **+0.38%** |
+| azsim | 158,729 (±74) |
+| difference | **-0.59%** |
 
 Stat probes (+500 rating / +200 agility, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
-| crit | +10.40% | +8.18% | -2.22 |
-| haste | +7.72% | +6.41% | -1.31 |
-| mastery | +9.70% | +10.22% | +0.52 |
+| crit | +10.40% | +8.18% | -2.21 |
+| haste | +7.72% | +4.66% | -3.06 |
+| mastery | +9.70% | +10.42% | +0.72 |
 | versatility | +8.42% | +8.50% | +0.08 |
-| agility | +6.40% | +6.26% | -0.14 |
+| agility | +6.40% | +6.33% | -0.08 |
 
 ## What is modelled
 
 - **Fury** (170): Demon Blades on every auto-attack hit (15), Immolation Aura
   (20 on cast, 3 a tick), Felblade (15), Vengeful Retreat's Tactical Retreat
-  (80, taken up front instead of 8/s for 10s), Arcane Torrent (15) and the
-  off-hand refund (45% chance, 20). Chaos Strike/Annihilation 40, Blade
+  (80, taken up front instead of 8/s for 10s), Arcane Torrent (15), Student of
+  Suffering (15 a channel), Demonic Appetite's soul fragments (a real PPM, 20
+  each) and the off-hand refund (50% chance, 20 — the reference's 45% base
+  plus Chaos Theory/Critical Chaos). Chaos Strike/Annihilation 40, Blade
   Dance/Death Sweep 35, Eye Beam/Abyssal Gaze 30.
+- **Auto attacks**: a dual-wielded white swing misses 16.3% of the time and
+  Skyfury repeats 20% of them; Demon Blades rolls only on landed hits. The
+  swing cadence is the observed one: Vengeful Retreat leaps out of melee range
+  and cancels a swing or two a cast, which is what the 2.94s/3.02s effective
+  weapon speeds stand for.
 - **Metamorphosis**: 20s, +20% haste; hardcast on a 120s cooldown, or opened by
   Eye Beam's Demonic (5s + the hasted channel). Shattered Destiny extends it
   0.1s per 12 fury spent. Chaotic Transformation resets the Eye Beam lockout and
   Blade Dance, Violent Transformation resets Immolation Aura.
 - **Annihilation / Death Sweep** replace Chaos Strike / Blade Dance inside
   Metamorphosis; both are two-hit (main hand, then off hand 300ms later) or
-  four-hit (First Blood) abilities.
+  four-hit (First Blood) abilities, the four Blade Dance/Death Sweep hits as
+  four sources (0/150/450/700ms, 0/150/450/950ms).
 - **Demonsurge** (Fel-Scarred): Eye Beam/Abyssal Gaze and Metamorphosis hand out
   per-ability empowerments; the empowered Annihilation/Death Sweep/Abyssal
   Gaze/Immolation Aura fires a 2.8 AP Demonsurge hit (0.45s/0.7s delay) and
@@ -51,10 +59,11 @@ Stat probes (+500 rating / +200 agility, same calibration):
   Strike/Annihilation and Blade Dance/Death Sweep rolls into a 6s, 2s-tick
   banked DoT.
 - **Eye Beam**: 11-tick channel, 2 fury a tick (Blind Fury); Furious Gaze
-  (+8% haste) and Eternal Hunt on completion; Abyssal Gaze inside Metamorphosis
-  (+30%, Demonic Intensity); Eternal Hunt's empowered channel doubles the ticks.
-  Eye Beam and Abyssal Gaze share a 20s lockout (Cycle of Hatred takes the 30s
-  cooldown to ~20s in steady state).
+  (+8% haste) on completion, and the last tick triggers Eternal Hunt (8s), which
+  a Blade Dance/Death Sweep then consumes to reset its cooldown. Abyssal Gaze
+  inside Metamorphosis (+30%, Demonic Intensity); Eternal Hunt's empowered
+  channel doubles the ticks. Eye Beam and Abyssal Gaze share a 20s lockout
+  (Cycle of Hatred takes the 30s cooldown to ~20s in steady state).
 - **Essence Break** (40s, 4s debuff), whose hits echo for 2.574 AP once a
   second; **The Hunt** (60s, impact + 6s DoT) and its empowered Eye Beam;
   **Immolation Aura** (30s, 10 ticks of 1s, always critting via Isolated Prey);
@@ -62,24 +71,38 @@ Stat probes (+500 rating / +200 agility, same calibration):
   **Relentless Onslaught** (10% of off-hand hits), **Chaos Theory** (a +40%
   crit buff on average after Blade Dance/Death Sweep).
 - The APL's single-target priority, including the demonsurge-empowerment
-  ordering and the Metamorphosis/The Hunt cooldown conditions.
+  ordering and the Metamorphosis/The Hunt cooldown conditions. Blade Dance and
+  Death Sweep are modelled with their own cooldowns (SimC shares one), so the
+  APL's `!cooldown.blade_dance.up` gate on Metamorphosis is dropped: read as
+  Blade Dance's own 15s cooldown it blocks the hardcast for 10s after every
+  Demonic window and Metamorphosis falls from 2.8 casts a fight to 2.1.
 - The default gear's embellishments: Venomfang and Rune of Unleashed Fire.
 
 ## Known gaps
 
-- **Empowered Eye Beam windows are missed**: The Hunt's 12s empowerment often
-  expires before the next Eye Beam, so azsim gets 20 of the reference's 39
-  empowered ticks (-2.1% of the fight).
-- **Meta windows**: Annihilation and Death Sweep hit counts match (112/49 vs
-  113/44), but Chaos Strike (30 vs 45) and Blade Dance (8 vs 11) are short, so
-  more of the fight is spent in Metamorphosis than in the reference.
-- **No miss chance**: auto attacks (161 vs 140 hits) and Demon Blades (322 vs
-  276) land every swing; their per-hit damage is calibrated but their share of
-  the total is ~15% high, which the short spender counts roughly offset.
-- **Critical Chaos's crit-scaled fury refund** is not modelled, so crit rating
-  is worth ~2 points less than in the reference; Immolation Aura ticks are
-  unhasted (as in the reference's log), which costs ~1 point of haste.
+- **Eye Beam / Abyssal Gaze split**: the family's total is right (16.5 channels
+  vs 17.2) but too many of them land outside Metamorphosis, so the plain Eye
+  Beam gets 45 ticks where the reference has 71 and Abyssal Gaze 83 where it
+  has 58; the empowered channel almost always goes to Eye Beam (54 vs 39)
+  instead of Abyssal Gaze (1 vs 22). The per-tick damage is calibrated, so the
+  mix costs ~1% of the fight.
+- **Blade Dance**: 8.3 casts vs 10.8 (Death Sweep 46.3 vs 43.8). The reference
+  shares one cooldown between the two and this draft does not (see above), so
+  the out-of-Metamorphosis side is short.
+- **Immolation Aura** fires 8.5 times a fight against 9.8 and its ticks 84
+  against 105: as the APL's last resort it loses the GCD almost every time.
+  Immolation Aura ticks always crit (Isolated Prey), so the reference reports no
+  non-crit tick to fit — the calibrator leaves that source at its derived
+  multiplier, which leaves it ~35% short (~0.2% of the fight).
+- **Venomfang** lands 148 ticks against 164: every re-proc restarts the DoT's
+  tick cadence, which costs about one tick per application.
+- **Essence Break's echo** procs 21.0 times against 22.9 (its 1s internal
+  cooldown is right; the hits inside the 4s window land a little further apart).
+- **Critical Chaos's crit-scaled fury refund** is not modelled (the refund is a
+  flat 50%, crit only moves damage), so crit rating is worth ~2 points less than
+  in the reference and haste ~3 (fewer refunds also means fewer casts per point
+  of haste).
 - Immolation Aura's Undying Embers re-proc (25% on expiry) is not modelled.
-- Relentless Onslaught always uses the Annihilation values (the Chaos Strike
-  version differs by ~13%), and Blade Dance/Death Sweep report their three
-  light hits as one source (`hits = 3`) instead of three rows.
+- Relentless Onslaught uses the Annihilation or Chaos Strike values of whichever
+  form the player was in when the off-hand hit landed, but not its own 300ms
+  delay against a Metamorphosis that ends in between.

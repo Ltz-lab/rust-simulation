@@ -26,6 +26,12 @@ derived = 1.000000
 [sources."blade_dance_first_blood"]
 derived = 1.459268
 
+[sources."blade_dance_first_blood_2"]
+derived = 1.459268
+
+[sources."blade_dance_first_blood_3"]
+derived = 1.459268
+
 [sources."blade_dance_first_blood_4"]
 derived = 2.188902
 
@@ -38,7 +44,19 @@ derived = 1.605195
 [sources."chaos_strike_damage_2"]
 derived = 1.605195
 
+[sources."chaos_strike_onslaught_damage_1"]
+derived = 1.605195
+
+[sources."chaos_strike_onslaught_damage_2"]
+derived = 1.605195
+
 [sources."death_sweep_first_blood"]
+derived = 1.459268
+
+[sources."death_sweep_first_blood_2"]
+derived = 1.459268
+
+[sources."death_sweep_first_blood_3"]
 derived = 1.459268
 
 [sources."death_sweep_first_blood_4"]
