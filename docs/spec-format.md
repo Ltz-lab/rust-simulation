@@ -176,3 +176,24 @@ if = "self.energy>=20"
 Randomness stays keyed by name: pet sources get `crit/imp_firebolt`
 streams, shared by all instances, and pet effects' chance rolls get
 `roll/<pet ability>/...` and `roll/pet/<pet>/on_summon/...` streams.
+
+## Channels and resource expressions
+
+A player ability can use `channel = { ticks = 7, finish_delay = 0.25,
+interrupt_if = "mana.pct>=95", on_finish = [...] }` with an attached DoT.
+Its tick interval, haste scaling and tick-on-apply behavior come from the DoT;
+the channel occupies the player until its last tick or until the interrupt
+condition holds after a tick once the GCD has elapsed. `on_finish` runs for
+both completion and interruption; `finish_delay` applies only on completion.
+Channels require a positive tick interval and count, no cast time, an unbanked
+DoT, and a player ability.
+
+Resources may specify `max_per_mastery` and `regen_per_mastery`, multiplying
+their base cap, starting value and regeneration by `1 + coefficient * player.mastery`.
+Buffs can multiply regeneration with `resource_regen_pct = { mana = 100 }`.
+An ability can replace fixed costs with `cost_expr = { mana = "mana.max*0.02" }`;
+negative expression results are clamped to zero. Expressions also expose
+`resource.max`, `resource.pct`, `mastery`, `haste`, `gcd.remains` and
+`prev_gcd.<ability>`. A `gain` with `amount_expr` may subtract resource.
+A trigger may use `count = "<expression>"` and `interval` to schedule repeated
+activations; the count is evaluated at the trigger and limited to 1000.

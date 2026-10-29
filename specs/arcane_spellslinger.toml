@@ -31,6 +31,12 @@ haste = 0.05656 # [obs]
 mastery = 0.06358 # [obs]
 versatility = 0.00475 # [obs]
 
+[gear.kit]
+enabled = 1 # [simc] full raid kit when gear is supplied
+precombat = ["full_kit"] # [simc] Bloodlust at pull
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil
+primary_buffs = { lights_potential = 695 } # [db2 1236616] rank 2 potion
+
 [fight]
 duration = 300 # [obs]
 variance = 0.2 # [simc] reference fight-length variation
@@ -54,6 +60,31 @@ max = 100 # [simc]
 start = 1 # [simc]
 
 # ---------------------------------------------------------------- buffs
+[[buffs]]
+name = "full_kit"
+duration = 1e9 # [simc]
+[[buffs]]
+name = "bloodlust"
+duration = 40 # [db2 2825]
+haste_pct = 30 # [db2]
+[[buffs]]
+name = "lights_potential"
+duration = 30 # [db2 1236616]
+power_pct = 20 # [obs] replaced from gear
+
+[[abilities]]
+name = "full_kit"
+gcd = 0 # [simc]
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+[[abilities]]
+name = "potion"
+spell_id = 1236616 # [db2]
+gcd = 0 # [simc]
+cooldown = 300 # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
 [[buffs]]
 name = "arcane_charge"
 derive_damage = false # [simc] damage.scale includes base and mastery per charge
@@ -458,6 +489,9 @@ no_procs = true
 damage = { sp_coeff = 1.5, school = "shadow" } # [db2]
 
 # ---------------------------------------------------------------- APL [simc] default single-target Spellslinger, no tier
+[[rotation]]
+action = "potion"
+if = "cooldown.arcane_surge.ready|fight_remains<35" # [simc]
 [[rotation]]
 action = "arcane_orb"
 if = "time=0"

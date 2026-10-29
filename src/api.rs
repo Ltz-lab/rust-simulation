@@ -13,6 +13,11 @@ use std::time::Instant;
 
 const SPECS: &[(&str, &str, &str)] = &[
     (
+        "arcane_spellslinger",
+        include_str!("../specs/arcane_spellslinger.toml"),
+        include_str!("../calibration/arcane_spellslinger.toml"),
+    ),
+    (
         "retribution_herald",
         include_str!("../specs/retribution_herald.toml"),
         include_str!("../calibration/retribution_herald.toml"),
