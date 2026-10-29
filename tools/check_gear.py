@@ -30,6 +30,7 @@ SPEC_BY_PROFILE = {
     "affliction": "affliction_hellcaller",
     "subtlety": "subtlety_deathstalker",
     "balance": "balance_elunes_chosen",
+    "arms": "arms_slayer",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"

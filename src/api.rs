@@ -57,6 +57,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/demonology_diabolist.toml"),
         include_str!("../calibration/demonology_diabolist.toml"),
     ),
+    (
+        "arms_slayer",
+        include_str!("../specs/arms_slayer.toml"),
+        include_str!("../calibration/arms_slayer.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
@@ -392,7 +397,7 @@ mod tests {
     #[test]
     fn unknown_spec_and_gearless_spec() {
         assert!(run_json(r#"{"spec":"nope"}"#).is_err());
-        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller", "subtlety_deathstalker"] {
+        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller", "subtlety_deathstalker", "arms_slayer"] {
             assert!(supports_gear(name), "{name}");
         }
         // A spec without a [gear] table can't take gear lines
@@ -433,5 +438,22 @@ mod tests {
         assert!(hits("hunt_them_down") > 400);
         // clones and copies: Ancient Arts, Shadow Blades, Goremaw's Bite
         assert!(hits("eviscerate_shadow_clone") > 20 && hits("shadow_blades_attack") > 300 && hits("goremaws_bite_finisher") > 60);
+    }
+
+    #[test]
+    fn arms_rage_execute_and_bladestorm() {
+        let b = builtin("arms_slayer").unwrap();
+        let mut s: spec::Spec = toml::from_str(b.1).unwrap();
+        s.apply_calibration(&toml::from_str(b.2).unwrap()).unwrap();
+        let c = sim::Compiled::new(s).unwrap();
+        let r = sim::run_iteration(&c, 7, false);
+        let hits = |n: &str| r.hits[c.source_names().iter().position(|s| s == n).unwrap()];
+        // rage from autos pays for ~50 Mortal Strikes; Execute comes from Sudden Death and the execute phase
+        assert!((35..70).contains(&hits("mortal_strike")), "mortal_strike: {}", hits("mortal_strike"));
+        assert!(hits("execute_damage") > 40 && hits("slayers_strike") > 40);
+        // Bladestorm ticks 7-10 times a cast; Unhinged Mortal Strikes on the odd ticks
+        assert!(hits("bladestorm_mh") > 60 && hits("mortal_strike_bladestorm_unhinged") > 30);
+        // Deep Wounds rolls nearly the whole fight
+        assert!(hits("deep_wounds") > 200);
     }
 }

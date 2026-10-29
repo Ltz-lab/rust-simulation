@@ -1,0 +1,733 @@
+# Arms Warrior — Slayer, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Warrior_Arms.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_warrior.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# Rage comes from auto attacks (24.3 a swing, 26.7 on a crit), Colossus Smash,
+# Rend ticks and refunds; Mortal Strike, Slam/Heroic Strike, Cleave and
+# Execute spend it, and every 20 spent takes a second off Avatar and Colossus
+# Smash (Anger Management). Below 35% health (Massacre) Execute spends up to
+# 40 rage; above, only Sudden Death makes it usable. Slayer: special attacks
+# proc Slayer's Strike, which stacks Executioner and every third one grants
+# Sudden Death; Sudden Death Executes stack Imminent Demise (extra Bladestorm
+# ticks), fire Reap the Storm and take time off Bladestorm.
+
+name = "Arms Warrior (Slayer, core kit)"
+
+# Charge at the pull, and the always-on part of the gear's haste procs
+precombat = ["charge", "gear_haste_procs"]
+
+[player]
+# Final stats = SimC's buffed snapshot plus the time-averaged gear stat procs
+# (Rune of Burning Haste, Arcanoweave Insight, Venomcursed, the loa rites)
+# [obs: 9 logged fights, time-weighted]. Battle Stance's +3% crit [db2 386164]
+# is in. Haste is the snapshot; the procs' share (almost all Rune of Burning
+# Haste: 78 rating for 10s per Rune of Unleashed Fire) is gear_haste_procs
+# below, as an average: a stacking buff would let haste rise between a hasted
+# cooldown's start and the GCDs after it, which SimC rescales and this engine
+# doesn't (Mortal Strike would slip a GCD).
+attack_power = 3100      # [obs] 3013 buffed + 87 from strength procs
+weapon_attack_power = 1050   # [obs] the weapon's share of ability damage, fitted to the +200 strength probe (+227 AP: +5.5%, not +7.3%)
+crit = 0.4031            # [obs] 33.24% buffed + 3% Battle Stance + 4.07% procs
+haste = 0.2762           # [obs] buffed
+versatility = 0.0585     # [obs] 5.28% + 0.57% procs
+mastery = 0.2582         # [obs] Master of Arms: all class abilities and autos [db2 1258398]
+crit_multiplier = 2.28   # [obs] crit/non-crit of Slayer's Strike, Colossus Smash, Bladestorm, Reap the Storm
+weapon = { min = 0, max = 0, speed = 3.6 }   # [db2] two-hander, 3.6s
+
+# How `--gear profile.simc` turns gear into the [player] stats above (see
+# docs/gear.md). All [obs] from SimC's reported stats unless tagged.
+[gear]
+primary = "strength"
+base_primary = 936            # [obs] 2786 buffed / 1.05 less 1717 from gear: base plus Armored to the Teeth
+primary_mult = 1.05           # [obs] plate specialization: +200 strength probe gives +227 AP, food +50 gives +57
+attack_power_mult = 1.0815    # [obs] 2786 strength -> 3013 AP: Battle Shout x1.05 and x1.03
+crit_bonus = 0.07             # [obs] 33.24% at 1207 rating
+haste_mult = 1.02             # [obs] Wild Strikes 2/2 [db2 382946 #0]
+mastery_points = 10           # [obs] 8 base + 2 Skyfury, in mastery points
+mastery_coeff = 1.1           # [db2 1258398] Master of Arms, % per mastery point
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.7394    # [obs] weapon_attack_power 1050 at 155.80 main-hand DPS
+spec_id = 71                  # [db2] ChrSpecialization
+# On-use stat trinkets wait for Avatar [simc APL: use_item,if=...&buff.avatar.up]
+use_after = "potion"
+use_items = { buff = "buff.avatar.up|fight_remains<=${duration}" }
+
+# Battle Stance's 3% crit [db2 386164] and the time-averaged gear stat procs
+# folded into [player] (haste: gear_haste_procs), so --gear lands on the same
+# final stats. The procs belong to this gear set.
+[gear.procs]
+attack_power = 87
+crit = 0.0707
+mastery = 0.0035
+versatility = 0.0057
+
+# Raid-night kit with gear lines (see Ret): SimC's default level-90 Arms
+# consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, haste_rating = 181, crit_rating = 16 }
+#   primary 50     Harandar Celebration [obs: +57 AP]
+#   primary 25.1   Void-Touched augment rune [db2 1264426; obs +29 AP]
+#   haste 165      Flask of the Blood Knights (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+primary_buffs = { lights_potential = 695 }   # Light's Potential (rank 2) [db2 1236616, item-level scaled]
+
+[fight]
+duration = 300
+variance = 0.2
+ready_tolerance = 1e-5   # Mortal Strike's hasted 6s is exactly 4 hasted GCDs: SimC casts it on the 4th [obs: 4.52s apart]; 10us covers the microsecond clock's rounding over them
+
+[resources.rage]
+max = 130                # [obs] "/130.00" in the log
+start = 0
+
+[auto_attack]
+replace_with = "auto_attack_mh"
+# Skyfury raid buff: 20% to repeat the swing [obs: SimC's proc count, 26.4 / 131.8 swings]
+on_hit = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.20 }]
+
+# Sudden Death: real PPM 1.7, hasted, 3s internal cooldown [db2 29725, SpellProcsPerMinute 422]
+[[procs]]
+ability = "sudden_death_proc"
+on_hit = true
+per_minute = 1.7
+hasted = true
+icd = 3.0
+
+# Random gear procs (neck/ring embellishments, rune), as Poisson rates [obs]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 5.65        # hasted RPPM: 7.6/min observed at 1.3565 haste
+hasted = true
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.08       # [obs] 50.4 a fight
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "full_kit"           # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"   # potion: +695 strength for 30s [db2 1236616]
+duration = 30
+power_pct = 16.6            # as a share of attack power; [gear.kit] recomputes it from the gear
+
+[[buffs]]
+name = "gear_haste_procs"   # time-averaged haste from gear procs [obs: 30.51% average without Violent Euphoria vs 27.62%]
+duration = 1e9
+haste_pct = 2.26
+
+[[buffs]]
+name = "avatar"             # [db2 107574: 20s]; +20% class abilities (derived from #0, #3)
+duration = 20
+
+[[buffs]]
+name = "avatar_auto_attacks"   # Avatar's +20% auto-attack damage [db2 107574 #2, aura 344: not read by effects.py]
+duration = 20
+ability_pct = { auto_attack_mh = 20 }
+
+[[buffs]]
+name = "colossus_smash"     # target debuff: +30% damage from warrior attacks, autos and bleeds included [db2 208086 #0, simc composite_target_multiplier]
+duration = 10
+school_pct = { physical = 30 }
+
+[[buffs]]
+name = "sudden_death"       # Execute usable at any health, free, full damage [db2 52437: 12s, 2 stacks]
+duration = 12
+max_stacks = 2
+
+[[buffs]]
+name = "executioner"        # Slayer's Strike: +3% Execute damage per stack, own timers [db2 445584: 12s, 5 stacks, asynchronous]
+duration = 12
+max_stacks = 5
+overlap = true
+
+[[buffs]]
+name = "ss_counter"         # Imminent Demise: every 3rd Slayer's Strike grants Sudden Death [db2 444769 #0, simc slayers_strike_t]
+duration = 1e9
+max_stacks = 3
+
+[[buffs]]
+name = "imminent_demise"    # Sudden Death Executes: +1 Bladestorm tick each [db2 445606: 60s, 3 stacks]
+duration = 60
+max_stacks = 3
+
+[[buffs]]
+name = "overwhelmed"        # target debuff: +1% damage taken from class abilities per stack [db2 445836: 20s, 5 stacks, mask 512]
+duration = 20
+max_stacks = 5
+ability_pct = { mortal_strike = 1, mortal_strike_bladestorm_unhinged = 1, execute_damage = 1, slayers_strike = 1, bladestorm_mh = 1, reap_the_storm_execute = 1, overpower = 1, heroic_strike = 1, slam = 1, cleave = 1, colossus_smash = 1, deep_wounds = 1, rend_dot = 1, fatality = 1 }
+
+[[buffs]]
+name = "executioners_precision"   # Execute: next Mortal Strike +35% per stack [db2 386633: 30s, 2 stacks]
+duration = 30
+max_stacks = 2
+
+[[buffs]]
+name = "fierce_followthrough"     # Mortal Strike crit: next one +20% [db2 458689: 12s]
+duration = 12
+
+[[buffs]]
+name = "ff_pending"         # a Mortal Strike crit, granted after the cast spends the old one [simc make_event]
+duration = 1e9
+
+[[buffs]]
+name = "fatal_mark"         # target debuff: Mortal Strike 50%, spent by Execute's Fatality [db2 383704: 30s, 5 stacks]
+duration = 30
+max_stacks = 5
+
+[[buffs]]
+name = "master_of_warfare_proc"   # Slam becomes Heroic Strike [db2 1269391: 15s]
+duration = 15
+
+[[buffs]]
+name = "master_of_warfare"  # Heroic Strike stacks [db2 1269394: 30s, 10 stacks, asynchronous]
+duration = 30
+max_stacks = 10
+overlap = true
+
+[[buffs]]
+name = "wild_strikes"       # auto crit: +20% attack speed (2 ranks) [db2 382946, 392778: 10s; obs 158 swings]
+duration = 10
+attack_speed_pct = 20
+
+[[buffs]]
+name = "violent_euphoria"   # Bladestorm ends: +15% haste [db2 1270731: 8s]
+duration = 8
+haste_pct = 15
+
+[[buffs]]
+name = "bs_odd"             # Bladestorm tick parity: Unhinged on odd ticks [simc bladestorm_t::tick]
+duration = 1e9
+
+# ---------------------------------------------------------------- opener
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300              # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
+[[abilities]]
+name = "gear_haste_procs"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "gear_haste_procs" }]
+
+[[abilities]]
+name = "charge"
+spell_id = 100
+gcd = 0
+triggered_only = true
+gain = { rage = 20 }        # [obs] charge_impact
+
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "avatar"
+spell_id = 107574
+gcd = 0                     # [db2] off the GCD
+cooldown = 90               # [db2]
+on_cast = [{ type = "buff", buff = "avatar" }, { type = "buff", buff = "avatar_auto_attacks" }]
+
+[[abilities]]
+name = "colossus_smash"
+spell_id = 167105
+cooldown = 45               # [db2]
+gain = { rage = 15 }        # Just Warming Up [db2 1261048: 150 = 15 rage]
+damage = { ap_coeff = 3.06263, mastery = true }   # [db2]
+on_cast = [
+  { type = "buff", buff = "colossus_smash" },
+  { type = "buff", buff = "sudden_death" },   # Tactical Edge [db2 1261051 #0: 1 stack]
+]
+
+# Bladestorm takes the player for its duration: a channel of 7 ticks (one at
+# the start, then 6 over the hasted 6s), plus one per Imminent Demise stack
+# fitted into the same time [db2 446035: 6s, 1s period, haste affects duration
+# and period, extra initial period; simc composite_dot_duration / tick_time].
+# SimC's isn't channeled: Storm Bolt (0.06% of damage) can go alongside; not here.
+[[abilities]]
+name = "bladestorm"
+spell_id = 446035
+cooldown = 90               # [db2]
+on_start = [{ type = "buff", buff = "bs_odd" }]   # the initial tick is even
+channel = { ticks = 7, ticks_expr = "7+buff.imminent_demise.stack", on_finish = [
+  { type = "consume", buff = "imminent_demise", all = true },
+  { type = "buff", buff = "violent_euphoria" },
+  { type = "consume", buff = "bs_odd" },
+] }
+[abilities.dot]
+name = "bladestorm"
+tick_time = 1.0
+tick_time_expr = "6/(6+buff.imminent_demise.stack)"
+duration = 6.0
+tick_on_apply = true
+on_tick = [
+  { type = "if", if = "buff.bs_odd.up", then = [{ type = "consume", buff = "bs_odd" }], else = [
+    { type = "buff", buff = "bs_odd" },
+    { type = "trigger", ability = "mortal_strike_bladestorm_unhinged" },   # Unhinged [db2 386628]
+  ] },
+  { type = "trigger", ability = "bladestorm_mh" },
+]
+
+[[abilities]]
+name = "bladestorm_mh"
+spell_id = 50622
+triggered_only = true
+damage = { ap_coeff = 2.71635, mastery = true }   # [db2]
+on_cast = [{ type = "buff", buff = "overwhelmed" }]   # Overwhelming Blades [simc bladestorm_tick_t]
+
+# ---------------------------------------------------------------- Mortal Strike
+
+[[abilities]]
+name = "mortal_strike"
+spell_id = 12294
+cost = { rage = 30 }        # [db2]
+cooldown = 6                # [db2]
+cooldown_hasted = true      # [db2 137047 #0, aura 416; simc sets it by hand too]
+damage = { ap_coeff = 5.20121, mastery = true, crit_damage_bonus = 0.30 }   # [db2]; [obs] crits x2.58
+on_crit = [
+  { type = "buff", buff = "ff_pending" },
+  { type = "trigger", ability = "deep_wounds_apply" },   # Mortal Wounds [db2 1261062]
+]
+on_cast = [
+  { type = "trigger", ability = "ms_common" },
+  { type = "gain", resource = "rage", amount = 3, chance = 0.2 },   # Frothing Berserker: 10% of the cost, 20% [db2 392792]
+  { type = "trigger", ability = "mow_roll", chance = 0.15 },        # Master of Warfare [simc: 15%, not in spell data]
+  { type = "trigger", ability = "rage_spent" },
+]
+
+[[abilities]]
+name = "mortal_strike_bladestorm_unhinged"
+spell_id = 12294
+triggered_only = true
+damage = { ap_coeff = 5.20121, mastery = true, crit_damage_bonus = 0.30 }   # [db2] x100% [db2 386628 #1]
+on_crit = [
+  { type = "buff", buff = "ff_pending" },
+  { type = "trigger", ability = "deep_wounds_apply" },
+]
+on_cast = [{ type = "trigger", ability = "ms_common" }]
+
+[[abilities]]
+name = "ms_common"          # [simc mortal_strike_t::execute/impact]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "consume", buff = "fierce_followthrough" },
+  { type = "if", if = "buff.ff_pending.up", then = [
+    { type = "buff", buff = "fierce_followthrough" },
+    { type = "consume", buff = "ff_pending" },
+  ] },
+  { type = "consume", buff = "executioners_precision", all = true },
+  { type = "buff", buff = "fatal_mark", chance = 0.5 },              # Fatality [db2 383703 #0]
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },   # Slayer's Dominance [db2 444767 #1]
+  { type = "if", if = "target.health.pct<35", then = [{ type = "trigger", ability = "rend_apply" }] },   # Bloodletting [simc]
+]
+
+# ---------------------------------------------------------------- Execute
+# Free with Sudden Death (and full damage, x2), else 20-40 rage for
+# 2 x spent/40 damage [simc execute_damage_t::action_multiplier]
+
+[[abilities]]
+name = "execute_sd"
+spell_id = 163201
+source = "execute_damage"
+requires_buff = "sudden_death"
+damage = { ap_coeff = 2.42125, mastery = true, crit_damage_bonus = 0.41, scale = "2" }   # [db2 260798], x2 when free; [obs] crits x2.69
+on_cast = [
+  { type = "consume", buff = "sudden_death" },
+  { type = "trigger", ability = "execute_common" },
+  { type = "trigger", ability = "sd_spent" },
+]
+
+[[abilities]]
+name = "execute_rage"
+spell_id = 163201
+source = "execute_damage"
+cost = { rage = 20 }        # [db2]
+cost_max = { rage = 40 }    # [simc max_rage]
+damage = { ap_coeff = 2.42125, mastery = true, crit_damage_bonus = 0.41, scale = "spent.rage/20" }
+on_cast = [
+  { type = "trigger", ability = "execute_common" },
+  # Improved Execute + Critical Thinking 2/2: 30% back [db2 163201 #1, 389306 #1; obs 12 of 40]
+  { type = "gain", resource = "rage", amount_expr = "0.3*spent.rage" },
+  { type = "trigger", ability = "rage_spent" },
+  # a Sudden Death granted by this Execute's own Slayer's Strike is spent too [simc execute_arms_t::execute]
+  { type = "if", if = "buff.sudden_death.up", then = [
+    { type = "consume", buff = "sudden_death" },
+    { type = "trigger", ability = "sd_spent" },
+  ] },
+]
+
+[[abilities]]
+name = "execute_common"     # [simc execute_damage_t::impact, execute_arms_t::execute]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "deep_wounds_apply" },               # Deep Wounds [db2 1261060]
+  { type = "if", if = "buff.fatal_mark.up", then = [{ type = "trigger", ability = "fatality" }] },
+  { type = "trigger", ability = "mow_roll", chance = 0.15 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },
+  { type = "trigger", ability = "ep_proc" },
+]
+
+[[abilities]]
+name = "sd_spent"           # a Sudden Death spent [simc execute_arms_t::execute]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "imminent_demise" },
+  { type = "trigger", ability = "reap_the_storm_execute" },   # 100% [db2 444769 #1], 0.5s ICD [db2 444775]
+  { type = "if", if = "buff.executioner.up", then = [
+    # Unrelenting Onslaught: 5s off Bladestorm and a stack of Overwhelmed per Executioner stack [db2 444780 #0 #1]
+    { type = "reduce_cooldown", ability = "bladestorm", seconds_expr = "5*buff.executioner.stack" },
+    { type = "buff", buff = "overwhelmed", set = "buff.overwhelmed.stack+buff.executioner.stack" },
+  ] },
+]
+
+[[abilities]]
+name = "ep_proc"            # Executioner's Precision, 0.5s ICD [db2 386634]
+triggered_only = true
+gcd = 0
+cooldown = 0.5
+on_cast = [{ type = "buff", buff = "executioners_precision" }]
+
+[[abilities]]
+name = "fatality"
+spell_id = 383706
+triggered_only = true
+damage = { ap_coeff = 2.76, mastery = true, crit_bonus = -2.0, scale = "buff.fatal_mark.stack" }   # [db2]; never crits [simc]
+on_cast = [{ type = "consume", buff = "fatal_mark", all = true }]
+
+[[abilities]]
+name = "reap_the_storm_execute"
+spell_id = 446005
+triggered_only = true
+cooldown = 0.5              # [db2 444775 ICD]
+damage = { ap_coeff = 7.71909, mastery = true }   # [db2]
+on_cast = [{ type = "buff", buff = "overwhelmed" }]
+
+[[abilities]]
+name = "sudden_death_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "sudden_death" }]
+
+# ---------------------------------------------------------------- Slayer
+
+[[abilities]]
+name = "slayers_strike"
+spell_id = 445579
+triggered_only = true
+cooldown = 0.5              # Slayer's Dominance ICD [db2 444767]
+damage = { ap_coeff = 8.4042, mastery = true }   # [db2]
+on_cast = [
+  { type = "buff", buff = "executioner" },
+  { type = "buff", buff = "ss_counter" },
+  { type = "if", if = "buff.ss_counter.stack>=3", then = [
+    { type = "consume", buff = "ss_counter", all = true },
+    { type = "buff", buff = "sudden_death" },
+  ] },
+]
+
+# ---------------------------------------------------------------- builders and fillers
+
+[[abilities]]
+name = "overpower"
+spell_id = 7384
+cooldown = 12               # [db2] recharge, not hasted
+charges = 2                 # Improved Overpower [db2 385571 #1]
+damage = { ap_coeff = 3.85614, mastery = true, crit_damage_bonus = 0.30 }   # [db2]; [obs] crits x2.58
+on_cast = [
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },
+  { type = "trigger", ability = "mow_roll", chance = 0.15 },
+]
+
+[[abilities]]
+name = "slam"
+spell_id = 1464
+cost = { rage = 20 }        # [db2]
+damage = { ap_coeff = 3.03485, mastery = true, crit_damage_bonus = 0.20 }   # [db2]; [obs] crits x2.48
+on_crit = [{ type = "trigger", ability = "deep_wounds_apply" }]
+on_cast = [
+  { type = "trigger", ability = "mow_roll", chance = 0.15 },
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },
+  { type = "trigger", ability = "rage_spent" },
+]
+
+[[abilities]]
+name = "heroic_strike"      # replaces Slam while Master of Warfare is up
+spell_id = 1269383
+requires_buff = "master_of_warfare_proc"
+cost = { rage = 20 }        # [db2]
+damage = { ap_coeff = 6.0, mastery = true, crit_damage_bonus = 0.20 }   # [db2]
+on_crit = [{ type = "trigger", ability = "deep_wounds_apply" }]
+on_cast = [
+  { type = "consume", buff = "master_of_warfare_proc" },
+  { type = "buff", buff = "master_of_warfare" },
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },
+  { type = "trigger", ability = "rage_spent" },
+]
+
+[[abilities]]
+name = "mow_roll"           # Master of Warfare proc, only while it's down [simc]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "!buff.master_of_warfare_proc.up", then = [{ type = "buff", buff = "master_of_warfare_proc" }] }]
+
+[[abilities]]
+name = "cleave"
+spell_id = 845
+cost = { rage = 20 }        # [db2]
+cooldown = 4.5              # [db2]
+cooldown_hasted = true      # [db2 137047 #0, aura 416: hasted cooldown; simc reads it]
+damage = { ap_coeff = 2.32814, mastery = true, crit_damage_bonus = 0.39 }   # [db2]; [obs] crits x2.67
+on_cast = [
+  { type = "trigger", ability = "rend_apply" },               # applies Rend [simc 12.1]
+  { type = "gain", resource = "rage", amount = 2, chance = 0.2 },   # Frothing Berserker
+  { type = "trigger", ability = "slayers_strike", chance = 0.25 },
+  { type = "trigger", ability = "rage_spent" },
+]
+
+[[abilities]]
+name = "wrecking_throw"
+spell_id = 384110
+cooldown = 45               # [db2]
+damage = { ap_coeff = 6.0, mastery = true, crit_bonus = -2.0 }   # [db2 394354]; can't crit [simc]
+
+# Every cast that spends rage: Anger Management (1s off Avatar and Colossus
+# Smash per 20 rage [db2 152278 #0]) and Tactician (30% to reset Overpower
+# [db2 184783 #0]) [simc warrior_action_t::consume_resource]
+[[abilities]]
+name = "rage_spent"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "reduce_cooldown", ability = "avatar", seconds_expr = "spent.rage/20" },
+  { type = "reduce_cooldown", ability = "colossus_smash", seconds_expr = "spent.rage/20" },
+  { type = "reset_cooldown", ability = "overpower", chance = 0.30, keep_recharge = true },   # a charge back, the recharge carries on [simc cooldown_t::reset]
+]
+
+# ---------------------------------------------------------------- bleeds
+
+[[abilities]]
+name = "deep_wounds_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "deep_wounds"        # [db2 262115: 6s, 1s period, not hasted; obs]
+ap_coeff = 0.242466
+tick_time = 1.0
+duration = 7.98             # 6s x 1.33 Bloodletting [db2 383154 #0; obs "1 of 8" ticks]
+hasted = false
+mastery = true
+crit_damage_bonus = 0.14    # [obs] tick crits x2.42
+refresh = "rolling"         # rolling periodic [db2 attribute, simc]
+
+[[abilities]]
+name = "rend_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rend_dot"           # [db2 388539: 15s, 3s period], hasted ticks [obs 2.351s at 1.276]
+ap_coeff = 0.380931
+tick_time = 3.0
+duration = 15.0
+mastery = true
+crit_damage_bonus = 0.13    # [obs] tick crits x2.41
+on_tick = [{ type = "gain", resource = "rage", amount = 5, chance = 0.30 }]   # Bloodsurge [db2 384362; obs 40.5 / 135 ticks]
+
+# ---------------------------------------------------------------- auto attacks
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.6, mastery = true, crit_damage_bonus = -0.15 }   # AP/6 x 3.6s [simc]; [obs] crits x2.13; mastery via aura 344 [db2 1258398 #2]
+# 3.6s x 1.75 x 3.5 (Arms) x 1.1 (War Machine), rounded; x1.1 on a crit (Seasoned Soldier) [simc melee_t::trigger_rage_gain]
+on_noncrit = [{ type = "gain", resource = "rage", amount = 24.3 }]
+on_crit = [
+  { type = "gain", resource = "rage", amount = 26.7 },
+  { type = "trigger", ability = "wild_strikes_proc" },
+]
+
+[[abilities]]
+name = "wild_strikes_proc"  # 8s internal cooldown [db2 382946]
+triggered_only = true
+gcd = 0
+cooldown = 8
+on_cast = [{ type = "buff", buff = "wild_strikes" }]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { ap_coeff = 2.27, school = "fire", crit_bonus = -2.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+ap_coeff = 0.15
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "venomfang_apply" },
+  { type = "trigger", ability = "venomfang_burst", delay = 5.0 },
+]
+
+[[abilities]]
+name = "venomfang_burst"
+spell_id = 1306639
+triggered_only = true
+damage = { ap_coeff = 1.09, school = "nature", crit_damage_bonus = -0.15 }   # [obs] crits x2.13
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+[abilities.dot]
+name = "venomfang"           # [db2 1306635: 6s]
+ap_coeff = 0.58
+tick_time = 1.2
+duration = 5.0
+hasted = false
+school = "nature"
+crit_damage_bonus = -0.15
+refresh = "extend"           # [obs] stacking debuff: overlapping applications keep ticking
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Arms APL, Slayer, single target. Below 35%
+# health (Massacre) it runs slayer_execute, else slayer_st.
+
+[[rotation]]
+action = "potion"           # only with [gear.kit] [simc APL: debuff.colossus_smash.remains>8|target.time_to_die<25]
+if = "buff.colossus_smash.remains>8|fight_remains<25"
+
+# --- slayer_execute
+[[rotation]]
+action = "avatar"
+if = "target.health.pct<35&(buff.colossus_smash.up|cooldown.colossus_smash.remains>gcd|fight_remains<=20)"
+
+[[rotation]]
+action = "colossus_smash"
+if = "target.health.pct<35"
+
+[[rotation]]
+action = "heroic_strike"
+if = "target.health.pct<35"
+
+[[rotation]]
+action = "bladestorm"
+if = "target.health.pct<35&(buff.colossus_smash.up|cooldown.colossus_smash.remains>25|buff.avatar.up|buff.executioners_precision.stack=2)"
+
+[[rotation]]
+action = "mortal_strike"
+if = "target.health.pct<35&buff.executioners_precision.stack=2"
+
+[[rotation]]
+action = "execute_sd"
+if = "target.health.pct<35&(buff.executioner.up|rage>40)"
+
+[[rotation]]
+action = "execute_rage"
+if = "target.health.pct<35&!buff.sudden_death.up&rage>40"
+
+[[rotation]]
+action = "overpower"
+if = "target.health.pct<35"
+
+[[rotation]]
+action = "execute_sd"
+if = "target.health.pct<35"
+
+[[rotation]]
+action = "execute_rage"
+if = "target.health.pct<35&!buff.sudden_death.up"
+
+# --- slayer_st
+[[rotation]]
+action = "cleave"
+if = "target.health.pct>=35&(dot.rend_dot.remains<=gcd|cooldown.colossus_smash.remains<2&dot.rend_dot.remains<=10)"
+
+[[rotation]]
+action = "avatar"
+if = "target.health.pct>=35&(buff.colossus_smash.up|cooldown.colossus_smash.remains<10&cooldown.colossus_smash.remains>gcd)"
+
+[[rotation]]
+action = "execute_sd"
+if = "target.health.pct>=35&(buff.sudden_death.stack=2|cooldown.bladestorm.ready&buff.imminent_demise.stack<1)"
+
+[[rotation]]
+action = "colossus_smash"
+if = "target.health.pct>=35&buff.sudden_death.stack<2"
+
+[[rotation]]
+action = "bladestorm"
+if = "target.health.pct>=35&(buff.colossus_smash.up|buff.avatar.up)"
+
+[[rotation]]
+action = "heroic_strike"
+if = "target.health.pct>=35"
+
+[[rotation]]
+action = "mortal_strike"
+if = "target.health.pct>=35"
+
+[[rotation]]
+action = "execute_sd"
+if = "target.health.pct>=35&buff.executioner.up"
+
+[[rotation]]
+action = "overpower"
+if = "target.health.pct>=35"
+
+[[rotation]]
+action = "cleave"
+if = "target.health.pct>=35&dot.rend_dot.remains<=5"
+
+[[rotation]]
+action = "slam"
+if = "target.health.pct>=35&!buff.master_of_warfare_proc.up"
+
+[[rotation]]
+action = "wrecking_throw"

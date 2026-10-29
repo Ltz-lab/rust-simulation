@@ -189,11 +189,16 @@ pub struct Fight {
     /// Seconds between re-checks of the rotation while nothing is usable.
     #[serde(default = "default_idle_poll")]
     pub idle_poll: f64,
+    /// A cooldown counts as ready this close to its end (seconds). The event
+    /// clock runs in whole microseconds, so 1e-6 makes a cooldown exactly N
+    /// GCDs long come up for the Nth GCD, as in SimC.
+    #[serde(default = "default_ready_tolerance")]
+    pub ready_tolerance: f64,
 }
 
 impl Default for Fight {
     fn default() -> Self {
-        Fight { duration: 300.0, variance: 0.2, physical_mult: default_armor(), idle_poll: default_idle_poll() }
+        Fight { duration: 300.0, variance: 0.2, physical_mult: default_armor(), idle_poll: default_idle_poll(), ready_tolerance: default_ready_tolerance() }
     }
 }
 
@@ -309,6 +314,9 @@ pub struct AbilityDef {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ChannelDef {
     pub ticks: u32,
+    /// Tick count from an expression instead, evaluated as the channel starts.
+    #[serde(default)]
+    pub ticks_expr: Option<String>,
     /// Unhasted recovery after natural completion; interrupted channels skip it.
     #[serde(default)]
     pub finish_delay: f64,
@@ -446,7 +454,9 @@ pub struct DotDef {
     #[serde(default)]
     pub tick_on_apply: bool,
     /// What reapplying does while ticking: "pandemic" (default: carry over up to
-    /// 30% of duration), "extend" (add full duration to what's left) or "reset".
+    /// 30% of duration), "extend" (add full duration to what's left), "reset",
+    /// or "rolling" (the time to the next tick plus a full duration, with the
+    /// damage of the ticks left rolled into the new ticks: nothing is lost).
     #[serde(default = "default_refresh")]
     pub refresh: String,
     #[serde(default)]
@@ -514,10 +524,19 @@ pub enum Effect {
         ability: String,
         #[serde(default = "one")]
         chance: f64,
+        /// A charge given back keeps the recharge in progress (SimC's
+        /// cooldown_t::reset); without it the recharge starts over.
+        #[serde(default)]
+        keep_recharge: bool,
     },
     ReduceCooldown {
         ability: String,
+        #[serde(default)]
         seconds: f64,
+        /// Seconds from a condition-language expression instead (e.g. per
+        /// resource spent or per buff stack).
+        #[serde(default)]
+        seconds_expr: Option<String>,
         #[serde(default = "one")]
         chance: f64,
     },
@@ -763,6 +782,7 @@ fn default_variance() -> f64 { 0.2 }
 fn default_armor() -> f64 { 0.70 }
 fn default_refresh() -> String { "pandemic".into() }
 fn default_idle_poll() -> f64 { 0.5 }
+fn default_ready_tolerance() -> f64 { 1e-9 }
 
 /// Calibration overlay, kept in its own file so the hand-written spec stays
 /// clean: per damage source, the multiplier derived from the game's spell

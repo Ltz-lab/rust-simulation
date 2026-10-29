@@ -58,8 +58,8 @@ enum CEffect {
     // `rid`: this effect's own random stream for its chance roll
     Buff { buff: usize, stacks: u32, chance: f64, dur: Option<f64>, set: Option<Expr>, rid: usize },
     Consume { buff: usize, all: bool },
-    Reset { ab: usize, chance: f64, rid: usize },
-    Reduce { ab: usize, secs: f64, chance: f64, rid: usize },
+    Reset { ab: usize, chance: f64, keep: bool, rid: usize },
+    Reduce { ab: usize, secs: f64, expr: Option<Expr>, chance: f64, rid: usize },
     Gain { res: usize, amt: f64, expr: Option<Expr>, chance: f64, rid: usize },
     Trigger { ab: usize, chance: f64, delay: f64, mastery_chance: Option<f64>, chance_expr: Option<Expr>, count: Option<Expr>, interval: f64, rid: usize },
     ExtendDot { dot: usize, secs: f64 },
@@ -91,6 +91,8 @@ struct CAbility {
     cost_expr: Vec<(usize, Expr)>,
     channel_interrupt: Option<Expr>,
     channel_finish: Vec<CEffect>,
+    /// Tick count from `channel.ticks_expr`, evaluated as the channel starts.
+    channel_ticks: Option<Expr>,
     /// (resource, most spent in total) for abilities that spend "up to".
     cost_max: Vec<(usize, f64)>,
     gain: Vec<(usize, f64)>,
@@ -414,12 +416,16 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
             rid: rid(),
         },
         Effect::Consume { buff: b, all } => CEffect::Consume { buff: get(n.buff, "buff", b)?, all: *all },
-        Effect::ResetCooldown { ability, chance } => {
-            CEffect::Reset { ab: n.ab(ability)?, chance: *chance, rid: rid() }
+        Effect::ResetCooldown { ability, chance, keep_recharge } => {
+            CEffect::Reset { ab: n.ab(ability)?, chance: *chance, keep: *keep_recharge, rid: rid() }
         }
-        Effect::ReduceCooldown { ability, seconds, chance } => {
-            CEffect::Reduce { ab: n.ab(ability)?, secs: *seconds, chance: *chance, rid: rid() }
-        }
+        Effect::ReduceCooldown { ability, seconds, seconds_expr, chance } => CEffect::Reduce {
+            ab: n.ab(ability)?,
+            secs: *seconds,
+            expr: seconds_expr.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("reduce_cooldown seconds '{e}': {err}"))).transpose()?,
+            chance: *chance,
+            rid: rid(),
+        },
         Effect::Gain { resource, amount, amount_expr, chance } => CEffect::Gain {
             res: get(n.res, "resource", resource)?,
             amt: *amount,
@@ -517,8 +523,8 @@ impl Compiled {
         let mut dot = HashMap::new();
         for (a, _) in &all {
             if let Some(d) = &a.dot {
-                if !["pandemic", "extend", "reset"].contains(&d.refresh.as_str()) {
-                    return Err(format!("dot '{}': refresh must be pandemic, extend or reset", d.name));
+                if !["pandemic", "extend", "reset", "rolling"].contains(&d.refresh.as_str()) {
+                    return Err(format!("dot '{}': refresh must be pandemic, extend, reset or rolling", d.name));
                 }
                 let n = dot.len();
                 dot.insert(d.name.clone(), n);
@@ -621,6 +627,7 @@ impl Compiled {
                     .transpose()?,
                 cost_expr: a.cost_expr.iter().map(|(r, e)| Ok((get(&res, "resource", r)?, expr::parse(e, &n)?))).collect::<Result<_, String>>().map_err(ctx)?,
                 channel_interrupt: a.channel.as_ref().and_then(|ch| ch.interrupt_if.as_ref()).map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
+                channel_ticks: a.channel.as_ref().and_then(|ch| ch.ticks_expr.as_ref()).map(|e| expr::parse(e, &n)).transpose().map_err(ctx)?,
                 channel_finish: effects(a.channel.as_ref().map_or(&[], |ch| ch.on_finish.as_slice()), &format!("{}/channel_finish", a.name)).map_err(ctx)?,
                 cost,
                 gain: rmap(&a.gain).map_err(ctx)?,
@@ -1059,6 +1066,9 @@ struct State<'a> {
     dot_gen: Vec<u32>,
     dot_last: Vec<f64>,
     dot_stk: Vec<u32>,
+    /// Per DoT: the multiplier a `rolling` DoT carries for the damage of
+    /// ticks lost to refreshes.
+    dot_roll: Vec<f64>,
     /// Independent stack timers (overlapping DoTs), and channel tick snapshots.
     dot_stacks_exp: Vec<Vec<f64>>,
     dot_channel_tick: Vec<f64>,
@@ -1084,6 +1094,7 @@ struct State<'a> {
     cast_end: f64,
     channel_gen: u32,
     channel_tick_time: f64,
+    channel_ticks: u32,
     prev_gcd: Option<usize>,
     q: BinaryHeap<Queued>,
     seq: u64,
@@ -1182,6 +1193,7 @@ impl<'a> State<'a> {
             dot_gen: vec![0; c.dots.len()],
             dot_last: vec![0.0; c.dots.len()],
             dot_stk: vec![0; c.dots.len()],
+            dot_roll: vec![1.0; c.dots.len()],
             dot_stacks_exp: vec![Vec::new(); c.dots.len()],
             dot_channel_tick: vec![0.0; c.dots.len()],
             resolving_cast: false,
@@ -1198,6 +1210,7 @@ impl<'a> State<'a> {
             cast_end: 0.0,
             channel_gen: 0,
             channel_tick_time: 0.0,
+            channel_ticks: 0,
             prev_gcd: None,
             q: BinaryHeap::new(),
             seq: 0,
@@ -1392,7 +1405,9 @@ impl<'a> State<'a> {
         for hand in 0..2 {
             let has = if hand == 0 { self.c.spec.player.weapon.is_some() } else { self.c.spec.player.off_hand.is_some() };
             let rem = self.swing_at[hand] - self.now;
-            if has && rem > 0.0 {
+            // event times are whole microseconds: a swing due within one is
+            // the one landing now (a buff it applies resizes the next)
+            if has && rem > 1e-6 {
                 self.swing_gen[hand] += 1;
                 self.schedule_swing(hand, self.now + rem * f);
             }
@@ -1423,7 +1438,7 @@ impl<'a> State<'a> {
         let max = self.c.abilities[i].def.charges;
         let mut n = self.charges[i];
         let mut t = self.recharge_at[i];
-        while n < max && t <= self.now + 1e-9 {
+        while n < max && t <= self.now + self.c.spec.fight.ready_tolerance {
             n += 1;
             t += self.cd_len[i];
         }
@@ -1441,7 +1456,7 @@ impl<'a> State<'a> {
 
     fn sync_cd(&mut self, i: usize) {
         let max = self.c.abilities[i].def.charges;
-        while self.charges[i] < max && self.recharge_at[i] <= self.now + 1e-9 {
+        while self.charges[i] < max && self.recharge_at[i] <= self.now + self.c.spec.fight.ready_tolerance {
             self.charges[i] += 1;
             if self.charges[i] < max {
                 // next charge recharges at the rate in effect now
@@ -1637,7 +1652,7 @@ impl<'a> State<'a> {
                     }
                 }
             }
-            CEffect::Reset { ab, chance, rid } => {
+            CEffect::Reset { ab, chance, keep, rid } => {
                 if !self.roll(rid, chance) {
                     return;
                 }
@@ -1645,20 +1660,30 @@ impl<'a> State<'a> {
                 let max = self.c.abilities[ab].def.charges;
                 if self.charges[ab] < max {
                     self.charges[ab] += 1;
-                    self.recharge_at[ab] =
-                        if self.charges[ab] < max { self.now + self.cd_len[ab] } else { INF };
+                    if self.charges[ab] >= max {
+                        self.recharge_at[ab] = INF;
+                    } else if !keep {
+                        self.recharge_at[ab] = self.now + self.cd_len[ab];
+                    }
                 }
                 if self.log {
                     println!("{:8.3} reset {}", self.now, self.c.abilities[ab].def.name);
                 }
             }
-            CEffect::Reduce { ab, secs, chance, rid } => {
+            CEffect::Reduce { ab, secs, ref expr, chance, rid } => {
                 if !self.roll(rid, chance) {
                     return;
                 }
+                let secs = match expr {
+                    Some(e) => e.eval(self),
+                    None => secs,
+                };
                 if self.recharge_at[ab] != INF {
                     self.recharge_at[ab] -= secs;
                     self.sync_cd(ab);
+                }
+                if self.log {
+                    println!("{:8.3} reduce {} by {:.3}s", self.now, self.c.abilities[ab].def.name, secs);
                 }
             }
             CEffect::Gain { res, amt, ref expr, chance, rid } => {
@@ -1926,6 +1951,18 @@ impl<'a> State<'a> {
             self.push(exp + 1e-6, Ev::DotExpire(di as u32, self.dot_gen[di]));
             return;
         }
+        if was && def.refresh == "rolling" {
+            // SimC's rolling periodic: keep the tick cadence, run a full
+            // duration from the next tick, and roll the ticks left into the
+            // new ones' damage
+            let tick = self.tick_len(di);
+            let ttn = (self.dot_last[di] + tick - self.now).max(0.0);
+            let left = 1.0 + (remaining - ttn) / tick;
+            let (exp, new_left) = if left < 1.0 { (duration, 1.0 + (duration - ttn) / tick) } else { (ttn + duration, 1.0 + duration / tick) };
+            self.dot_roll[di] = (left.max(0.0) * self.dot_roll[di] + duration / tick) / new_left;
+            self.dot_exp[di] = self.now + exp;
+            return;
+        }
         self.dot_exp[di] = self.now
             + duration
             + match def.refresh.as_str() {
@@ -1935,6 +1972,7 @@ impl<'a> State<'a> {
             };
         if !was {
             self.dot_stk[di] = 1;
+            self.dot_roll[di] = 1.0;
             if def.tick_on_apply {
                 self.dot_tick(di, 1.0);
             }
@@ -1985,7 +2023,7 @@ impl<'a> State<'a> {
         } else if d.def.ap_coeff != 0.0 || d.def.sp_coeff != 0.0 {
             let mastery = mastery_factor(d.def.mastery, d.def.mastery_scale, d.def.mastery_power, self.mastery());
             let (ap, sp) = self.power(d.pet);
-            let mut base = (d.def.ap_coeff * ap + d.def.sp_coeff * sp) * frac;
+            let mut base = (d.def.ap_coeff * ap + d.def.sp_coeff * sp) * frac * self.dot_roll[di];
             let prev = std::mem::replace(&mut self.cur_pet, d.pet);
             if d.def.per_stack && d.def.max_stacks > 1 {
                 base *= self.dot_stk[di] as f64;
@@ -2517,12 +2555,12 @@ impl<'a> State<'a> {
                 self.cur.push(a.src);
                 self.dot_tick(di, 1.0);
                 self.cur.pop();
-                let stop = tick + 1 >= ch.ticks || (self.now + 1e-6 >= self.gcd_ready
+                let stop = tick + 1 >= self.channel_ticks || (self.now + 1e-6 >= self.gcd_ready
                     && a.channel_interrupt.as_ref().is_some_and(|e| e.eval(self) != 0.0));
                 if stop {
                     self.cancel_dot(di);
                     self.channel_gen += 1;
-                    self.cast_end = self.now + if tick + 1 >= ch.ticks { ch.finish_delay } else { 0.0 };
+                    self.cast_end = self.now + if tick + 1 >= self.channel_ticks { ch.finish_delay } else { 0.0 };
                     for e in &a.channel_finish { self.apply(e); }
                     self.push(self.gcd_ready.max(self.cast_end), Ev::Ready);
                 } else {
@@ -2625,6 +2663,10 @@ impl<'a> State<'a> {
                             self.channel_gen += 1;
                             self.cast_end = self.end;
                             self.channel_tick_time = self.tick_len(di);
+                            self.channel_ticks = match &c.abilities[i].channel_ticks {
+                                Some(e) => e.eval(self).round().max(1.0) as u32,
+                                None => ch.ticks,
+                            };
                             let first = if c.dots[di].def.tick_on_apply { self.now } else { self.now + self.channel_tick_time };
                             self.push(first, Ev::ChannelTick(i as u32, self.channel_gen, 0));
                             let _ = ch;
@@ -2830,6 +2872,117 @@ action = "wait"
         let mut st = State::new(c, 1, false);
         st.start();
         st
+    }
+
+    const MECHANICS: &str = r#"
+name = "mechanics test"
+precombat = ["setup"]
+[player]
+attack_power = 1000
+crit = 0.0
+haste = 0.5
+versatility = 0.0
+weapon = { min = 0, max = 0, speed = 2.0 }
+[fight]
+duration = 100
+variance = 0
+physical_mult = 1.0
+[auto_attack]
+replace_with = "swing"
+[[buffs]]
+name = "extra"
+duration = 100
+max_stacks = 3
+[[buffs]]
+name = "frenzy"
+duration = 100
+attack_speed_pct = 100
+[[abilities]]
+name = "setup"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "extra", stacks = 3 }]
+[[abilities]]
+name = "swing"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "frenzy" }]
+[[abilities]]
+name = "storm"
+cooldown = 100
+channel = { ticks = 7, ticks_expr = "7+buff.extra.stack" }
+[abilities.dot]
+name = "storm"
+tick_time = 1.0
+tick_time_expr = "6/(6+buff.extra.stack)"
+duration = 6.0
+tick_on_apply = true
+on_tick = [{ type = "trigger", ability = "storm_hit" }]
+[[abilities]]
+name = "storm_hit"
+triggered_only = true
+damage = { ap_coeff = 1.0 }
+[[abilities]]
+name = "bleed"
+triggered_only = true
+[abilities.dot]
+name = "bleed"
+ap_coeff = 1.0
+tick_time = 1.0
+duration = 4.0
+hasted = false
+refresh = "rolling"
+[[abilities]]
+name = "charged"
+cooldown = 10
+charges = 2
+[[abilities]]
+name = "slow"
+cooldown = 30
+[[abilities]]
+name = "cut"
+triggered_only = true
+on_cast = [
+  { type = "reduce_cooldown", ability = "slow", seconds_expr = "5*buff.extra.stack" },
+  { type = "reset_cooldown", ability = "charged", keep_recharge = true },
+]
+[[rotation]]
+action = "storm"
+"#;
+
+    #[test]
+    fn channel_ticks_rolling_dots_cooldown_effects_and_swing_buffs() {
+        let c = compile(MECHANICS);
+        let mut st = state(&c);
+        // rolling: a refresh with 2 ticks left keeps their damage (4 + 4 ticks in all)
+        cast(&mut st, "bleed");
+        advance(&mut st, 2.5);
+        cast(&mut st, "bleed");
+        // reduce_cooldown by an expression; a reset charge keeps the recharge in progress
+        cast(&mut st, "slow");
+        cast(&mut st, "charged");
+        cast(&mut st, "charged");
+        let (slow, charged) = (ab(&c, "slow"), ab(&c, "charged"));
+        cast(&mut st, "cut");
+        assert!((st.cd_remains(slow) - 15.0).abs() < 1e-9);
+        assert_eq!(st.charges[charged], 1);
+        assert!((st.recharge_at[charged] - 12.5).abs() < 1e-9);
+        advance(&mut st, 9.9);
+        // channel ticks from an expression: 7 + 3, every 6/9 / 1.5 haste s from 0
+        assert_eq!(st.out.casts[src(&c, "storm_hit")], 10);
+        assert!((st.out.damage[src(&c, "bleed")] - 8000.0).abs() < 1e-6);
+        // a swing that applies an attack-speed buff resizes only the next swing:
+        // every 2s / 1.5 / 2 = 0.667s from 0, so 15 by 9.9s
+        assert_eq!(st.out.casts[src(&c, "swing")], 15);
+        // ready_tolerance: a cooldown due 5us from now is ready only with a looser tolerance
+        st.recharge_at[slow] = st.now + 5e-6;
+        assert_eq!(st.charges_now(slow), 0);
+        let mut loose = toml::from_str::<Spec>(MECHANICS).unwrap();
+        loose.fight.ready_tolerance = 1e-5;
+        let c2 = Compiled::new(loose).unwrap();
+        let mut st2 = state(&c2);
+        st2.recharge_at[slow] = st2.now + 5e-6;
+        st2.charges[slow] = 0;
+        assert_eq!(st2.charges_now(slow), 1);
     }
 
     #[test]

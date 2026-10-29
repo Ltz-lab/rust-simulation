@@ -117,6 +117,37 @@ An idle player wakes when regeneration pays for a rotation ability's cost.
 again), scaled by the echo ability's own multiplier and per stack of the buff;
 echoes don't copy echoes. Attack-speed buffs resize a swing in progress.
 
+## Rage, rolling bleeds, cooldown ties
+
+```toml
+[fight]
+ready_tolerance = 1e-5      # cooldowns this close to done count as ready (default 1e-9)
+
+[[abilities]]
+name = "bladestorm"
+channel = { ticks = 7, ticks_expr = "7+buff.imminent_demise.stack" }   # tick count from an expression
+
+[abilities.dot]
+name = "deep_wounds"
+refresh = "rolling"         # SimC's rolling periodic: nothing is lost on a refresh
+
+on_cast = [
+  { type = "reduce_cooldown", ability = "avatar", seconds_expr = "spent.rage/20" },
+  { type = "reset_cooldown", ability = "overpower", chance = 0.3, keep_recharge = true },
+]
+```
+
+A `rolling` refresh keeps the tick cadence, runs a full duration from the next
+tick, and rolls the damage of the ticks left into the new ones (SimC's
+`rolling_ta_multiplier`). A channel's `ticks_expr` is evaluated as it starts
+(with `tick_time_expr` on its DoT, more ticks in the same time).
+`reduce_cooldown` takes `seconds_expr`. `reset_cooldown` with `keep_recharge`
+gives a charge back and lets the recharge in progress carry on, as SimC's
+`cooldown_t::reset` does (without it the recharge starts over). The event
+clock runs in whole microseconds, so a hasted cooldown exactly N hasted GCDs
+long (Mortal Strike: 6s, 4 GCDs) needs `ready_tolerance` to come up on the
+Nth GCD the way SimC's does.
+
 ## Pets and summons
 
 A `[[pets]]` entry defines something you summon. Any number of instances can
