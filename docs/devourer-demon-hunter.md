@@ -11,25 +11,35 @@ banked DoTs, channels, cooldown resets, one-shot buffs), not class code.
 The spec runs on two resources and one counter:
 
 - **Fury** (140) is spent by Void Ray (100) and built by Consume (+8), Devour
-  (+16), Soul Immolation (+6 a tick) and by consuming soul fragments (+4 each).
+  (+16), Soul Immolation (+6 a tick), Voidblade/Pierce the Veil (+20), a
+  Hungering Slash/Reaper's Toll (+10) and by collecting soul fragments (+4
+  each, credited where the fragment is created [db2 1223628]).
 - **Soul fragments** (cap 10) are shattered by ~25% of direct hits (Shattered
-  Souls + Sweet Release), by Consume/Devour (+2, Predator's Thirst) and by Soul
-  Immolation (+1 every other tick). Reap and Cull eat 4, or 10 while Moment of
-  Craving is up (the Void Ray's last tick grants it).
+  Souls + Sweet Release), by Consume/Devour (+2, Predator's Thirst), Soul
+  Immolation (+3), Hungering Slash/Reaper's Toll (+2) and Collapsing Star
+  (+3). Reap and Cull eat 4, plus 6 while Moment of Craving is up (the Void
+  Ray's last tick grants it).
 - **Void Metamorphosis stacks**: every fragment consumed outside Metamorphosis
   adds one; 35 stacks open Void Metamorphosis. Inside it fragments build
   Collapsing Star stacks instead, and 30 of those open Collapsing Star.
 
 Void Metamorphosis drains fury and ends at zero; the spec models the window as
-a fixed 24s buff (the log averages 25.2s of uptime, 24s of it spent on
-actions once SimC's ~150ms per-action latency is taken out). Inside it Consume
-becomes Devour, Reap becomes Cull, Voidblade becomes Pierce the Veil and
-Hungering Slash becomes Reaper's Toll, so the two pairings share one cast and
-one cooldown, with the damage row chosen by the buff. Each hero ability
-triggers one Voidsurge per Metamorphosis (the first also repeats through
-Volatile Instinct); Voidsurge is a +10%-per-stack, 12s buff. Hungering Slash
-windows come from Voidblade/Pierce The Veil and The Hunt/Predator's Wake, and
-Hungering Slash/Reaper's Toll grant the Vengeful Retreat used off the GCD.
+a fixed 25s buff (the log averages 25.2s of uptime) and empties fury when it
+ends, with Rolling Torment paying 5 Fury per leftover Collapsing Star stack.
+Inside it Consume becomes Devour, Reap becomes Cull, Voidblade becomes Pierce
+the Veil and Hungering Slash becomes Reaper's Toll, so the two pairings share
+one cast, with the damage row chosen by the buff. Reap and Cull share one 8s,
+2-charge, hasted cooldown in SimC; azsim has per-ability cooldowns, so Cull
+keeps the full 8s (it is the only spender while Metamorphosis is up) and Reap
+uses 16s, which keeps the pool's throughput. The Void Ray's last tick gives a
+charge back, Devour knocks a second off the recharge and Collapsing Star
+reduces Voidblade's cooldown by 10s (Voidrush). Each hero ability triggers one
+Voidsurge per Metamorphosis (the first also repeats through Volatile
+Instinct); Voidsurge is a +10%-per-stack, 12s buff. Hungering Slash windows
+come from Voidblade/Pierce The Veil and The Hunt/Predator's Wake, and
+Hungering Slash/Reaper's Toll grant the Vengeful Retreat used off the GCD. The
+Hunt is only cast at max void stacks, right after a Vengeful Retreat (its
+leap window), so its damage lands inside the Metamorphosis that opens next.
 
 Damage numbers are the game's spell-power coefficients, with Mastery: Monster
 Within's 1.2× (Enduring Torment) as `mastery_scale` and the Metamorphosis
@@ -47,33 +57,33 @@ only (no trinkets, tier set, consumables or Bloodlust), 300s Patchwerk,
 | | DPS |
 |---|---:|
 | reference | 164,261 |
-| azsim | 166,689 (±133) |
-| difference | **+1.48%** |
+| azsim | 164,308 (±101) |
+| difference | **+0.03%** |
 
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| cull_damage | 35,054 | 40,664 | +16.0% | 34.7 | 40.2 |
-| reap_damage | 23,116 | 23,026 | -0.4% | 30.9 | 30.8 |
-| devour | 15,481 | 16,990 | +9.8% | 46.1 | 50.6 |
-| voidsurge | 15,501 | 15,815 | +2.0% | 24.8 | 25.3 |
-| void_ray_tick_meta | 12,935 | 11,979 | -7.4% | 293.6 | 272.0 |
-| reapers_toll_damage | 12,657 | 8,142 | -35.7% | 17.0 | 11.0 |
-| void_ray_tick | 9,914 | 11,825 | +19.3% | 313.6 | 374.5 |
-| consume | 10,207 | 6,511 | -36.2% | 32.7 | 21.0 |
-| burning_blades | 7,429 | 8,837 | +18.9% | 61.3 | 73.0 |
-| pierce_the_veil_damage | 6,378 | 4,314 | -32.4% | 10.3 | 7.0 |
-| collapsing_star_damage | 4,583 | 5,085 | +10.9% | 5.6 | 6.2 |
-| the_hunt_dot | 3,017 | 3,195 | +5.9% | 26.7 | 28.3 |
-| predators_wake_damage | 3,107 | 2,640 | -15.0% | 5.3 | 4.5 |
-| voidblade_damage | 1,363 | 2,901 | +112.8% | 3.5 | 7.4 |
-| the_hunt_damage | 834 | 1,634 | +95.9% | 1.4 | 2.7 |
-| hungering_slash_damage | 1,055 | 1,594 | +51.0% | 2.1 | 3.2 |
+| cull_damage | 35,054 | 35,247 | +0.5% | 34.7 | 34.9 |
+| reap_damage | 23,116 | 22,114 | -4.3% | 30.9 | 29.6 |
+| voidsurge | 15,501 | 17,117 | +10.4% | 24.8 | 27.4 |
+| devour | 15,481 | 12,915 | -16.6% | 46.1 | 38.5 |
+| reapers_toll_damage | 12,657 | 14,885 | +17.6% | 17.0 | 20.0 |
+| consume | 10,207 | 13,248 | +29.8% | 32.7 | 42.5 |
+| void_ray_tick_meta | 12,935 | 12,058 | -6.8% | 293.6 | 273.9 |
+| void_ray_tick | 9,914 | 5,720 | -42.3% | 313.6 | 181.1 |
+| pierce_the_veil_damage | 6,378 | 7,679 | +20.4% | 10.3 | 12.5 |
+| burning_blades | 7,429 | 7,467 | +0.5% | 61.3 | 61.7 |
+| collapsing_star_damage | 4,583 | 5,425 | +18.4% | 5.6 | 6.6 |
+| predators_wake_damage | 3,107 | 3,878 | +24.8% | 5.3 | 6.6 |
+| the_hunt_dot | 3,017 | 3,379 | +12.0% | 26.7 | 30.0 |
+| voidblade_damage | 1,363 | 394 | -71.1% | 3.5 | 1.0 |
+| hungering_slash_damage | 1,055 | 498 | -52.8% | 2.1 | 1.0 |
+| the_hunt_damage | 834 | 612 | -26.6% | 1.4 | 1.0 |
 | rune_of_unleashed_fire | 800 | 801 | +0.1% | 38.9 | 39.0 |
-| voidstep | 517 | 383 | -26.0% | 19.1 | 14.1 |
-| rune_of_unleashed_fire_lingering | 268 | 343 | +27.9% | 208.6 | 267.2 |
-| vengeful_retreat_damage | 13 | 9 | -31.1% | 20.5 | 14.1 |
+| voidstep | 517 | 566 | +9.4% | 19.1 | 20.9 |
+| rune_of_unleashed_fire_lingering | 268 | 256 | -4.5% | 208.6 | 199.3 |
+| vengeful_retreat_damage | 13 | 14 | +2.1% | 20.5 | 20.9 |
 
 ## Validation: stat probes
 
@@ -83,9 +93,9 @@ probe's stat delta to that base.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +11.56% | +11.36% | -0.20 pts |
-| +500 haste | +12.84% | +11.20% | -1.64 pts |
-| +500 mastery | +8.94% | +8.76% | -0.19 pts |
+| +500 crit | +11.56% | +11.30% | -0.26 pts |
+| +500 haste | +12.84% | +11.71% | -1.13 pts |
+| +500 mastery | +8.94% | +8.81% | -0.13 pts |
 | +500 versatility | +8.74% | +8.79% | +0.06 pts |
 | +200 intellect | +5.86% | +6.00% | +0.13 pts |
 
@@ -95,24 +105,35 @@ go through 1.2× (Enduring Torment) and the Metamorphosis window's extra
 
 ## Known gaps
 
-- **Action latency.** SimC adds ~150ms of GCD lag to every action. Without it
-  the engine fits more actions into each Metamorphosis window, so Cull and
-  Devour run ~10-16% high while Consume (-36%), Reaper's Toll (-36%) and
-  Pierce the Veil (-32%) run low: the same total time, shifted between
-  windows. Shortening the modelled window to 24s (from the 25.2s average) was
-  the compromise that lands the total at +1.5%; a generic per-action lag
-  option would replace it.
-- **Voidblade vs Pierce the Veil** share one 30s cooldown; which of the two a
-  cooldown lands in (56% of the fight is Metamorphosis) splits 7.4/7.0 here
-  against SimC's 3.5/10.3.
+- **Metamorphosis is a fixed 25s buff, not a fury drain.** SimC starts the
+  window with 200 Fury and drains it to zero; the spec empties fury at expiry
+  and pays Rolling Torment's 5 Fury per leftover stack, but the window length
+  does not react to fury generation.
+- **The shared Reap/Cull cooldown is split.** Reap and Cull are one 8s,
+  2-charge, hasted cooldown in SimC; the engine's cooldowns are per ability, so
+  Cull keeps 8s (it is the only spender while Metamorphosis is up) and Reap
+  takes 16s. The total lands right (65 casts against 65.6) but the split
+  between Cull (-0%) and Devour (-17%) inside the window, and between Reap and
+  Consume outside it, is off by ~15-30%.
+- **Outside Void Ray runs low** (181 ticks against 314, -42%): the spec's
+  outside Fury economy is smaller than SimC's, mostly because fragments are
+  four Fury each credited at creation while SimC's pickup heals also pace the
+  income, and because soul immolation is re-applied more often in SimC. The
+  freed GCDs go to Consume (+30%). A generic "requires X, costs Y per tick"
+  channel-cost option would model Void Ray's 5 Fury a tick directly instead of
+  a 100 Fury cost.
+- **The Hunt is rare** (1.0 cast against 1.4): it is gated on the Vengeful
+  Retreat leap window the way the APL's `voidscarred_hunt_entry` is, and the
+  spec's Vengeful Retreat charges are consumed as soon as they are granted.
+  Hungering Slash (1.0 against 2.1) and Voidblade (1.0 against 3.5) outside
+  Metamorphosis are gated the same way.
 - **Left in calibration, not modelled:** Feast of Souls (+1%/stack, ~98%
-  uptime), Devourer's Bite (+12% from caster, ~100%), Rolling Torment, the
-  spec's own +38% cosmic aura, and the Void Elf's Entropic Embrace. They are
-  near-constant multipliers, so the residual absorbs them; the mastery and
-  crit probes confirm the stat response.
-- **Hungering Slash** is cast from the APL's AoE branch in SimC, so its
-  single-target count (2.1) is mostly noise; the spec casts it when its 6s
-  window is about to expire (3.2 times).
+  uptime), Devourer's Bite (+12% from caster, ~100%), the spec's own +38%
+  cosmic aura, and the Void Elf's Entropic Embrace. They are near-constant
+  multipliers, so the residual absorbs them; the mastery and crit probes
+  confirm the stat response.
 - The gear procs other than Rune of Unleashed Fire (Venomcursed, Soul Fang,
   the rites) are folded into the base stats as time averages, as in the other
-  specs.
+  specs. The lingering rune DoT is a separate rune's proc in the data, so it
+  is applied by 67% of Unleashed Fire procs to match its observed 26
+  applications per fight.

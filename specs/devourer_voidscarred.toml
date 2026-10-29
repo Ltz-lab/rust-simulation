@@ -70,10 +70,18 @@ max_stacks = 35
 flat = true
 
 [[buffs]]
-name = "metamorphosis"       # [obs] 25.2s average uptime; 24s of actions once SimC's ~150ms per-action latency is taken out
-duration = 24
+name = "metamorphosis"       # [obs] 25.18s average window (200 starting Fury drained to 0)
+duration = 25
 # [db2 1217607 #4] +0.4 x mastery (44.37% x 1.2 Enduring Torment) = +21.3%
 damage_pct = 21.3
+# [simc] Metamorphosis ends at 0 Fury: the drain eats everything gained in the
+# window, and the Void Ray cooldown resets when it ends. Rolling Torment then
+# pays 5 Fury per leftover Collapsing Star stack [db2 1244235].
+on_expire = [
+  { type = "gain", resource = "fury", amount_expr = "-fury" },
+  { type = "gain", resource = "fury", amount_expr = "5*buff.collapsing_star_stacks.stack" },
+  { type = "reset_cooldown", ability = "void_ray" },
+]
 
 [[buffs]]
 name = "hungering_slash"     # [db2 1239525: 6s] Hungering Slash / Reaper's Toll available
@@ -84,6 +92,10 @@ name = "voidstep"            # [db2 1223157] a Vengeful Retreat charge
 duration = 15
 max_stacks = 5
 flat = true
+
+[[buffs]]
+name = "vengeful_retreat_move"   # [simc] the leap window The Hunt needs
+duration = 3
 
 [[buffs]]
 name = "voidsurge"           # [db2 1246160 #2] +10% damage per stack, 12s, 8 stacks
@@ -134,7 +146,11 @@ on_cast = [{ type = "buff", buff = "void_souls", stacks = 25 }]
 name = "shatter_soul"        # [simc] Shattered Souls
 triggered_only = true
 gcd = 0
-on_cast = [{ type = "gain", resource = "soul_fragment", amount = 1 }]
+# collecting a fragment heals and gives 4 Fury [db2 1223628]
+on_cast = [
+  { type = "gain", resource = "soul_fragment", amount = 1 },
+  { type = "gain", resource = "fury", amount = 4 },
+]
 
 [[abilities]]
 name = "voidsurge"           # [db2 1246160: 6.25 SP AoE]
@@ -149,7 +165,7 @@ spell_id = 1286970
 triggered_only = true
 no_procs = true
 damage = { sp_coeff = 1.8, school = "fire", crit_bonus = -1.0 }   # gear; scale from calibration
-on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply", chance = 0.67 }]   # [obs] 26 applications per fight
 
 [[abilities]]
 name = "rune_lingering_apply"
@@ -213,33 +229,30 @@ damage = { sp_coeff = 3.67, school = "cosmic", mastery = true, mastery_scale = 1
 on_cast = [
   { type = "gain", resource = "fury", amount = 8 },        # [db2 1261710]
   { type = "gain", resource = "soul_fragment", amount = 2 },  # [simc] Predator's Thirst
+  { type = "gain", resource = "fury", amount = 8 },        # [db2 1223628] 4 per fragment collected
   { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+2" },
 ]
 
+# Reap and Cull share an 8s cooldown with two charges (Second Helping) and the
+# recharge is hasted (Umbral Blade) [db2 1239537, 1272842]. Void Ray's last
+# tick gives one charge back and Devour knocks a second off the recharge [simc].
 [[abilities]]
 name = "reap"
 spell_id = 1226019
+cooldown = 16               # [db2] Reap and Cull share one 8s, 2-charge pool; the engine
+cooldown_hasted = true      # [db2 1272842 Umbral Blade] has per-ability cooldowns, so each
+charges = 2                 # [db2 1239537 Second Helping] side gets half the throughput
 gcd = 1.24                  # [obs] 1.027s at 20.86% haste (SimC's double-hasted GCD)
 cost = { soul_fragment = 4 }
 damage = { sp_coeff = 6.0156, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
 source = "reap_damage"
 on_cast = [
-  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
   { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+spent.soul_fragment" },
-]
-
-[[abilities]]
-name = "reap_moc"            # Moment of Craving: shatters up to 10 souls [db2 1238495]
-source = "reap_damage"
-gcd = 1.24                  # [obs]
-requires_buff = "moment_of_craving"
-cost = { soul_fragment = 4 }
-cost_max = { soul_fragment = 10 }
-damage = { sp_coeff = 6.0156, school = "cosmic", mastery = true, mastery_scale = 1.2 }
-on_cast = [
-  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
-  { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+spent.soul_fragment" },
-  { type = "consume", buff = "moment_of_craving", all = true },
+  # Moment of Craving: the Reap eats up to 6 more souls [db2 1238495]
+  { type = "if", if = "buff.moment_of_craving.up", then = [
+    { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+6" },
+    { type = "consume", buff = "moment_of_craving", all = true },
+  ] },
 ]
 
 [[abilities]]
@@ -251,6 +264,7 @@ gcd = 1.5
 on_cast = [
   { type = "trigger", ability = "soul_immolation_dot_apply" },
   { type = "gain", resource = "soul_fragment", amount = 3 },   # [simc] every other tick
+  { type = "gain", resource = "fury", amount = 12 },           # [db2 1223628] 4 per fragment collected
 ]
 
 # Voidblade is overridden by Pierce the Veil inside Void Metamorphosis [simc];
@@ -258,11 +272,11 @@ on_cast = [
 [[abilities]]
 name = "voidblade_cast"
 spell_id = 1245412
-cooldown = 30               # [db2]
-cooldown_hasted = true      # [db2 1213636 #6]
+cooldown = 30               # [db2] Pierce the Veil's cooldown, not hasted
 gcd = 0.5                   # [db2]
 on_cast = [
   { type = "buff", buff = "hungering_slash" },
+  { type = "gain", resource = "fury", amount = 20 },   # [db2 1246562 Duty Eternal]
   { type = "if", if = "buff.metamorphosis.up", then = [{ type = "trigger", ability = "pierce_the_veil_damage" }], else = [{ type = "trigger", ability = "voidblade_damage" }] },
 ]
 
@@ -282,6 +296,9 @@ damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 
 source = "hungering_slash_damage"
 on_cast = [
   { type = "consume", buff = "hungering_slash", all = true },
+  { type = "gain", resource = "soul_fragment", amount = 2 },   # [db2 1239123 #1] shatters 2
+  { type = "gain", resource = "fury", amount = 10 },           # [db2 1239507]
+  { type = "gain", resource = "fury", amount = 8 },            # [db2 1223628] 4 per fragment collected
   { type = "buff", buff = "voidstep" },
 ]
 
@@ -290,8 +307,7 @@ on_cast = [
 [[abilities]]
 name = "hunt_cast"
 spell_id = 1246167
-cooldown = 90               # [db2]
-cooldown_hasted = true      # [db2 1213636 #6]
+cooldown = 90               # [db2] not hasted (SimC removes it from the haste list)
 cast_time = 1.0             # [db2]
 on_cast = [
   { type = "if", if = "buff.metamorphosis.up", then = [{ type = "trigger", ability = "predators_wake_damage" }], else = [{ type = "trigger", ability = "the_hunt_damage" }] },
@@ -333,6 +349,7 @@ damage = { sp_coeff = 0.02, school = "physical" }   # [obs] 153 per hit
 source = "vengeful_retreat_damage"
 on_cast = [
   { type = "consume", buff = "voidstep" },
+  { type = "buff", buff = "vengeful_retreat_move" },
   { type = "trigger", ability = "voidstep_damage" },
 ]
 
@@ -370,33 +387,28 @@ damage = { sp_coeff = 3.67, school = "cosmic", mastery = true, mastery_scale = 1
 on_cast = [
   { type = "gain", resource = "fury", amount = 16 },          # [db2 1288123]
   { type = "gain", resource = "soul_fragment", amount = 2 },
+  { type = "gain", resource = "fury", amount = 8 },           # [db2 1223628] 4 per fragment collected
+  { type = "reduce_cooldown", ability = "cull", seconds = 1 },    # [db2 1217607 #14]
 ]
 
 [[abilities]]
 name = "cull"
 spell_id = 1245453
 requires_buff = "metamorphosis"
+cooldown = 8                # [db2] the whole pool is Cull's while Reap is unusable
+cooldown_hasted = true      # [db2 1272842 Umbral Blade]
+charges = 2                 # [db2 1239537 Second Helping]
 gcd = 1.24                  # [obs]
 cost = { soul_fragment = 4 }
 damage = { sp_coeff = 7.736, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
 source = "cull_damage"
 on_cast = [
-  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
   { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+spent.soul_fragment" },
-]
-
-[[abilities]]
-name = "cull_moc"            # Moment of Craving
-source = "cull_damage"
-requires_buff = "metamorphosis"
-gcd = 1.24                  # [obs]
-cost = { soul_fragment = 4 }
-cost_max = { soul_fragment = 10 }
-damage = { sp_coeff = 7.736, school = "cosmic", mastery = true, mastery_scale = 1.6 }
-on_cast = [
-  { type = "gain", resource = "fury", amount_expr = "4*spent.soul_fragment" },
-  { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+spent.soul_fragment" },
-  { type = "consume", buff = "moment_of_craving", all = true },
+  # Moment of Craving: the Cull eats up to 6 more souls [db2 1238495]
+  { type = "if", if = "buff.moment_of_craving.up", then = [
+    { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+6" },
+    { type = "consume", buff = "moment_of_craving", all = true },
+  ] },
 ]
 
 [[abilities]]
@@ -421,6 +433,9 @@ damage = { sp_coeff = 2.475, school = "cosmic", mastery = true, mastery_scale = 
 source = "reapers_toll_damage"
 on_cast = [
   { type = "consume", buff = "hungering_slash", all = true },
+  { type = "gain", resource = "soul_fragment", amount = 2 },   # [db2 1245470 #1] shatters 2
+  { type = "gain", resource = "fury", amount = 10 },           # [db2 1239507]
+  { type = "gain", resource = "fury", amount = 8 },            # [db2 1223628] 4 per fragment collected
   { type = "buff", buff = "voidstep" },
   { type = "if", if = "buff.vs_reapers.up", then = [
     { type = "consume", buff = "vs_reapers", all = true },
@@ -443,15 +458,20 @@ on_cast = [
   { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack-30" },
   { type = "buff", buff = "collapsing_star" },
   { type = "gain", resource = "soul_fragment", amount = 3 },   # [simc] Star Fragments
+  { type = "gain", resource = "fury", amount = 12 },           # [db2 1223628] 4 per fragment collected
   { type = "reset_cooldown", ability = "hunt_cast" },          # [simc] Demonic Intensity
+  { type = "reduce_cooldown", ability = "voidblade_cast", seconds = 10 },   # [db2 1272422] Voidrush
 ]
 
 [[abilities]]
 name = "void_ray"
 spell_id = 473728
-gcd = 0
+gcd = 1.5                   # [db2] needed so the off-cooldown Voidblade sees prev_gcd
 cost = { fury = 100 }       # [db2] requires 100 Fury; drains 5 per tick (100 over the channel)
-channel = { ticks = 20, on_finish = [{ type = "buff", buff = "moment_of_craving" }] }
+channel = { ticks = 20, on_finish = [
+  { type = "buff", buff = "moment_of_craving" },
+  { type = "reset_cooldown", ability = "reap", keep_recharge = true },   # [simc] last tick gives one charge back
+] }
 [abilities.dot]
 name = "void_ray_tick"       # [db2 1213649: 3s, 0.15s ticks, hasted]
 sp_coeff = 0.2025
@@ -466,10 +486,14 @@ mastery_scale = 1.2
 name = "void_ray_meta"
 spell_id = 1217607
 requires_buff = "metamorphosis"
-gcd = 0
+gcd = 1.5
 cooldown = 16               # [db2 1217607 #8]
 cooldown_hasted = true      # [db2 1213636 #6]
-channel = { ticks = 20, on_finish = [{ type = "buff", buff = "moment_of_craving" }] }
+# [db2 1217607 #9] Void Ray costs no Fury inside Void Metamorphosis
+channel = { ticks = 20, on_finish = [
+  { type = "buff", buff = "moment_of_craving" },
+  { type = "reset_cooldown", ability = "cull", keep_recharge = true },   # [simc] last tick gives one charge back
+] }
 [abilities.dot]
 name = "void_ray_tick_meta"  # [db2 1214595]
 sp_coeff = 0.2835
@@ -481,73 +505,82 @@ mastery = true
 mastery_scale = 1.6
 
 # ---------------------------------------------------------------- rotation
-# Paraphrase of the observed priority (SimC default Void-Scarred APL), single target.
-# Vengeful Retreat and Voidblade/Pierce are off the GCD and shared by both windows
-# (Voidblade is overridden by Pierce the Veil inside Void Metamorphosis, The Hunt by
-# Predator's Wake), so they sit at the top.
+# SimC's default Void-Scarred APL, single target (apl/demon_hunter/devourer.simc).
+# Vengeful Retreat is off the GCD; Voidblade is overridden by Pierce the Veil and
+# The Hunt by Predator's Wake inside Void Metamorphosis. Both Voidblade/Pierce and
+# Hungering Slash/Reaper's Toll are unavailable while the Hungering Slash buff is
+# up, so a granted buff is always consumed before the next one.
 
 [[rotation]]
 action = "vengeful_retreat"
+if = "buff.voidstep.up"
 
-[[rotation]]
-action = "voidblade_cast"
-if = "!buff.hungering_slash.up"
-
+# --- Void Metamorphosis
+# The first Void Ray of the window; its cooldown resets when the window opens.
 [[rotation]]
 action = "void_ray_meta"
+if = "buff.metamorphosis.up"
 
 [[rotation]]
 action = "collapsing_star"
-if = "buff.collapsing_star_stacks.stack>=30"
+if = "buff.metamorphosis.up&buff.collapsing_star_stacks.stack>=30"
 
-[[rotation]]
-action = "hunt_cast"
-
-# --- Void Metamorphosis
+# Reaper's Toll: the empowered Hungering Slash, held until fragments are low.
 [[rotation]]
 action = "reapers_toll"
 if = "buff.metamorphosis.up&buff.hungering_slash.up"
 
 [[rotation]]
-action = "cull_moc"
-if = "buff.metamorphosis.up&buff.moment_of_craving.up"
+action = "voidblade_cast"
+if = "buff.metamorphosis.up&!buff.hungering_slash.up"
+
+[[rotation]]
+action = "hunt_cast"
+if = "buff.metamorphosis.up&!buff.hungering_slash.up"
 
 [[rotation]]
 action = "cull"
-if = "buff.metamorphosis.up"
-
-[[rotation]]
-action = "devour"
-if = "buff.metamorphosis.up"
+if = "buff.metamorphosis.up&soul_fragment>=4"
 
 [[rotation]]
 action = "soul_immolation"
 if = "buff.metamorphosis.up&!dot.soul_immolation.ticking"
 
+[[rotation]]
+action = "devour"
+if = "buff.metamorphosis.up"
+
 # --- outside Void Metamorphosis
+# Hunt entry: at max stacks The Hunt goes out (its buff carries onto the
+# Hungering Slash/Reaper's Toll inside the window that opens next) [simc].
+[[rotation]]
+action = "hunt_cast"
+if = "!buff.metamorphosis.up&buff.void_souls.stack>=35&cooldown.hunt_cast.ready&cooldown.voidblade_cast.ready"
+
 [[rotation]]
 action = "metamorphosis"
 if = "buff.void_souls.stack>=35"
 
+# Voidblade only right after a Void Ray, and only while the Hunt is on cooldown.
 [[rotation]]
-action = "reap_moc"
-if = "!buff.metamorphosis.up&buff.moment_of_craving.up&soul_fragment>=4"
+action = "voidblade_cast"
+if = "!buff.metamorphosis.up&!buff.hungering_slash.up&prev_gcd.void_ray&!cooldown.hunt_cast.ready"
 
 [[rotation]]
 action = "reap"
-if = "!buff.metamorphosis.up&fury<100&soul_fragment>=4"
-
-[[rotation]]
-action = "void_ray"
-if = "!buff.metamorphosis.up&fury>=100"
+if = "!buff.metamorphosis.up&fury<100&fury+4*soul_fragment>=100&soul_fragment>=1"
 
 [[rotation]]
 action = "hungering_slash"
-if = "!buff.metamorphosis.up&buff.hungering_slash.remains<1.3"
+if = "!buff.metamorphosis.up&buff.hungering_slash.up"
 
 [[rotation]]
 action = "reap"
 if = "!buff.metamorphosis.up&soul_fragment>=4"
+
+[[rotation]]
+action = "void_ray"
+if = "!buff.metamorphosis.up&fury>=100"
 
 [[rotation]]
 action = "soul_immolation"
