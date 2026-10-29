@@ -23,9 +23,21 @@ compact gzip'd JSON file:
   weapon_dps         {"one_hand"|"two_hand": ilvl -> [dps per quality 0..6]}
   spell_scaling_item level -> the "Item" spell scaling column (scales gem and enchant values)
   combat_ratings     level -> rating per 1% for crit/haste/mastery/versatility
+  rand_prop_damage   ilvl -> [damage_replace_stat, damage_secondary] (scaling classes -8, -9)
+  item_effects       trinket id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
+                     (on-use 0 and on-equip 1 effects only)
+  item_sets          item id -> item set id, for sets with bonuses
+  set_bonuses        item set id -> [[pieces, spec_id (0 = any), spell_id], ...]
+  spells             spell id -> {"duration", "school", "rppm", "rppm_mods", "icd", "chance",
+                     "stacks", "cooldown", "effects": [[type, aura, base_points, coeff,
+                     scaling_class, ap_coeff, sp_coeff, misc0, trigger], ...]} for every spell an
+                     effect template names (data/item_effects.toml, `[[gear.effects]]` in specs)
+                     and what those spells trigger
 """
 import argparse
 import csv
+import glob
+import re
 import gzip
 import json
 import os
@@ -35,7 +47,9 @@ csv.field_size_limit(10**9)
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB2 = [
     "ItemSparse", "Item", "ItemBonus", "ItemScalingConfig", "RandPropPoints", "GemProperties",
-    "SpellItemEnchantment", "ItemDamageOneHand", "ItemDamageTwoHand",
+    "SpellItemEnchantment", "ItemDamageOneHand", "ItemDamageTwoHand", "ItemEffect", "ItemXItemEffect",
+    "ItemSet", "ItemSetSpell", "SpellEffect", "SpellMisc", "SpellDuration", "SpellAuraOptions",
+    "SpellProcsPerMinute", "SpellProcsPerMinuteMod", "SpellCooldowns",
 ]
 # CASC file data ids of the game tables we need.
 GT = {"combatratingsmultbyilvl": 1391670, "staminamultbyilvl": 1980632, "combatratings": 1391669}
@@ -83,6 +97,60 @@ def stat_effects(e):
         if e[f"Effect_{i}"] == "5":
             out.append([int(e[f"EffectArg_{i}"]), float(e[f"EffectScalingPoints_{i}"]),
                         int(e["ScalingClass"]), int(e["MaxLevel"]), int(e[f"EffectPointsMin_{i}"])])
+    return out
+
+
+def template_spells():
+    """Spell ids the effect templates name: `spell = N` keys and `{N.field}` placeholders."""
+    ids = set()
+    for path in [os.path.join(HERE, "..", "data", "item_effects.toml"), *glob.glob(os.path.join(HERE, "..", "specs", "*.toml"))]:
+        text = open(path, encoding="utf-8").read()
+        ids.update(int(x) for x in re.findall(r"^\s*spell\s*=\s*(\d+)", text, re.M))
+        ids.update(int(x) for x in re.findall(r"\{(\d+)\.", text))
+    return ids
+
+
+def spell_data(cache, B, wanted):
+    """Compact spell records for `wanted` and every spell they trigger."""
+    eff = {}
+    for r in rows(cache, B, "SpellEffect"):
+        if r["DifficultyID"] == "0":
+            eff.setdefault(int(r["SpellID"]), []).append(r)
+    misc = {int(r["SpellID"]): r for r in rows(cache, B, "SpellMisc") if r["DifficultyID"] == "0"}
+    dur = {int(r["ID"]): int(r["Duration"]) for r in rows(cache, B, "SpellDuration")}
+    aura = {int(r["SpellID"]): r for r in rows(cache, B, "SpellAuraOptions") if r["DifficultyID"] == "0"}
+    rppm = {int(r["ID"]): float(r["BaseProcRate"]) for r in rows(cache, B, "SpellProcsPerMinute")}
+    rmods = {}
+    for r in rows(cache, B, "SpellProcsPerMinuteMod"):
+        rmods.setdefault(int(r["SpellProcsPerMinuteID"]), []).append([int(r["Type"]), int(r["Param"]), float(r["Coeff"])])
+    cds = {int(r["SpellID"]): r for r in rows(cache, B, "SpellCooldowns") if r["DifficultyID"] == "0"}
+    out, todo = {}, sorted(wanted)
+    while todo:
+        sid = todo.pop()
+        if sid in out or sid not in misc and sid not in eff:
+            continue
+        m, a, c = misc.get(sid, {}), aura.get(sid, {}), cds.get(sid, {})
+        effects = []
+        for e in sorted(eff.get(sid, []), key=lambda e: int(e["EffectIndex"])):
+            trig = int(e["EffectTriggerSpell"])
+            effects.append([int(e["Effect"]), int(e["EffectAura"]), round(float(e["EffectBasePointsF"]), 6),
+                            round(float(e["Coefficient"]), 9), int(e["ScalingClass"]),
+                            round(float(e["BonusCoefficientFromAP"]), 6), round(float(e["EffectBonusCoefficient"]), 6),
+                            int(e["EffectMiscValue_0"]), trig])
+            if trig:
+                todo.append(trig)
+        rid = int(a.get("SpellProcsPerMinuteID") or 0)
+        out[sid] = {
+            "duration": dur.get(int(m.get("DurationIndex") or 0), 0),
+            "school": int(m.get("SchoolMask") or 0),
+            "rppm": rppm.get(rid, 0.0),
+            "rppm_mods": rmods.get(rid, []),
+            "icd": int(a.get("ProcCategoryRecovery") or 0),
+            "chance": float(a.get("ProcChance") or 0),
+            "stacks": int(a.get("CumulativeAura") or 0),
+            "cooldown": int(c.get("RecoveryTime") or 0),
+            "effects": effects,
+        }
     return out
 
 
@@ -138,6 +206,7 @@ def main():
     enchants = {eid: s for eid, e in ench_rows.items() if (s := stat_effects(e))}
     gems = {iid: enchants[gp[p]] for iid, p in gem_enchant.items() if gp.get(p) in enchants}
 
+    rpd = by_ilvl([[float(r["ID"]), float(r["DamageReplaceStatF"]), float(r["DamageSecondaryF"])] for r in rows(cache, B, "RandPropPoints")], 2)
     rpp = by_ilvl([[float(r["ID"])] + [float(r[f"EpicF_{i}"]) for i in range(5)] for r in rows(cache, B, "RandPropPoints")], 5)
     _, crm = gametable(cache, B, "combatratingsmultbyilvl")
     _, stm = gametable(cache, B, "staminamultbyilvl")
@@ -163,6 +232,28 @@ def main():
     sst = json.load(open(fetch("https://www.raidbots.com/static/data/live/spell-scaling-table.json", f"{cache}/spell-scaling-table.json")))
     item_col = next(c for c in sst if c["field"] == "Item")["data"]
 
+    # Trinket on-use / on-equip effects, set membership and set bonuses.
+    ie = {int(r["ID"]): r for r in rows(cache, B, "ItemEffect")}
+    item_effects = {}
+    for r in rows(cache, B, "ItemXItemEffect"):
+        iid, e = int(r["ItemID"]), ie.get(int(r["ItemEffectID"]))
+        if e and iid in items and items[iid][0] == 12 and e["TriggerType"] in ("0", "1"):
+            item_effects.setdefault(iid, []).append(
+                [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
+    for v in item_effects.values():
+        v.sort()
+    set_bonuses = {}
+    for r in rows(cache, B, "ItemSetSpell"):
+        set_bonuses.setdefault(int(r["ItemSetID"]), []).append([int(r["Threshold"]), int(r["ChrSpecID"]), int(r["SpellID"])])
+    for v in set_bonuses.values():
+        v.sort()
+    item_sets = {}
+    for r in rows(cache, B, "ItemSparse"):
+        iid, sid = int(r["ID"]), int(r["ItemSet"] or 0)
+        if sid in set_bonuses and iid in items:
+            item_sets[iid] = sid
+    spells = spell_data(cache, B, template_spells())
+
     rnd = lambda t: [[round(x, 6) for x in row] for row in t]
     out = {
         "build": B,
@@ -177,13 +268,19 @@ def main():
         "weapon_dps": {"one_hand": dmg("ItemDamageOneHand"), "two_hand": dmg("ItemDamageTwoHand")},
         "spell_scaling_item": [0.0] + [round(float(x), 6) for x in item_col],
         "combat_ratings": ratings,
+        "rand_prop_damage": rnd(rpd),
+        "item_effects": dict(sorted(item_effects.items())),
+        "item_sets": dict(sorted(item_sets.items())),
+        "set_bonuses": dict(sorted(set_bonuses.items())),
+        "spells": dict(sorted(spells.items())),
     }
     data = json.dumps(out, separators=(",", ":")).encode()
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with gzip.GzipFile(a.out, "wb", compresslevel=9, mtime=0) as f:
         f.write(data)
     print(f"wrote {a.out}: {len(items)} items, {len(statsets)} stat sets, {len(bonuses)} bonuses, "
-          f"{len(gems)} gems, {len(enchants)} enchants; {len(data)/1e6:.1f} MB json, {os.path.getsize(a.out)/1e3:.0f} KB gz")
+          f"{len(gems)} gems, {len(enchants)} enchants, {len(item_effects)} trinkets with effects, "
+          f"{len(item_sets)} set pieces, {len(spells)} spells; {len(data)/1e6:.1f} MB json, {os.path.getsize(a.out)/1e3:.0f} KB gz")
 
 
 if __name__ == "__main__":

@@ -42,7 +42,18 @@ haste_mult = 1.02          # [obs] passive, multiplicative with rating haste
 mastery_points = 14        # [obs] 8 base + 4 passive + 2 Skyfury, in mastery points
 mastery_coeff = 1.35       # [obs] Ret mastery: % damage per mastery point (+500 mastery probe)
 versatility_bonus = 0.03   # [obs] Mark of the Wild
+# Damage of the library's gear procs (data/item_effects.toml): the raid
+# debuffs the calibrated sources carry in their fitted multipliers, Mystic
+# Touch (+5% physical), Chaos Brand (+3% magic) and Hunter's Mark (+3%). [simc]
+effect_mult = { physical = 1.0815, magic = 1.0609 }
 weapon_ap_per_dps = 6.7909 # [obs] the engine's weapon AP component per main-hand weapon DPS (1058 at 155.8 DPS)
+spec_id = 70               # [db2] ChrSpecialization: picks the class set bonuses below
+# Trinket on-use items (data/item_effects.toml) go after the potion. Stat
+# buffs wait for a fresh Avenging Wrath, as SimC's APL (`use_item` with
+# `buff.avenging_wrath.up&cooldown.avenging_wrath.remains>40`, or when the
+# buff outlasts the fight); anything else is used on cooldown. [simc]
+use_after = "potion"
+use_items = { buff = "buff.avenging_wrath.up&cooldown.avenging_wrath.remains>40|fight_remains<=${duration}" }
 
 # Raid-night kit, on top of the gear whenever gear lines are given (what
 # Raidbots / the app sim): SimC's default level-90 consumables plus Bloodlust.
@@ -57,6 +68,105 @@ stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating =
 #   mastery 165    Flask of the Magisters (rank 2) [db2 1235108, item-level scaled; SimC buffed stats]
 #   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs: SimC buffed stats]
 primary_buffs = { lights_potential = 695 }   # Light's Potential (rank 2) [db2 1236616, item-level scaled]
+
+# Class set bonuses, applied with gear lines when the pieces are worn
+# (ItemSetSpell; `--set gear.set_bonuses=0` turns them off). Same fragment
+# format as data/item_effects.toml. Mechanics from SimC's paladin module
+# (sc_paladin.hpp, holy_power_consumer_t::execute). [simc]
+
+# MID2 2pc (1296660): consuming Divine Purpose grants Divine Power, +10% Holy
+# damage for 12s [db2 1305230 aura 79, school mask 2: Holy and anything with it].
+[[gear.effects]]
+spell = 1296660
+text = '''
+[[buffs]]
+name = "divine_power"
+duration = ${1305230.duration}
+school_pct = { holy = ${1305230.e1}, holyfire = ${1305230.e1}, cosmic = ${1305230.e1} }
+
+[[patch]]
+ability = "final_verdict"
+on_free = [{ type = "buff", buff = "divine_power" }]
+
+# Its other effect adds 10 points to Divine Purpose's proc chance [db2 1296660
+# effect 1: label 6891 = 408459, 10% -> 20%; SimC: 44 procs a fight]: a second
+# roll after the spenders' [obs] 9% one, so together 1 - 0.91 x (1 - 0.1099) = 19%.
+[[patch]]
+ability = "final_verdict"
+on_cast = [{ type = "buff", buff = "divine_purpose", chance = 0.1099 }]
+
+[[patch]]
+ability = "divine_storm_cast"
+on_cast = [{ type = "buff", buff = "divine_purpose", chance = 0.1099 }]
+'''
+
+# MID2 4pc (1296661): consuming Divine Purpose with a spender, while no
+# Arbiter is up, arms one for the other kind (Final Verdict arms Divine
+# Storm's, and the other way round); the next spender of that kind spends it
+# and fires Divine Arbiter [db2 1306923: 10.125 AP Holy]. Empyrean Legacy's
+# free Divine Storm spends it too. With one armed by Final Verdict, SimC's APL
+# hard-casts Divine Storm in place of Final Verdict.
+[[gear.effects]]
+spell = 1296661
+text = '''
+[[buffs]]
+name = "divine_arbiter_verdict"       # armed by Final Verdict, spent by Divine Storm
+duration = ${1306161.duration}
+
+[[buffs]]
+name = "divine_arbiter_divine_storm"  # armed by Divine Storm, spent by Final Verdict
+duration = ${1306162.duration}
+
+[[abilities]]
+name = "divine_arbiter"
+spell_id = 1306923
+triggered_only = true
+# [obs] residual 1.54 (talents and auras, as the calibration's) and crits
+# x2.22, from SimC's per-hit damage on the app's test character
+damage = { ap_coeff = ${1306923.e1:ap}, school = "holy", mastery = true, mult = 1.54, crit_damage_bonus = 0.10 }
+
+[[abilities]]
+name = "divine_storm_cast"  # hard-cast; reported and calibrated with Empyrean Legacy's
+source = "divine_storm"
+spell_id = 53385
+cost = { holy_power = 3 }   # [db2]
+free_with = "divine_purpose"
+# [db2 53385]; x0.8: the calibrated `divine_storm` is Empyrean Legacy's, which
+# deals 25% more [db2 387170 effect 2]
+damage = { ap_coeff = 2.63424, school = "holy", mastery = true, mult = 0.8 }
+on_free = [
+  { type = "buff", buff = "divine_power" },
+  { type = "if", if = "!buff.divine_arbiter_verdict.up&!buff.divine_arbiter_divine_storm.up", then = [{ type = "buff", buff = "divine_arbiter_divine_storm" }] },
+]
+on_cast = [
+  { type = "if", if = "buff.divine_arbiter_verdict.up", then = [{ type = "consume", buff = "divine_arbiter_verdict" }, { type = "trigger", ability = "divine_arbiter" }] },
+  { type = "extend_dot", dot = "dawnlight", seconds = 0.3 },     # as every spender
+  { type = "trigger", ability = "dawnlight_apply" },
+  { type = "trigger", ability = "divine_storm_tempest" },
+  { type = "trigger", ability = "divine_storm_second_sunrise", chance = 0.20, delay = 0.325 },
+  { type = "buff", buff = "divine_purpose", chance = 0.09 },
+]
+
+[[patch]]
+ability = "final_verdict"
+on_free = [
+  { type = "if", if = "!buff.divine_arbiter_verdict.up&!buff.divine_arbiter_divine_storm.up", then = [{ type = "buff", buff = "divine_arbiter_verdict" }] },
+]
+on_cast = [
+  { type = "if", if = "buff.divine_arbiter_divine_storm.up", then = [{ type = "consume", buff = "divine_arbiter_divine_storm" }, { type = "trigger", ability = "divine_arbiter" }] },
+]
+
+[[patch]]
+ability = "divine_storm"
+on_cast = [
+  { type = "if", if = "buff.divine_arbiter_verdict.up", then = [{ type = "consume", buff = "divine_arbiter_verdict" }, { type = "trigger", ability = "divine_arbiter" }] },
+]
+
+[[rotation]]                  # SimC: divine_storm,if=variable.ds_castable, ahead of Final Verdict
+action = "divine_storm_cast"
+if = "buff.divine_arbiter_verdict.up&!buff.empyrean_legacy.up&!buff.divine_arbiter_divine_storm.up"
+before = "final_verdict"
+'''
 
 [fight]
 duration = 300

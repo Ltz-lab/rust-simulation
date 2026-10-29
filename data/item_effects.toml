@@ -1,0 +1,204 @@
+# Item effect library: what trinkets and non-class set bonuses do, as spec
+# fragments. With gear lines, every on-use / on-equip effect of an equipped
+# trinket (ItemEffect) and every set bonus reached (ItemSetSpell) is looked up
+# here by its spell id; a spec's own `[[gear.effects]]` (class set bonuses)
+# win over these. An effect with no entry is reported as unmodelled.
+#
+# `text` is a spec fragment in the spec format: `abilities`, `buffs`, `procs`,
+# `precombat` and `rotation` lists are added to the spec, `patch` entries
+# append lists (on_cast, ...) to an existing ability or buff. Numbers come
+# from the game data through `${...}` placeholders, scaled to the item's level
+# (see `placeholder` in src/gear.rs): `${e1}` is effect 1 of the entry's
+# spell, `${1297760.e3}` effect 3 of another, plus `rppm`, `rppm_haste`,
+# `duration`, `icd`, `cooldown`, `stacks`, `chance`, `ilvl`, and `:pct` to
+# divide by 100. Rotation entries with `use = "buff"` (stat buffs) or
+# `use = "other"` take the spec's `[gear] use_items` condition for that kind
+# and go after its `use_after` action. Buff `stats` (primary, *_rating, per
+# stack) become the character's own percent bonuses.
+#
+# Most Midnight trinkets keep their numbers in dummy auras and are scripted
+# in SimC (engine/player/unique_gear_midnight.cpp); each entry follows that
+# script, and names the spells it reads. Add a template, then rerun
+# tools/gamedata.py so the spells it names are in the game data.
+
+# Zul'jin's Guillotine Technique (270173): real-PPM physical hit, +2% damage
+# per 1% of target health missing. [simc zuljins_guillotine_technique]
+[[effect]]
+spell = 1291728
+text = '''
+[[procs]]
+ability = "guillotine"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "guillotine"
+spell_id = 1306604
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "physical", scale = "1+${e2:pct}*(100-target.health.pct)" }
+'''
+
+# Bite of Zul'jan 2pc (the trinket plus Mazeroa, Warlord's Fury or 268209):
+# Guillotine becomes Perfected Guillotine (100% of its damage) and applies
+# Venomfang. Only where the spec models Venomfang (Ret: the main hand's proc).
+[[effect]]
+spell = 1291726
+text = '''
+[[patch]]
+ability = "guillotine"
+requires = ["venomfang_proc"]
+on_cast = [{ type = "trigger", ability = "venomfang_proc" }]
+'''
+
+# Voracious Heart of Ula'tek (270175): on use, primary stat for 20s; while
+# it's up, hits proc Devour Morsel (physical damage), each adding a stack of
+# Devoured Strength (primary stat), which ends with the main buff.
+# [simc voracious_heart_of_ulatek; values on 1297760]
+[[effect]]
+spell = 1297761
+text = '''
+[[buffs]]
+name = "voracious_heart"
+duration = ${duration}
+stats = { primary = ${1297760.e1} }
+on_expire = [{ type = "consume", buff = "devoured_strength", all = true }]
+
+[[buffs]]
+name = "devoured_strength"
+duration = ${1305376.duration}
+max_stacks = ${1305376.stacks}
+stats = { primary = ${1297760.e3} }
+
+[[abilities]]
+name = "voracious_heart"
+spell_id = 1297761
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "voracious_heart" }]
+
+[[procs]]
+ability = "devour_morsel"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "devour_morsel"
+spell_id = 1305374
+triggered_only = true
+no_procs = true
+requires_buff = "voracious_heart"
+damage = { amount = ${1297760.e2}, school = "physical" }
+on_cast = [{ type = "buff", buff = "devoured_strength" }]
+
+[[rotation]]
+action = "voracious_heart"
+use = "buff"
+'''
+
+[[effect]]
+spell = 1297760    # Voracious Heart's values, read by 1297761
+none = true
+
+# Gaze of the Alnseer (249343): real-PPM Alnsight for 12s; while it's up,
+# hits (0.75s internal cooldown) stack Alnscorned Essence, primary stat per
+# stack. SimC's ICD refresh bug isn't modelled. [simc gaze_of_the_alnseer]
+[[effect]]
+spell = 1256896
+text = '''
+[[procs]]
+ability = "alnsight"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "alnsight"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "alnsight" }]
+
+[[buffs]]
+name = "alnsight"
+duration = ${1266686.duration}
+
+[[procs]]
+ability = "alnscorned_essence"
+on_hit = true
+chance = 1.0
+icd = ${1266686.icd}
+
+[[abilities]]
+name = "alnscorned_essence"
+triggered_only = true
+requires_buff = "alnsight"
+on_cast = [{ type = "buff", buff = "alnscorned_essence" }]
+
+[[buffs]]
+name = "alnscorned_essence"
+duration = ${1266687.duration}
+max_stacks = ${1266687.stacks}
+overlap = true    # each stack has its own timer [simc: stack histogram]
+stats = { primary = ${e1} }
+'''
+
+# Twisted Horror's Tendril (281215): real-PPM stacks of Devastating Power
+# (crit rating per stack, 15s), plus 3 stacks on each new target (one target:
+# at the pull). [simc twisted_horrors_tendril]
+[[effect]]
+spell = 1310404
+text = '''
+precombat = ["devastating_power_new_target"]
+
+[[procs]]
+ability = "devastating_power"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "devastating_power"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "devastating_power" }]
+
+[[abilities]]
+name = "devastating_power_new_target"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "devastating_power", stacks = 3 }]
+
+[[buffs]]
+name = "devastating_power"
+duration = ${1310414.duration}
+max_stacks = ${1310414.stacks}
+overlap = true    # each stack has its own timer [simc: ~5.6 stacks from 20 RPPM x 15s]
+stats = { crit_rating = ${e1} }
+'''
+
+[[effect]]
+spell = 1310446    # Twisted Horror's Tendril's new-target driver, in 1310404
+none = true
+
+# Font of Venomous Rage (270168): on use, a 2s channel of nature damage
+# (1297911 effect 1 over its ticks), dealt here as one hit at the end. Venom
+# Splatter only hits other targets. [simc font_of_venomous_rage]
+[[effect]]
+spell = 1297908
+text = '''
+[[abilities]]
+name = "font_of_venomous_rage"
+spell_id = 1297908
+gcd = 0
+cast_time = ${duration}
+cooldown = ${cooldown}
+no_procs = true
+damage = { amount = ${1297911.e1}, school = "nature" }
+
+[[rotation]]
+action = "font_of_venomous_rage"
+use = "other"
+'''
+
+[[effect]]
+spell = 1297911    # Font of Venomous Rage's values, read by 1297908
+none = true

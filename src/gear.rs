@@ -1,4 +1,7 @@
-//! Gear -> character stats from embedded game tables (`data/gamedata.json.gz`).
+//! Gear -> character stats from embedded game tables (`data/gamedata.json.gz`),
+//! plus what trinkets and set bonuses do: spec fragments from effect
+//! templates (`data/item_effects.toml`, a spec's `[[gear.effects]]`) with
+//! their numbers read from the game data at the item's level.
 
 use flate2::read::GzDecoder;
 use serde::Deserialize;
@@ -8,6 +11,7 @@ use std::io::Read;
 use std::sync::OnceLock;
 
 const GAMEDATA_GZ: &[u8] = include_bytes!("../data/gamedata.json.gz");
+const ITEM_EFFECTS: &str = include_str!("../data/item_effects.toml");
 
 const SLOTS: &[&str] = &[
     "head", "neck", "shoulder", "shoulders", "back", "chest", "wrist", "wrists",
@@ -29,6 +33,41 @@ struct GameData {
     weapon_dps: WeaponDps,
     spell_scaling_item: Vec<f64>,
     combat_ratings: HashMap<String, HashMap<String, f64>>,
+    rand_prop_damage: Vec<[f64; 2]>,
+    item_effects: HashMap<String, Vec<[i64; 4]>>,
+    item_sets: HashMap<String, i64>,
+    set_bonuses: HashMap<String, Vec<[i64; 3]>>,
+    spells: HashMap<String, SpellRec>,
+}
+
+/// One spell's numbers, as `tools/gamedata.py` keeps them.
+#[derive(Deserialize)]
+struct SpellRec {
+    duration: i64,
+    rppm: f64,
+    rppm_mods: Vec<(i64, i64, f64)>,
+    icd: i64,
+    chance: f64,
+    stacks: i64,
+    cooldown: i64,
+    /// [type, aura, base_points, coeff, scaling_class, ap_coeff, sp_coeff, misc0, trigger]
+    effects: Vec<(i64, i64, f64, f64, i64, f64, f64, i64, i64)>,
+}
+
+/// What an item effect or set bonus does: a spec fragment (`text`, TOML with
+/// `${...}` placeholders), or `none` when another entry already covers it.
+#[derive(Deserialize, Clone)]
+struct EffectTpl {
+    spell: i64,
+    #[serde(default)]
+    none: bool,
+    #[serde(default)]
+    text: String,
+}
+
+#[derive(Deserialize)]
+struct Library {
+    effect: Vec<EffectTpl>,
 }
 
 #[derive(Deserialize)]
@@ -57,6 +96,29 @@ struct GearSpec {
     weapon_ap_per_dps: f64,
     #[serde(default)]
     kit: Option<Kit>,
+    /// The spec's id (ChrSpecialization), to pick class set bonuses.
+    #[serde(default)]
+    spec_id: i64,
+    /// Spec-specific effect templates (class set bonuses); they win over the library's.
+    #[serde(default)]
+    effects: Vec<EffectTpl>,
+    /// Rotation conditions for on-use items by kind ("buff": a stat buff,
+    /// "other"); placeholders refer to the item's own spell.
+    #[serde(default)]
+    use_items: HashMap<String, String>,
+    /// On-use items go right after this rotation action (else first).
+    #[serde(default)]
+    use_after: Option<String>,
+    /// Damage multipliers for the library's proc damage by "physical" /
+    /// "magic": what the spec's calibrated sources carry in their fitted
+    /// multipliers but a new, uncalibrated source would miss (raid debuffs).
+    #[serde(default)]
+    effect_mult: HashMap<String, f64>,
+    /// 0 turns trinket effects / set bonuses off (stats stay).
+    #[serde(default = "one")]
+    trinket_effects: f64,
+    #[serde(default = "one")]
+    set_bonuses: f64,
     /// Time-averaged gear stat procs, added on top of the buffed stats.
     #[serde(default)]
     procs: ProcBonus,
@@ -169,7 +231,7 @@ fn parse_ids(s: &str) -> Vec<i64> {
 }
 
 /// Compute item stats and report JSON from SimC-format text and a `[gear]` table.
-fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, Vec<(&'static str, f64)>, Option<KitOut>), String> {
+fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
     let gd = gamedata();
     let mut level: usize = 90;
     let mut item_lines = Vec::new();
@@ -194,6 +256,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, Vec<(&'static str, f
     }
 
     let mut items_out = Vec::new();
+    let mut equipped = Vec::new();
     let mut totals: HashMap<&'static str, i64> = HashMap::new();
     let mut weapon_dps = 0.0;
 
@@ -370,6 +433,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, Vec<(&'static str, f
             };
         }
 
+        equipped.push(Equipped { slot: slot.to_string(), id: item_id, ilvl, inv_type });
         items_out.push(json!({
             "slot": slot,
             "id": item_id,
@@ -476,12 +540,380 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<(Value, Vec<(&'static str, f
     });
 
     let kit_out = kit.map(|k| KitOut { precombat: k.precombat.clone(), power_buffs });
-    Ok((report, player_pairs, kit_out))
+    let ctx = StatCtx {
+        ratings: [
+            crit_rating as f64 + kit_stat("crit_rating"),
+            haste_rating as f64 + kit_stat("haste_rating"),
+            mastery_rating as f64 + kit_stat("mastery_rating"),
+            versatility_rating as f64 + kit_stat("versatility_rating"),
+        ],
+        per_pct: [cr["crit"], cr["haste"], cr["mastery"], cr["versatility"]],
+        mastery_coeff: cfg.mastery_coeff,
+        power_pct_per_primary: cfg.primary_mult * power_per_primary / total_power * 100.0,
+    };
+    Ok(Computed { report, player_pairs, kit: kit_out, equipped, ctx })
+}
+
+struct Computed {
+    report: Value,
+    player_pairs: Vec<(&'static str, f64)>,
+    kit: Option<KitOut>,
+    equipped: Vec<Equipped>,
+    ctx: StatCtx,
 }
 
 struct KitOut {
     precombat: Vec<String>,
     power_buffs: Vec<(String, f64)>,
+}
+
+struct Equipped {
+    slot: String,
+    id: i64,
+    ilvl: usize,
+    inv_type: i64,
+}
+
+/// What a buff's gear `stats` are worth on this character, at the margin.
+struct StatCtx {
+    /// crit, haste, mastery, versatility rating (gear + kit)
+    ratings: [f64; 4],
+    /// rating per 1% before diminishing returns, same order
+    per_pct: [f64; 4],
+    mastery_coeff: f64,
+    /// `power_pct` per point of primary stat
+    power_pct_per_primary: f64,
+}
+
+impl StatCtx {
+    /// Extra percent points (after diminishing returns) from `x` more of rating `k`.
+    fn dr_gain(&self, k: usize, x: f64) -> f64 {
+        let r = self.ratings[k];
+        dr_percent((r + x) / self.per_pct[k]) - dr_percent(r / self.per_pct[k])
+    }
+
+    /// Buff fields (and values) for per-stack gear `stats`.
+    fn buff_fields(&self, stats: &toml::Table) -> Result<Vec<(&'static str, f64)>, String> {
+        let mut out = Vec::new();
+        for (k, v) in stats {
+            let x = v.as_float().or_else(|| v.as_integer().map(|i| i as f64)).ok_or_else(|| format!("stats.{k} is not a number"))?;
+            out.push(match k.as_str() {
+                "primary" => ("power_pct", x * self.power_pct_per_primary),
+                "crit_rating" => ("crit_pct", self.dr_gain(0, x)),
+                // haste multiplies: (1 + new) / (1 + old)
+                "haste_rating" => {
+                    let h = dr_percent(self.ratings[1] / self.per_pct[1]);
+                    ("haste_pct", ((100.0 + h + self.dr_gain(1, x)) / (100.0 + h) - 1.0) * 100.0)
+                }
+                "mastery_rating" => ("mastery_pct", self.dr_gain(2, x) * self.mastery_coeff),
+                "versatility_rating" => ("versatility_pct", self.dr_gain(3, x)),
+                other => return Err(format!("unknown gear stat '{other}'")),
+            });
+        }
+        Ok(out)
+    }
+}
+
+/// One item effect or set bonus in play, and the item level its numbers scale with.
+struct Active {
+    spell: i64,
+    ilvl: usize,
+    inv_type: i64,
+    spec: i64,
+    /// "trinket1", or "set 2062 (4)"
+    from: String,
+}
+
+/// The effects the equipped gear carries: (in play, report rows).
+fn active_effects(eq: &[Equipped], cfg: &GearSpec) -> (Vec<Active>, Vec<Value>) {
+    let gd = gamedata();
+    let mut act = Vec::new();
+    let mut rows = Vec::new();
+    let status = |f: f64| if f > 0.0 { Value::Null } else { json!("off") };
+    for it in eq {
+        for &[trigger, spell, _, _] in gd.item_effects.get(&it.id.to_string()).map(|v| v.as_slice()).unwrap_or(&[]) {
+            rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": if trigger == 0 { "use" } else { "equip" }, "status": status(cfg.trinket_effects)}));
+            if cfg.trinket_effects > 0.0 {
+                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, from: it.slot.clone() });
+            }
+        }
+    }
+    // pieces per set, and the highest item level among them
+    let mut sets: BTreeMap<i64, (u32, usize, i64)> = BTreeMap::new();
+    for it in eq {
+        if let Some(&set) = gd.item_sets.get(&it.id.to_string()) {
+            let e = sets.entry(set).or_insert((0, 0, it.inv_type));
+            e.0 += 1;
+            e.1 = e.1.max(it.ilvl);
+        }
+    }
+    for (set, (n, ilvl, inv_type)) in sets {
+        for &[pieces, spec, spell] in gd.set_bonuses.get(&set.to_string()).map(|v| v.as_slice()).unwrap_or(&[]) {
+            if n as i64 >= pieces && (spec == 0 || spec == cfg.spec_id) {
+                let from = format!("set {set} ({pieces})");
+                rows.push(json!({"from": from, "set": set, "pieces": pieces, "spell": spell, "status": status(cfg.set_bonuses)}));
+                if cfg.set_bonuses > 0.0 {
+                    act.push(Active { spell, ilvl, inv_type, spec: cfg.spec_id, from });
+                }
+            }
+        }
+    }
+    (act, rows)
+}
+
+fn library() -> &'static [EffectTpl] {
+    static LIB: OnceLock<Vec<EffectTpl>> = OnceLock::new();
+    LIB.get_or_init(|| toml::from_str::<Library>(ITEM_EFFECTS).expect("parse data/item_effects.toml").effect)
+}
+
+/// Value of one `${...}` placeholder: `[spell.]field[:pct|:ap|:sp]`, where the
+/// spell defaults to the template's own and `field` is `eN` (effect N, from 1:
+/// its coefficient times the item-level budget of its scaling class, else its
+/// base points), `rppm`, `rppm_haste`, `duration`, `icd`, `cooldown` (seconds),
+/// `stacks`, `chance` or `ilvl`.
+fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
+    let gd = gamedata();
+    let (body, modifier) = match expr.split_once(':') {
+        Some((b, m)) => (b, Some(m)),
+        None => (expr, None),
+    };
+    let (spell, field) = match body.split_once('.') {
+        Some((s, f)) => (s.parse::<i64>().map_err(|_| format!("bad spell id in ${{{expr}}}"))?, f),
+        None => (a.spell, body),
+    };
+    if field == "ilvl" {
+        return Ok(a.ilvl.to_string());
+    }
+    let sp = gd.spells.get(&spell.to_string()).ok_or_else(|| {
+        format!("spell {spell} isn't in the game data (rerun tools/gamedata.py after adding a template)")
+    })?;
+    let secs = |ms: i64| ms as f64 / 1000.0;
+    let v = match field {
+        "rppm" => {
+            let mut r = sp.rppm;
+            for &(kind, param, coeff) in &sp.rppm_mods {
+                // spec modifier
+                if kind == 4 && param == a.spec {
+                    r *= 1.0 + coeff;
+                }
+            }
+            r
+        }
+        "rppm_haste" => return Ok(sp.rppm_mods.iter().any(|m| m.0 == 1).to_string()),
+        "duration" => secs(sp.duration),
+        "icd" => secs(sp.icd),
+        "cooldown" => secs(sp.cooldown),
+        "stacks" => sp.stacks.max(1) as f64,
+        "chance" => sp.chance / 100.0,
+        f if f.starts_with('e') => {
+            let n: usize = f[1..].parse().map_err(|_| format!("bad field in ${{{expr}}}"))?;
+            let e = sp.effects.get(n.wrapping_sub(1)).ok_or_else(|| format!("spell {spell} has no effect {n}"))?;
+            let (_, _, bp, coeff, class, ap, spc, _, _) = *e;
+            match modifier {
+                Some("ap") => ap,
+                Some("sp") => spc,
+                _ if coeff != 0.0 => coeff * budget(class, a.ilvl, a.inv_type)?,
+                _ => bp,
+            }
+        }
+        _ => return Err(format!("unknown field in ${{{expr}}}")),
+    };
+    Ok(match modifier {
+        Some("pct") => (v / 100.0).to_string(),
+        Some("ap" | "sp") | None => v.to_string(),
+        Some(m) => return Err(format!("unknown modifier ':{m}' in ${{{expr}}}")),
+    })
+}
+
+/// Item-level budget an effect coefficient multiplies, by scaling class (SimC's
+/// `spelleffect_data_t::average(item)`, epic budgets).
+fn budget(class: i64, ilvl: usize, inv_type: i64) -> Result<f64, String> {
+    let gd = gamedata();
+    if ilvl >= gd.rand_prop_points.len() {
+        return Err(format!("item level {ilvl} out of range"));
+    }
+    let col = match inv_type {
+        2 | 11 => 3,
+        12 => 2,
+        13 | 14 | 15 | 17 | 21 | 22 | 23 | 26 => 1,
+        _ => 0,
+    };
+    Ok(match class {
+        -7 => gd.rand_prop_points[ilvl][0] * gd.combat_rating_mult[ilvl][col],
+        -8 => gd.rand_prop_damage[ilvl][0],
+        -9 | 0 => gd.rand_prop_damage[ilvl][1],
+        _ => gd.rand_prop_points[ilvl][0],
+    })
+}
+
+/// Fill a template's placeholders.
+fn fill(text: &str, a: &Active) -> Result<String, String> {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find("${") {
+        out.push_str(&rest[..i]);
+        let j = rest[i..].find('}').ok_or("unclosed ${ in template")?;
+        out.push_str(&placeholder(&rest[i + 2..i + j], a)?);
+        rest = &rest[i + j + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// Add the fragments for the gear's effects to the spec document. Returns
+/// the report rows, each marked with its status.
+fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], cfg: &GearSpec) -> Result<Vec<Value>, String> {
+    let (act, mut rows) = active_effects(eq, cfg);
+    let own = |spell: i64| cfg.effects.iter().any(|t| t.spell == spell);
+    let tpl = |spell: i64| cfg.effects.iter().chain(library()).find(|t| t.spell == spell);
+    let mut patches = Vec::new();
+    let mut rotation = Vec::new();
+    for a in &act {
+        let row = rows.iter_mut().find(|r| r["spell"] == a.spell && r["from"] == a.from.as_str()).unwrap();
+        let Some(t) = tpl(a.spell) else {
+            row["status"] = json!("unmodelled");
+            continue;
+        };
+        row["status"] = json!(if t.none { "covered" } else { "modelled" });
+        if t.none {
+            continue;
+        }
+        let ctx = |e: String| format!("effect {} ({}): {e}", a.spell, a.from);
+        let text = fill(&t.text, a).map_err(ctx)?;
+        let frag: toml::Table = toml::from_str(&text).map_err(|e| ctx(e.to_string()))?;
+        let root = doc.as_table_mut().ok_or("spec is not a table")?;
+        for (k, v) in frag {
+            let toml::Value::Array(mut items) = v else { return Err(ctx(format!("'{k}' must be a list"))) };
+            if k == "abilities" && !own(a.spell) {
+                for ab in &mut items {
+                    if let Some(d) = ab.get_mut("damage").and_then(|d| d.as_table_mut()) {
+                        let school = d.get("school").and_then(|x| x.as_str()).unwrap_or("physical");
+                        let m = cfg.effect_mult.get(if school == "physical" { "physical" } else { "magic" }).copied().unwrap_or(1.0);
+                        let cur = d.get("mult").and_then(|x| x.as_float()).unwrap_or(1.0);
+                        d.insert("mult".into(), toml::Value::Float(cur * m));
+                    }
+                }
+            }
+            match k.as_str() {
+                "abilities" | "buffs" | "procs" | "pets" | "precombat" => {
+                    let list = root.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                    list.as_array_mut().ok_or_else(|| ctx(format!("spec's '{k}' is not a list")))?.extend(items);
+                }
+                "rotation" => {
+                    for r in items {
+                        let mut r = r.as_table().cloned().ok_or_else(|| ctx("rotation entries are tables".into()))?;
+                        if let Some(kind) = r.remove("use") {
+                            let kind = kind.as_str().unwrap_or("").to_string();
+                            if let Some(c) = cfg.use_items.get(&kind) {
+                                let c = fill(c, a).map_err(ctx)?;
+                                let own = r.get("if").and_then(|x| x.as_str()).map(|s| s.to_string());
+                                r.insert("if".into(), toml::Value::String(match own {
+                                    Some(o) => format!("({o})&({c})"),
+                                    None => c,
+                                }));
+                            }
+                            r.entry("after").or_insert_with(|| toml::Value::String(cfg.use_after.clone().unwrap_or_default()));
+                        }
+                        rotation.push(r);
+                    }
+                }
+                "patch" => patches.extend(items),
+                _ => return Err(ctx(format!("unknown fragment list '{k}'"))),
+            }
+        }
+    }
+    let root = doc.as_table_mut().ok_or("spec is not a table")?;
+    for p in patches {
+        patch(root, p)?;
+    }
+    if !rotation.is_empty() {
+        let list = root
+            .get_mut("rotation")
+            .and_then(|r| r.as_array_mut())
+            .ok_or("spec has no rotation")?;
+        for mut r in rotation {
+            let action = |e: &toml::Value| e.get("action").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let cond = |e: &toml::Value| e.get("if").and_then(|x| x.as_str()).map(|s| s.to_string());
+            if let Some(before) = r.remove("before") {
+                // in front of every entry for that action, under its condition too
+                let before = before.as_str().unwrap_or("").to_string();
+                let mut i = 0;
+                while i < list.len() {
+                    if action(&list[i]) == before {
+                        let mut e = r.clone();
+                        if let Some(theirs) = cond(&list[i]) {
+                            let mine = e.get("if").and_then(|x| x.as_str()).map(|s| s.to_string());
+                            e.insert("if".into(), toml::Value::String(match mine {
+                                Some(m) => format!("({m})&({theirs})"),
+                                None => theirs,
+                            }));
+                        }
+                        list.insert(i, toml::Value::Table(e));
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            } else {
+                let after = r.remove("after").and_then(|x| x.as_str().map(|s| s.to_string())).unwrap_or_default();
+                let at = list.iter().position(|e| action(e) == after).map_or(0, |i| i + 1);
+                list.insert(at, toml::Value::Table(r));
+            }
+        }
+    }
+    Ok(rows)
+}
+
+/// `[[patch]]`: append lists to an existing ability's or buff's (`ability =` /
+/// `buff =`), e.g. `on_cast`; skipped when the target or anything in
+/// `requires` (ability names) isn't in the spec.
+fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
+    let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
+    let (kind, name) = match (p.remove("ability"), p.remove("buff")) {
+        (Some(n), None) => ("abilities", n),
+        (None, Some(n)) => ("buffs", n),
+        _ => return Err("a patch names one ability or one buff".into()),
+    };
+    let name = name.as_str().unwrap_or("").to_string();
+    let has = |root: &toml::Table, kind: &str, n: &str| {
+        root.get(kind).and_then(|l| l.as_array()).is_some_and(|l| l.iter().any(|e| e.get("name").and_then(|x| x.as_str()) == Some(n)))
+    };
+    let requires: Vec<String> = p
+        .remove("requires")
+        .and_then(|r| r.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|x| x.as_str().map(|s| s.to_string()))
+        .collect();
+    if !has(root, kind, &name) || requires.iter().any(|r| !has(root, "abilities", r)) {
+        return Ok(());
+    }
+    let target = root
+        .get_mut(kind)
+        .and_then(|l| l.as_array_mut())
+        .and_then(|l| l.iter_mut().find(|e| e.get("name").and_then(|x| x.as_str()) == Some(name.as_str())))
+        .and_then(|e| e.as_table_mut())
+        .unwrap();
+    for (k, v) in p {
+        let toml::Value::Array(items) = v else { return Err(format!("patch '{name}': '{k}' must be a list")) };
+        let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+        list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?.extend(items);
+    }
+    Ok(())
+}
+
+/// Turn every buff's gear `stats` into the matching percent fields.
+fn apply_buff_stats(doc: &mut toml::Value, ctx: &StatCtx) -> Result<(), String> {
+    let Some(buffs) = doc.get_mut("buffs").and_then(|b| b.as_array_mut()) else { return Ok(()) };
+    for b in buffs {
+        let Some(t) = b.as_table_mut() else { continue };
+        let Some(stats) = t.get("stats").and_then(|s| s.as_table()).cloned() else { continue };
+        let name = t.get("name").and_then(|n| n.as_str()).unwrap_or("?").to_string();
+        for (field, v) in ctx.buff_fields(&stats).map_err(|e| format!("buff '{name}': {e}"))? {
+            let cur = t.get(field).and_then(|x| x.as_float().or_else(|| x.as_integer().map(|i| i as f64))).unwrap_or(0.0);
+            t.insert(field.into(), toml::Value::Float(cur + v));
+        }
+    }
+    Ok(())
 }
 
 /// Parse a SimC gear profile, overwrite `player.*` stats in `doc`, and return
@@ -497,7 +929,11 @@ pub fn apply_text(mut doc: toml::Value, profile: &str) -> Result<(toml::Value, V
         "spec has no [gear] table".to_string()
     })?;
     let cfg: GearSpec = gear_tbl.try_into().map_err(|e| format!("[gear]: {e}"))?;
-    let (report, player_pairs, kit) = compute(profile, &cfg)?;
+    let Computed { mut report, player_pairs, kit, equipped, ctx } = compute(profile, &cfg)?;
+    let effects = apply_effects(&mut doc, &equipped, &cfg)?;
+    apply_buff_stats(&mut doc, &ctx)?;
+    report["unmodelled"] = json!(effects.iter().filter(|r| r["status"] == "unmodelled").map(|r| r["from"].clone()).collect::<Vec<_>>());
+    report["effects"] = json!(effects);
 
     let player = doc
         .get_mut("player")
@@ -561,7 +997,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
     #[test]
     fn ret_paladin_items_and_totals() {
         let cfg: GearSpec = toml::from_str(RET_GEAR_TOML).unwrap();
-        let (report, _, _) = compute(RET_CORE_PROFILE, &cfg).unwrap();
+        let report = compute(RET_CORE_PROFILE, &cfg).unwrap().report;
         let items = report["items"].as_array().unwrap();
 
         let by_slot = |s: &str| items.iter().find(|it| it["slot"] == s).unwrap();
@@ -622,9 +1058,97 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
              trinket1=zuljins_guillotine_technique,id=270173,bonus_id=13335,ilevel=344\n\
              trinket2=voracious_heart_of_ulatek,id=270175,bonus_id=13335,ilevel=344\n"
         );
-        let (rep_trink, _, _) = compute(&with_trinkets, &cfg).unwrap();
+        let rep_trink = compute(&with_trinkets, &cfg).unwrap().report;
         assert_eq!(rep_trink["gear"]["crit_rating"], 1200);
         assert_eq!(rep_trink["gear"]["strength"], 1927);
+    }
+
+    fn ret_with(profile: &str, sets: &[(&str, f64)]) -> (crate::spec::Spec, Value) {
+        let mut doc: toml::Value = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
+        for (k, v) in sets {
+            doc["gear"].as_table_mut().unwrap().insert(k.to_string(), toml::Value::Float(*v));
+        }
+        let (out, rep) = apply_text(doc, profile).unwrap();
+        (out.try_into().unwrap(), rep)
+    }
+
+    const RET_TRINKETS: &str = "trinket1=,id=270173,bonus_id=13335,ilevel=344\ntrinket2=,id=270175,bonus_id=13335,ilevel=344\n";
+
+    #[test]
+    fn trinket_effects_and_set_bonuses_from_gear() {
+        let (sp, rep) = ret_with(&format!("{RET_CORE_PROFILE}{RET_TRINKETS}"), &[]);
+        let status: Vec<(String, String)> = rep["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| (r["from"].as_str().unwrap().to_string(), r["status"].as_str().unwrap().to_string()))
+            .collect();
+        let want = [
+            ("trinket1", "modelled"),
+            ("trinket2", "modelled"),
+            ("trinket2", "covered"),
+            ("set 2062 (2)", "modelled"),
+            ("set 2062 (4)", "modelled"),
+            ("set 2070 (2)", "modelled"),
+        ];
+        assert_eq!(status, want.map(|(a, b)| (a.to_string(), b.to_string())));
+        assert_eq!(rep["unmodelled"], json!([]));
+
+        let ability = |n: &str| sp.abilities.iter().find(|a| a.name == n).unwrap_or_else(|| panic!("no {n}"));
+        let buff = |n: &str| sp.buffs.iter().find(|b| b.name == n).unwrap();
+        // values from the game data at item level 344, plus the spec's raid-debuff multiplier
+        let g = ability("guillotine").damage.clone().unwrap();
+        assert!((g.amount - 62.78858947754 * 804.937988).abs() < 0.01);
+        assert!((g.mult - 1.0815).abs() < 1e-12);
+        assert_eq!(g.scale.as_deref(), Some("1+0.02*(100-target.health.pct)"));
+        assert!((ability("devour_morsel").damage.clone().unwrap().amount - 19.86443710327 * 804.937988).abs() < 0.01);
+        // primary stat per stack: 1.2183 and 0.1364 x the 344 budget, as attack power share
+        let (vh, ds) = (buff("voracious_heart").power_pct, buff("devoured_strength").power_pct);
+        assert!(vh > 5.0 && vh < 20.0, "{vh}");
+        assert!((ds / vh - 0.13637375832 / 1.21833908558).abs() < 1e-9);
+        assert_eq!(ability("voracious_heart").cooldown, 90.0);
+        assert_eq!(ability("divine_arbiter").damage.clone().unwrap().ap_coeff, 10.125);
+        // Bite of Zul'jan 2pc: Guillotine applies Venomfang
+        assert!(matches!(&ability("guillotine").on_cast[..], [crate::spec::Effect::Trigger { ability, .. }] if ability == "venomfang_proc"));
+        // 2pc (Divine Power) and 4pc (arming the Arbiter) on Final Verdict's free casts
+        assert_eq!(ability("final_verdict").on_free.len(), 2);
+        // on-use after the potion; hard-cast Divine Storm ahead of each Final Verdict, under its condition
+        let rot: Vec<&str> = sp.rotation.iter().map(|r| r.action.as_str()).collect();
+        let at = |n: &str| rot.iter().position(|a| *a == n).unwrap();
+        assert_eq!(at("voracious_heart"), at("potion") + 1);
+        let fv: Vec<usize> = rot.iter().enumerate().filter(|(_, a)| **a == "final_verdict").map(|(i, _)| i).collect();
+        assert_eq!(fv.len(), 2);
+        for i in fv {
+            assert_eq!(rot[i - 1], "divine_storm_cast");
+            let (ds, fv) = (sp.rotation[i - 1].condition.clone().unwrap_or_default(), sp.rotation[i].condition.clone());
+            assert!(fv.is_none_or(|c| ds.ends_with(&format!("&({c})"))), "{ds}");
+        }
+    }
+
+    #[test]
+    fn effects_switch_off_count_pieces_and_report_unmodelled() {
+        let profile = format!("{RET_CORE_PROFILE}{RET_TRINKETS}");
+        let (sp, rep) = ret_with(&profile, &[("trinket_effects", 0.0), ("set_bonuses", 0.0)]);
+        assert!(sp.abilities.iter().all(|a| a.name != "guillotine" && a.name != "divine_arbiter"));
+        assert!(rep["effects"].as_array().unwrap().iter().all(|r| r["status"] == "off"));
+
+        // three tier pieces: the 2pc only
+        let three: String = profile.lines().filter(|l| !l.starts_with("head") && !l.starts_with("shoulders")).map(|l| format!("{l}\n")).collect();
+        let (sp, _) = ret_with(&three, &[]);
+        assert!(sp.buffs.iter().any(|b| b.name == "divine_power"));
+        assert!(sp.abilities.iter().all(|a| a.name != "divine_arbiter"));
+
+        // a trinket with an effect no template covers
+        let lib: Vec<i64> = library().iter().map(|t| t.spell).collect();
+        let other = gamedata()
+            .item_effects
+            .iter()
+            .filter(|(id, v)| gamedata().items[*id][0] == 12.0 && v.iter().all(|e| !lib.contains(&e[1])))
+            .map(|(id, _)| id.parse::<i64>().unwrap())
+            .min()
+            .unwrap();
+        let (_, rep) = ret_with(&format!("{RET_CORE_PROFILE}trinket1=,id={other}\n"), &[]);
+        assert_eq!(rep["unmodelled"], json!(["trinket1"]));
     }
 
     /// A caster spec's own `[gear]` table against its core-kit profile (no trinkets).
@@ -636,7 +1160,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             .filter(|l| !l.starts_with("trinket"))
             .map(|l| format!("{l}\n"))
             .collect();
-        compute(&core, &cfg).unwrap().0
+        compute(&core, &cfg).unwrap().report
     }
 
     #[test]

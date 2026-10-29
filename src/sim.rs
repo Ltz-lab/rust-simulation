@@ -93,6 +93,7 @@ struct CAbility {
     on_cast: Vec<CEffect>,
     on_crit: Vec<CEffect>,
     on_noncrit: Vec<CEffect>,
+    on_free: Vec<CEffect>,
     /// Result row this ability's casts and damage are reported under.
     src: usize,
     /// (banked dot, pct, per_mastery) shares of each hit fed into DoTs.
@@ -150,6 +151,21 @@ struct CDot {
     pet: Option<usize>,
 }
 
+/// A proc rolled on the player's direct hits (see `ProcDef::on_hit`).
+#[derive(Debug, Clone)]
+struct HitProc {
+    ab: usize,
+    rppm: f64,
+    hasted: bool,
+    chance: f64,
+    icd: f64,
+}
+
+/// SimC's real PPM: the time counted per attempt is capped at this.
+const RPPM_MAX_INTERVAL: f64 = 3.5;
+/// Bad-luck protection looks back at most this long.
+const RPPM_MAX_BLP: f64 = 1000.0;
+
 #[derive(Debug, Clone)]
 pub struct Compiled {
     pub spec: Spec,
@@ -164,6 +180,7 @@ pub struct Compiled {
     rotation: Vec<(usize, Option<Expr>)>,
     precombat: Vec<usize>,
     procs: Vec<(usize, f64, bool)>,
+    hit_procs: Vec<HitProc>,
     auto_mods: Vec<(usize, f64)>,
     auto_on_hit: Vec<CEffect>,
     auto_mult: f64,
@@ -175,6 +192,7 @@ pub struct Compiled {
     crit_dmg_buffs: Vec<(usize, f64)>,
     mastery_buffs: Vec<(usize, f64)>,
     power_buffs: Vec<(usize, f64)>,
+    vers_buffs: Vec<(usize, f64)>,
     buff_kind: Vec<BuffKind>,
     on_expire: Vec<Vec<CEffect>>,
     /// Per buff: (ability, fraction per stack) recharge speed-ups it gives.
@@ -500,6 +518,7 @@ impl Compiled {
                 on_cast: effects(&a.on_cast, &format!("{}/on_cast", a.name)).map_err(ctx)?,
                 on_crit: effects(&a.on_crit, &format!("{}/on_crit", a.name)).map_err(ctx)?,
                 on_noncrit: effects(&a.on_noncrit, &format!("{}/on_noncrit", a.name)).map_err(ctx)?,
+                on_free: effects(&a.on_free, &format!("{}/on_free", a.name)).map_err(ctx)?,
                 src: ab_src[ai],
                 feeds: a
                     .damage
@@ -549,7 +568,16 @@ impl Compiled {
         let procs = spec
             .procs
             .iter()
+            .filter(|p| !p.on_hit)
             .map(|p| Ok((get(&ab, "ability", &p.ability)?, p.per_minute, p.hasted)))
+            .collect::<Result<_, String>>()?;
+        let hit_procs = spec
+            .procs
+            .iter()
+            .filter(|p| p.on_hit)
+            .map(|p| {
+                Ok(HitProc { ab: get(&ab, "ability", &p.ability)?, rppm: p.per_minute, hasted: p.hasted, chance: p.chance, icd: p.icd })
+            })
             .collect::<Result<_, String>>()?;
 
         let (auto_on_hit, auto_mult, auto_replace) = match &spec.auto_attack {
@@ -674,8 +702,9 @@ impl Compiled {
         let mut stream_names = vec!["fight_length".to_string()];
         stream_names.extend(src_names.iter().map(|n| format!("crit/{n}")));
         stream_names.extend(src_names.iter().map(|n| format!("range/{n}")));
-        stream_names.extend(spec.procs.iter().map(|p| format!("rppm/{}", p.ability)));
+        stream_names.extend(spec.procs.iter().filter(|p| !p.on_hit).map(|p| format!("rppm/{}", p.ability)));
         stream_names.extend(roll_names.iter().map(|n| format!("roll/{n}")));
+        stream_names.extend(spec.procs.iter().filter(|p| p.on_hit).map(|p| format!("hit_proc/{}", p.ability)));
         // the same proc listed twice still needs two streams
         let mut seen = HashMap::new();
         let stream_keys = stream_names
@@ -700,6 +729,7 @@ impl Compiled {
             rotation,
             precombat,
             procs,
+            hit_procs,
             auto_on_hit,
             auto_mult,
             auto_replace,
@@ -710,6 +740,7 @@ impl Compiled {
             crit_dmg_buffs: per_buff(&spec.buffs, |b| b.crit_damage_pct),
             mastery_buffs: per_buff(&spec.buffs, |b| b.mastery_pct),
             power_buffs: per_buff(&spec.buffs, |b| b.power_pct),
+            vers_buffs: per_buff(&spec.buffs, |b| b.versatility_pct),
             buff_kind,
             on_expire,
             rate_users,
@@ -723,11 +754,12 @@ impl Compiled {
     pub fn source_names(&self) -> &[String] { &self.names }
 
     // Stream layout: fight length, crit per source, damage range per source,
-    // RPPM per proc, then one per chance-roll site.
+    // RPPM per proc, one per chance-roll site, then one per on-hit proc.
     fn crit_stream(&self, src: usize) -> usize { 1 + src }
     fn range_stream(&self, src: usize) -> usize { 1 + self.names.len() + src }
     fn proc_stream(&self, k: usize) -> usize { 1 + 2 * self.names.len() + k }
     fn roll_stream(&self, rid: usize) -> usize { 1 + 2 * self.names.len() + self.procs.len() + rid }
+    fn hit_proc_stream(&self, k: usize) -> usize { self.stream_keys.len() - self.hit_procs.len() + k }
 }
 
 const FIGHT_STREAM: usize = 0;
@@ -819,6 +851,11 @@ struct State<'a> {
     dot_stk: Vec<u32>,
     /// Damage waiting to be dealt by banked DoTs.
     bank: Vec<f64>,
+    /// Per on-hit proc: last attempt, real-PPM time banked since the last
+    /// success (bad-luck protection), and when its internal cooldown ends.
+    hp_last: Vec<f64>,
+    hp_blp: Vec<f64>,
+    hp_ready: Vec<f64>,
     /// Instance slots per pet; free slots are reused.
     pets: Vec<Vec<PetInst>>,
     /// Pet whose ability is executing (its crit applies).
@@ -916,6 +953,9 @@ impl<'a> State<'a> {
             dot_last: vec![0.0; c.dots.len()],
             dot_stk: vec![0; c.dots.len()],
             bank: vec![0.0; c.dots.len()],
+            hp_last: vec![0.0; c.hit_procs.len()],
+            hp_blp: vec![0.0; c.hit_procs.len()],
+            hp_ready: vec![0.0; c.hit_procs.len()],
             pets: vec![Vec::new(); c.pets.len()],
             cur_pet: None,
             ctx: None,
@@ -1322,7 +1362,7 @@ impl<'a> State<'a> {
             m *= 1.0 + self.crit_chance(0.0, &[]);
         }
         if !raw {
-            m *= p.global_mult * (1.0 + p.versatility);
+            m *= p.global_mult * (1.0 + p.versatility + self.buff_sum(&self.c.vers_buffs));
             if physical {
                 m *= self.c.spec.fight.physical_mult;
             }
@@ -1482,6 +1522,9 @@ impl<'a> State<'a> {
             let free = a.free_with.is_some_and(|b| self.buff_up(b));
             if free {
                 self.apply(&CEffect::Consume { buff: a.free_with.unwrap(), all: false });
+                for e in &a.on_free {
+                    self.apply(e);
+                }
             } else {
                 for &(r, amt) in &a.cost {
                     self.res[r] -= amt;
@@ -1504,7 +1547,7 @@ impl<'a> State<'a> {
                 let w = if d.weapon_mult > 0.0 { self.weapon_roll(a.src) * d.weapon_mult } else { 0.0 };
                 let base = match a.stored_from {
                     Some(b) => std::mem::take(&mut self.stored[b]),
-                    None => d.ap_coeff * ap + d.sp_coeff * sp + w,
+                    None => d.ap_coeff * ap + d.sp_coeff * sp + w + d.amount,
                 };
                 let base = match scale { Some(x) => base * x, None => base };
                 let raw = a.stored_from.is_some();
@@ -1513,6 +1556,9 @@ impl<'a> State<'a> {
                 for &(di, pct, per_mastery) in &a.feeds {
                     let share = pct + per_mastery * self.mastery();
                     self.feed(di, dmg * share);
+                }
+                if a.pet.is_none() && !a.def.no_procs {
+                    self.hit_procs();
                 }
                 for e in if crit { &a.on_crit } else { &a.on_noncrit } {
                     self.apply(e);
@@ -1730,6 +1776,37 @@ impl<'a> State<'a> {
         }
     }
 
+    /// Roll every on-hit proc for a direct hit of the player's.
+    fn hit_procs(&mut self) {
+        let c = self.c;
+        for (k, hp) in c.hit_procs.iter().enumerate() {
+            if self.now < self.hp_ready[k] || c.abilities[hp.ab].requires_buff.is_some_and(|b| !self.buff_up(b)) {
+                continue;
+            }
+            let chance = if hp.rppm > 0.0 {
+                // SimC's real_ppm_t: one attempt per timestamp; the chance grows
+                // with the time since the last attempt (capped) and, past 1.5
+                // average intervals without a proc, with bad-luck protection.
+                if self.hp_last[k] == self.now {
+                    continue;
+                }
+                let dt = (self.now - self.hp_last[k]).min(RPPM_MAX_INTERVAL);
+                self.hp_last[k] = self.now;
+                self.hp_blp[k] += dt;
+                let rate = hp.rppm * if hp.hasted { self.haste_mult() } else { 1.0 };
+                let blp = 1.0 + (self.hp_blp[k].min(RPPM_MAX_BLP) * rate / 60.0 - 1.5) * 3.0;
+                rate * dt / 60.0 * blp.max(1.0)
+            } else {
+                hp.chance
+            };
+            if self.rng.f64(c.hit_proc_stream(k)) < chance {
+                self.hp_blp[k] = 0.0;
+                self.hp_ready[k] = self.now + hp.icd;
+                self.execute(hp.ab, true);
+            }
+        }
+    }
+
     fn choose(&self) -> Option<usize> {
         for (i, cond) in &self.c.rotation {
             if !self.usable(*i) {
@@ -1789,6 +1866,7 @@ impl<'a> State<'a> {
                         let base = self.weapon_roll(auto_src);
                         self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, false, false);
                         self.out.casts[auto_src] += 1;
+                        self.hit_procs();
                     }
                 }
                 for e in &c.auto_on_hit {
@@ -2258,6 +2336,119 @@ action = "wait"
         assert!(e.contains("energy"), "{e}");
         let e = bad(&BASE.replace("pet = \"hound\" }]", "pet = \"wolf\" }]"));
         assert!(e.contains("unknown pet 'wolf'"), "{e}");
+    }
+
+/// No crit, haste or versatility: one strike a second, gear-style procs.
+    const PROCS: &str = r#"
+name = "proc test"
+[player]
+attack_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 300
+variance = 0
+[resources.power]
+max = 10
+start = 10
+
+[[buffs]]
+name = "free"
+duration = 100
+[[buffs]]
+name = "marked"
+duration = 100
+[[buffs]]
+name = "window"
+duration = 20
+[[buffs]]
+name = "vers"
+duration = 100
+versatility_pct = 10
+
+[[abilities]]
+name = "spend"
+gcd = 0
+cost = { power = 5 }
+free_with = "free"
+on_free = [{ type = "buff", buff = "marked" }]
+
+[[abilities]]
+name = "strike"
+gcd = 1.0
+damage = { ap_coeff = 1.0, school = "holy" }
+
+[[abilities]]
+name = "flat"
+triggered_only = true
+no_procs = true
+damage = { amount = 500, school = "holy" }
+
+[[abilities]]
+name = "gated"
+triggered_only = true
+no_procs = true
+requires_buff = "window"
+damage = { amount = 1, school = "holy" }
+
+[[procs]]
+ability = "flat"
+per_minute = 6
+on_hit = true
+
+[[procs]]
+ability = "gated"
+on_hit = true
+chance = 1.0
+icd = 2.0
+
+[[rotation]]
+action = "strike"
+"#;
+
+    #[test]
+    fn on_free_effects_only_when_the_buff_pays() {
+        let c = compile(PROCS);
+        let mut st = state(&c);
+        let (marked, free) = (c.spec.buffs.iter().position(|b| b.name == "marked").unwrap(), ab(&c, "spend"));
+        st.execute(free, false);
+        assert_eq!(st.res[0], 5.0);
+        assert!(!st.buff_up(marked));
+        st.apply(&CEffect::Buff { buff: 0, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        st.execute(free, false);
+        assert_eq!(st.res[0], 5.0, "a free cast costs nothing");
+        assert!(st.buff_up(marked));
+    }
+
+    #[test]
+    fn flat_damage_and_versatility_buffs() {
+        let c = compile(PROCS);
+        let mut st = state(&c);
+        cast(&mut st, "flat");
+        assert_eq!(st.out.damage[src(&c, "flat")], 500.0);
+        let vers = c.spec.buffs.iter().position(|b| b.name == "vers").unwrap();
+        st.apply(&CEffect::Buff { buff: vers, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        cast(&mut st, "flat");
+        assert!((st.out.damage[src(&c, "flat")] - 1050.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn on_hit_procs_follow_rate_buff_and_icd() {
+        let c = compile(PROCS);
+        let r = run_iteration(&c, 5, false);
+        // 6 a minute over 300s, a little more with bad-luck protection
+        let n = r.casts[src(&c, "flat")];
+        assert!((25..=45).contains(&n), "real-PPM procs {n}");
+        assert_eq!(r.casts[src(&c, "gated")], 0, "no rolls while its buff is down");
+
+        let mut st = state(&c);
+        advance(&mut st, 10.0);
+        let window = c.spec.buffs.iter().position(|b| b.name == "window").unwrap();
+        st.apply(&CEffect::Buff { buff: window, stacks: 1, chance: 1.0, dur: None, set: None, rid: 0 });
+        advance(&mut st, 40.0);
+        // one per hit, at most one per 2s internal cooldown, for 20s
+        assert_eq!(st.out.casts[src(&c, "gated")], 10);
     }
 
     #[test]

@@ -38,6 +38,25 @@ on refresh (`refresh_extend`), follow the target's health, and fire
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
 on-crit effects, and `banked` rolling damage fed by hits.
 
+An ability paid by its `free_with` buff runs `on_free` effects as the buff is
+consumed (a set bonus "when Divine Purpose is consumed"). `damage.amount` adds
+flat damage (gear procs, scaled from item level), and `no_procs` keeps an
+ability's hits from triggering on-hit procs. Buffs also take
+`versatility_pct`, and gear `stats` per stack (`primary`, `crit_rating`, ...),
+which runs with gear lines turn into the character's own percent bonuses.
+
+`[[procs]]` fire an ability at random: by default as a Poisson clock
+(`per_minute`, `hasted`); with `on_hit = true` they are rolled on the
+player's direct hits as SimC's real PPM (one attempt per timestamp, the time
+since the last attempt capped at 3.5s, bad-luck protection), or with a flat
+`chance` per hit, plus an optional internal cooldown `icd`. Nothing is rolled
+while the ability's `requires_buff` is down, which makes "while X is up, hits
+can proc Y" plain data. Hits from pets and `no_procs` abilities don't roll.
+Each on-hit proc has its own `hit_proc/<ability>` random stream.
+
+Trinket effects and set bonuses are spec fragments in this same format, added
+with gear lines; see [gear.md](gear.md#trinkets-and-set-bonuses).
+
 ## Pets and summons
 
 A `[[pets]]` entry defines something you summon. Any number of instances can

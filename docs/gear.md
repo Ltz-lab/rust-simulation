@@ -46,6 +46,57 @@ SimC side is core kit. Ret's numbers and the gap they close are in
 [retribution.md](retribution.md#full-kit-a-real-character-against-simc).
 
 
+## Trinkets and set bonuses
+
+With gear lines, every on-use and on-equip effect of an equipped trinket
+(DB2 `ItemEffect`) and every set bonus the character reaches (`ItemSet`,
+`ItemSetSpell`, for the spec's `spec_id` or any spec) is looked up by its
+spell id in an effect library: `data/item_effects.toml` for trinkets and
+non-class sets, `[[gear.effects]]` in the spec for class set bonuses. Each
+entry is a fragment in the spec format (abilities, buffs, procs, rotation
+entries, and `patch`es that append effects to the spec's own abilities). Its
+numbers come from the game data through `${...}` placeholders, scaled to the
+item's level the way SimC's `spelleffect_data_t::average(item)` does: an
+effect's coefficient times the epic budget (`-1`), that times the trinket
+combat-rating multiplier (`-7`), or the damage budgets (`-8`, `-9`), else its
+base points; plus the spell's real PPM (with its haste flag), duration,
+internal cooldown, cooldown and stack cap. So a trinket at a different item
+level, or a different trinket with the same shape, needs no code.
+
+Most Midnight trinkets keep their numbers in dummy auras that SimC scripts
+(`unique_gear_midnight.cpp`); the library follows those scripts. It covers
+the app's Ret character and its bag:
+
+| item | effect | modelled as |
+|---|---|---|
+| Zul'jin's Guillotine Technique | real-PPM 3 (hasted) physical hit, +2% per 1% target health missing | on-hit proc, `damage.scale` on `target.health.pct` |
+| Bite of Zul'jan 2pc | Guillotine also applies Venomfang | patch on the Guillotine (where the spec has Venomfang) |
+| Voracious Heart of Ula'tek | on use: primary stat 20s; meanwhile hits proc Devour Morsel (real-PPM 18) stacking more primary | on-use ability in the rotation, an on-hit proc gated by the buff |
+| Gaze of the Alnseer | real-PPM 2 Alnsight; meanwhile hits (0.75s ICD) stack primary stat | two on-hit procs, stacks with their own timers |
+| Twisted Horror's Tendril | real-PPM 20 stacks of crit rating, 3 at the pull | on-hit proc, stacks with their own timers |
+| Font of Venomous Rage | on use: 2s channel of nature damage | a 2s cast dealing the total |
+
+Buff stats (`stats = { primary = .., crit_rating = .. }` per stack) turn into
+the character's own percent bonuses at the margin: primary stat as a share of
+attack or spell power, ratings through the diminishing-returns curve from the
+character's current rating. On-use items go into the rotation after the
+spec's `use_after` action, under its `use_items` condition for stat buffs
+(Ret: SimC's "in a fresh Avenging Wrath"). Proc damage from the library takes
+the spec's `effect_mult`: Mystic Touch, Chaos Brand and Hunter's Mark, which
+calibrated sources carry in their fitted multipliers but a new source would
+miss. Against SimC, per hit: Guillotine 79,557 vs 79,456, Devour Morsel
+12,708 vs 12,734; per fight: 24.6 vs 23.9 Guillotines, 35.8 vs 35.3 Devour
+Morsels.
+
+`--gear-stats` (and the Python `gear_stats`) lists every effect with its
+status: `modelled`, `covered` (its values are read by another entry),
+`unmodelled` (no template: the item counts by its stats alone) or `off`.
+`unmodelled` also lists the sources on their own; the app sends a swap that
+changes that list to SimC. `--set gear.trinket_effects=0` and
+`--set gear.set_bonuses=0` switch the two off. Adding a trinket: write its
+entry, rerun `tools/gamedata.py` (it keeps data for every spell the templates
+name) and check it against SimC on the same character.
+
 ## Casters
 
 Fire Mage and Destruction Warlock carry `[gear]` tables too. Casters have no
@@ -80,9 +131,14 @@ Fire 148,405 vs 148,397 (+0.01%; SimC 147,351), Destruction 155,828 vs
 - The `[gear]` constants are per spec and race (all dwarf
   today). The casters' `[gear.procs]` averages were observed on the sample
   gear and stay fixed when the gear changes; racial stat bonuses such as Human's +2% secondaries, enchants that
-  work through a spell aura (ring crit-damage, weapon procs), embellishments,
-  and set bonuses aren't read from data yet. Two rare item-level bonuses are
+  work through a spell aura (ring crit-damage, weapon procs) and
+  embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
-  340 vs 341). On-equip primary stat from trinkets counts; their effects
-  don't. Item data is the full equippable item set of build 12.1.5.70575
-  (793 KB gzip'd); rebuild it per patch with `tools/gamedata.py`.
+  340 vs 341). Trinket effects and set bonuses count only where the
+  effect library has an entry (six trinket effects and two sets so far,
+  see above); others are reported as `unmodelled`. Library procs are rolled
+  on direct hits as real PPM, but which hits may trigger them isn't read from
+  the proc flags. On-use items share no category cooldown, and Font of
+  Venomous Rage is used on cooldown where SimC's APL waits for the other
+  trinket. Item data is the full equippable item set of build 12.1.5.70575
+  (871 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.

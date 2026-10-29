@@ -105,9 +105,23 @@ pub struct PetMelee {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ProcDef {
     pub ability: String,
+    #[serde(default)]
     pub per_minute: f64,
     #[serde(default)]
     pub hasted: bool,
+    /// Rolled on the player's direct hits instead of on a clock: SimC's real
+    /// PPM (`per_minute`, with bad-luck protection) or a flat `chance` per hit,
+    /// at most once per timestamp. Hits from `no_procs` abilities and pets
+    /// don't count, and nothing is rolled while the ability's `requires_buff`
+    /// is down (a proc that only runs during a buff).
+    #[serde(default)]
+    pub on_hit: bool,
+    /// Flat chance per hit (on_hit procs without `per_minute`).
+    #[serde(default)]
+    pub chance: f64,
+    /// Internal cooldown in seconds after a successful proc (on_hit procs).
+    #[serde(default)]
+    pub icd: f64,
 }
 
 /// Final, fully-buffed character stats. Gear -> stats is a later layer;
@@ -220,6 +234,12 @@ pub struct AbilityDef {
     /// Effects when a direct-damage hit doesn't crit.
     #[serde(default)]
     pub on_noncrit: Vec<Effect>,
+    /// Effects when a cast is paid by `free_with` (applied as the buff is consumed).
+    #[serde(default)]
+    pub on_free: Vec<Effect>,
+    /// Its hits never trigger on-hit procs (gear proc damage).
+    #[serde(default)]
+    pub no_procs: bool,
     /// Report damage under this source name instead of the ability's own
     /// (several variants of one spell, e.g. hardcast vs instant).
     #[serde(default)]
@@ -238,6 +258,9 @@ pub struct DamageDef {
     /// Fraction of weapon damage added (normalized to the weapon's own speed).
     #[serde(default)]
     pub weapon_mult: f64,
+    /// Flat damage added to the coefficient part (gear procs: item-level scaled).
+    #[serde(default)]
+    pub amount: f64,
     #[serde(default = "default_school")]
     pub school: String,
     #[serde(default)]
@@ -495,6 +518,16 @@ pub struct BuffDef {
     /// Attack/spell power increase (percent), e.g. a primary-stat buff.
     #[serde(default)]
     pub power_pct: f64,
+    /// Versatility points (percent: 2 = +0.02 versatility).
+    #[serde(default)]
+    pub versatility_pct: f64,
+    /// Per-stack gear stats ("primary", "crit_rating", "haste_rating",
+    /// "mastery_rating", "versatility_rating"). With gear lines they are
+    /// turned into the percent fields above from the character's own stats;
+    /// without, they do nothing.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub stats: HashMap<String, f64>,
     #[serde(default)]
     pub haste_pct: f64,
     /// Reduces the global cooldown only (percent speed-up).

@@ -44,6 +44,10 @@ haste_mult = 1.02             # [obs] 19.87% at 771 rating (17.52%): x1.02, mult
 mastery_points = 15           # [obs] incl. 2 Skyfury, in mastery points (73.57% at 21.78 points from rating)
 mastery_coeff = 2.0           # [obs] Chaotic Energies: +500 mastery probe gives +21.21% over +10.60 points
 versatility_bonus = 0.03      # [obs] Mark of the Wild
+# Damage of the library's gear procs (data/item_effects.toml): the raid
+# debuffs the calibrated sources carry in their fitted multipliers, Mystic
+# Touch (+5% physical), Chaos Brand (+3% magic) and Hunter's Mark (+3%). [simc]
+effect_mult = { physical = 1.0815, magic = 1.0609 }
 
 # The time-averaged gear stat procs folded into [player] above (34 intellect
 # = 38 spell power), so --gear lands on the same final stats. They belong to

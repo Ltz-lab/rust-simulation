@@ -118,7 +118,8 @@ raid buffs, Bloodlust, and SimC's default consumables. The core-kit
 calibration models none of the extras, so on the app's test character
 (`validation/cases/retribution_paladin.txt` in dpsmaxxing, the MID2 sample
 gear with its trinkets and tier set) azsim gave **144,343** where SimC gives
-**218,843**. SimC numbers below are 20,000 iterations, seed 1, ±~95 DPS.
+**218,843**. With consumables, Bloodlust, trinket effects and the tier set it
+now gives 227,081 against a like-for-like 225,566 (below). SimC numbers below are 20,000 iterations, seed 1, ±~95 DPS.
 
 ### Where SimC's DPS comes from
 
@@ -197,48 +198,74 @@ replaced by their stats, no tier set, and `omnium_talents` on to match the
 calibration. Through the app's batch path (seed 1, 0.2% target error):
 **144,343 → 165,849**, against SimC's 218,843 for the full character.
 
-### What's left: trinkets and tier set
+### Trinkets and tier set
 
-Of the remaining 53,000 DPS (24% of SimC's), trinket effects and the tier set
-are nearly all of it; the other ~3.6% runs the other way (`omnium_talents`).
-Both need engine work, so neither is in this change.
+With gear lines azsim now also models the character's trinket effects and set
+bonuses (see [gear.md](gear.md#trinkets-and-set-bonuses) for the effect
+library):
 
-**Tier set (MID2 2pc + 4pc), ~35,000 DPS on this character.** In SimC's
-paladin module (`sc_paladin.hpp`, the spender's execute):
-- 2pc: consuming Divine Purpose triggers *Divine Power*, a damage buff (84%
-  uptime here). Needs an effect that fires *when `free_with` is consumed*:
-  today a free spend can't trigger anything of its own.
-- 4pc: consuming Divine Purpose with one kind of spender arms an *Arbiter*
-  buff for a different kind (Final Verdict arms Divine Storm's and the other
-  way round); the next spender of that other kind spends it and fires
-  *Divine Arbiter* (1306923, 10.125 AP holy). Worth 23,000 DPS by itself, and
-  it changes the rotation: SimC hard-casts Divine Storm (+6,000) in place of
-  Final Verdicts (−11,000). Needs the same on-free-spend hook, a hard-cast
-  Divine Storm with its APL conditions, and the cross-spender consume, which
-  `requires_buff` triggers can already express.
-- The set needs gear to know it's worn: set membership from item ids (the app
-  already has a set table, `gearsim/surrogate._item_sets`), switching spec
-  sections on by piece count.
+- *Zul'jin's Guillotine Technique*: real-PPM physical proc, +2% damage per 1%
+  of target health missing; with the *Bite of Zul'jan* 2pc (the trinket plus
+  the main hand) it also applies Venomfang.
+- *Voracious Heart of Ula'tek*: on use, +480 strength for 20s, used as SimC's
+  APL does (in a fresh Avenging Wrath); meanwhile hits proc Devour Morsel,
+  each stacking +54 strength.
+- *MID2 2pc* (spec data in `[[gear.effects]]`, keyed by set bonus 1296660):
+  consuming Divine Purpose grants Divine Power (+10% Holy damage, 12s), and
+  Divine Purpose procs on 20% of spenders instead of 10% [db2 1296660 effect
+  1]. Free casts run the spender's new `on_free` effects.
+- *MID2 4pc* (1296661): consuming Divine Purpose arms a Divine Arbiter for
+  the other spender; that spender (or Empyrean Legacy's free Divine Storm)
+  spends it for 10.125 AP of Holy damage. With one armed by Final Verdict the
+  rotation hard-casts Divine Storm ahead of Final Verdict, as SimC's APL.
 
-**Trinkets, ~26,000 DPS of effects on top of their stats.** Each trinket is
-its own effect, as in SimC's `unique_gear_midnight.cpp`:
-- *Zul'jin's Guillotine Technique*: a damage proc whose damage rises with the
-  target's missing health (+x% per 1% missing). Perfected Guillotine, 9,558
-  DPS with the Bite of Zul'jan 2pc, which also adds a Venomfang hit. Needs
-  health-scaled damage (the engine already tracks target health for
-  `below_health`) and the 2pc check.
-- *Voracious Heart of Ula'tek*: an on-use primary-stat buff; while it's up
-  every hit can proc Devour Morsel (2,402 DPS) and stacks Devoured Strength,
-  which falls off with the buff. Needs procs that only run while a buff is up
-  and stacking stat buffs. The on-use itself is plain data.
-- Common to both: **effect values scale with item level**. Gear has to map a
-  trinket's item id to an effect template and scale its numbers from the
-  spell-effect coefficients and item-level budgets, the same tables gear
-  stats already use. That per-item effect library is the bulk of the work,
-  and it's what lets the app's Top Gear compare trinkets by their effects
-  rather than their stats.
+Per piece, on the app's test character (20,000 iterations, seed 1; SimC
+like-for-like = `omnium_talents` on, pieces azsim doesn't run replaced by
+their stats or switched off with `set_bonus=...=0`):
 
-Once both are in, expect azsim at about SimC's like-for-like 225,641 plus the
-calibration's ~+0.5–0.9%. That's about 3.6% over the 218,843 SimC gives for
-the character as the app sends it, until the character's `omnium_talents` are
-modelled or passed through.
+| | azsim | SimC like-for-like | diff |
+|---|---:|---:|---:|
+| kit, trinkets as stats, no set bonuses (before) | 165,910 | 164,959 | +0.58% |
+| + trinket effects | 189,914 | 188,312 | +0.85% |
+| + set bonuses (trinkets as stats) | 199,841 | 198,708 | +0.57% |
+| + both (the character as the app sends it) | **227,081** | 225,566 | +0.67% |
+| gain from trinket effects | +24,004 | +23,353 | |
+| gain from set bonuses | +33,931 | +33,749 | |
+
+`--set gear.trinket_effects=0` and `--set gear.set_bonuses=0` give the rows
+above; set bonuses here include Bite of Zul'jan's. Through the app's batch
+path (seed 1, 0.2% target error) the character goes **165,849 → 226,932**,
+against SimC's 218,846 for it as sent: +3.7%, the `omnium_talents` the
+character lacks but the calibration bakes in (+3.6% in SimC, see above).
+
+Against SimC's per-source breakdown, the new pieces land on the counts and
+per-hit damage: Divine Arbiter 36.3 hits a fight (SimC 36.3) at 122,114 per
+non-crit hit (121,950), Divine Storm 38.0 casts (38.3), Guillotine 24.6
+(23.9) at 79,557 (79,456), Devour Morsel 35.8 (35.3) at 12,708 (12,734).
+Two numbers are fitted, both `[obs]`: Divine Arbiter's residual multiplier
+(1.54, the role the calibration plays for every other source) and its crit
+damage (x2.22). Hard-cast Divine Storm takes the calibrated `divine_storm`
+(Empyrean Legacy's) divided by Empyrean Legacy's +25%.
+
+The bag trinkets, each swapped into either slot, against SimC scaled by the
+same +3.76% `omnium_talents` offset: Gaze of the Alnseer and Twisted Horror's
+Tendril within 0.1%, Font of Venomous Rage +0.7% to +1.1% (SimC's APL holds
+it until the other trinket is used: 1.8 uses a fight against 2.0).
+
+### What's left
+
+- The character's `omnium_talents` (+3.6%) aren't passed through.
+- **Non-trinket item effects count by their stats alone.** On this character
+  Loa Worshiper's Band (finger2, a scripted proc that picks a loa by the
+  socketed gem colours) is worth about 3,000 DPS in SimC; azsim keeps its
+  stats only, and keeps the Ret spec's built-in Venomfang and Rune of
+  Unleashed Fire procs whatever the gear. That is now most of the
+  difference in Top Gear: the app's `scripts/compare_engines.py` runs this
+  character's whole Top Gear on azsim (480 combinations, 4.3s against
+  SimC's 6.7s) but picks Providence Watch plus Sickening Signet in place of
+  that ring (+2,437; SimC −1,353), where SimC picks Providence Watch alone
+  (SimC +1,028, azsim +1,859). Re-simmed precisely in both engines, the
+  combinations that keep the ring rank alike.
+- Divine Arbiter's multiplier is fitted to this character's log; a
+  reference with the tier set on (or a log) would let the calibration fit it
+  with the other sources.

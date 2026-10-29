@@ -96,8 +96,10 @@ def ensure_engine():
 
 
 def core_kit(spec):
-    """SimC runs here are core kit, so switch off the spec's consumables/Bloodlust."""
-    return ["--set", "gear.kit.enabled=0"] if "[gear.kit]" in open(spec).read() else []
+    """SimC runs here are core kit, so switch off the spec's consumables/Bloodlust,
+    trinket effects and set bonuses."""
+    off = ["--set", "gear.trinket_effects=0", "--set", "gear.set_bonuses=0"]
+    return (["--set", "gear.kit.enabled=0"] if "[gear.kit]" in open(spec).read() else []) + off
 
 
 def run_azsim_gear_stats(spec, gear_path):
