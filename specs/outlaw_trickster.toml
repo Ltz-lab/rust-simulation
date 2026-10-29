@@ -1,0 +1,787 @@
+# Outlaw Rogue — Trickster, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Rogue_Outlaw.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_rogue.cpp) or its APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# Outlaw runs on energy (10/s + Vigor 5/s, hasted) and combo points (7).
+# Sinister Strike procs Opportunity (30%, +25% while Roll the Bones is up);
+# Pistol Shot spends its charges with Fan the Hammer. Finishers (Between the
+# Eyes, Killing Spree, Coup de Grace, Dispatch) feed Restless Blades, Cut to
+# the Chase and Ruthlessness. Roll the Bones rolls one of four states.
+# Trickster adds Unseen Blade (Fazed, Escalating Blade), Flawless Form and the
+# Coup de Grace finisher.
+
+name = "Outlaw Rogue (Trickster, core kit)"
+
+# Stealth out of combat, Adrenaline Rush (which also feeds Improved
+# Adrenaline Rush's full combo points, Loaded Dice and Supercharger), Slice
+# and Dice and Roll the Bones [simc precombat APL].
+precombat = ["outlaw_precombat"]
+
+[player]
+# Snapshot from the core-kit reference (reference/outlaw_core_observations.json),
+# with the in-fight value of the crit and haste procs folded in (see the
+# gear-proc comments below).
+attack_power = 3577      # [obs] SimC's in-fight average attack power: +200 agility moves DPS 5.87%, so damage scales on ~3,577 AP
+spell_power = 433        # [obs] only the gear procs below use it
+crit = 0.336             # [obs] SimC's in-fight base crit chance (snapshot 0.2739 + proc/raid buffs)
+haste = 0.352            # [obs] 0.339 snapshot + Venomcursed Haste's average
+versatility = 0.1902     # [obs]
+mastery = 0.1426         # [obs] only Main Gauche scales with it
+crit_multiplier = 2.13   # [obs] crit/non-crit of auto attacks and Instant Poison
+# Main hand is a 2.6s one-hander (117.64 dps at ilvl 344, damage variance 0.6)
+# [db2 item 268209, data/gamedata.json.gz].
+weapon = { min = 214.1, max = 397.6, speed = 2.6 }
+# Off hand is a 1.8s dagger [db2 item 275070]; its weapon damage is folded
+# into auto_attack_oh's coefficient below (the engine rolls the main-hand
+# weapon for off-hand-replacement abilities too).
+off_hand = { min = 0, max = 0, speed = 1.8 }
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.1          # [simc] rogue_t::available(): re-check at least every 100ms while pooling
+
+[resources.energy]
+max = 150                # [db2] 100 + Vigor's 50 (Adrenaline Rush's temporary +50 isn't modelled)
+start = 100              # [obs] full out of combat
+regen = 13.14            # [obs] SimC's Energy Regen gain: 17.6/s at 33.9% haste
+regen_hasted = true      # [simc] DYNAMIC regeneration with haste in the regen caches
+
+[resources.combo_points]
+max = 7                  # [db2] 5 + Deeper Stratagem + Devious Stratagem
+start = 1                # [obs] after the precombat SnD spends 7 and Ruthlessness returns 1
+
+[auto_attack]
+replace_with = "mh_swing"
+off_hand_replace_with = "oh_swing"
+wakes = false            # [simc] READY_TRIGGER: re-checks on resources and every 100ms, not on swings
+
+# ---------------------------------------------------------------- procs
+# Instant Poison: 30% per strike (white and yellow melee) [db2 315584].
+[[procs]]
+ability = "instant_poison"
+on_hit = true
+chance = 0.30
+
+# Main Gauche: 30% of main-hand attacks [db2 76806]. Only the attacks that
+# SimC marks procs_main_gauche.
+[[procs]]
+ability = "main_gauche"
+on_hit = true
+chance = 0.30
+sources = ["auto_attack_mh", "sinister_strike", "sinister_strike_extra_attack", "dispatch", "killing_spree_mh", "unseen_blade", "coup_de_grace"]
+
+# Unseen Blade fires from Sinister Strike, Pistol Shot and Ambush whenever its
+# 20s lockout is down; Thousand Cuts (4.5 RPPM hasted on auto attacks) clears
+# the lockout, which is what makes the observed rate [obs 67.1 hits a fight =
+# 13.4/min]. Modelled as a flat Poisson rate; Disorienting Strikes' extra
+# procs are inside that observed number.
+[[procs]]
+ability = "unseen_blade"
+per_minute = 13.4
+
+# Weapon and gear passives that remain in the core kit [obs rates]
+[[procs]]
+ability = "searing_lightwood"     # off-hand weapon proc, 45.8 hits a fight
+per_minute = 9.17
+
+[[procs]]
+ability = "venomfang_apply"       # main-hand weapon dot, 38.1 applications a fight
+per_minute = 7.62
+
+[[procs]]
+ability = "rune_of_unleashed_fire"  # ring/gem rune, 43.8 hits a fight
+per_minute = 8.75
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "adrenaline_rush"    # [db2 13750: 15s]
+duration = 15
+resource_regen_pct = { energy = 75 }   # [db2 #1]
+attack_speed_pct = 20                  # [db2 #2]
+# Menacing Rush: Adrenaline Rush also grants +20% damage to its listed spells
+# [db2 1256630 effects #1/#2 on 13750 effects #4/#5].
+ability_pct = { dispatch = 20, killing_spree = 20, killing_spree_mh = 20, killing_spree_oh = 20, pistol_shot = 20, pistol_shot_fan_the_hammer = 20, sinister_strike = 20, between_the_eyes = 20, coup_de_grace = 20 }
+
+[[buffs]]
+name = "loaded_dice"        # [db2 256171: 45s] next Roll the Bones is one state higher
+duration = 45
+
+[[buffs]]
+name = "slice_and_dice"     # [db2 315496: 6s] +50% attack speed, +10% Thousand Cuts
+duration = 6
+attack_speed_pct = 60
+attack_speed_per_haste = 1  # Swift Slasher: plus your haste [db2 381988, simc]
+
+[[buffs]]
+name = "roll_the_bones"     # container buff [db2 1214909: 30s]
+duration = 30
+
+# Roll the Bones states: 30s. Dragon-Bone Dice raises the builder damage
+# bonus from 15% to 20% and Jackpot's crit from 10% to 15% [db2 1259481].
+[[buffs]]
+name = "rtb1"               # One of a Kind: only the Opportunity proc bonus
+duration = 30
+
+[[buffs]]
+name = "rtb2"               # Double Trouble: +20% Sinister Strike, +1 CP on SS
+duration = 30
+ability_pct = { sinister_strike = 20, sinister_strike_extra_attack = 20 }
+
+[[buffs]]
+name = "rtb3"               # Triple Threat: as rtb2
+duration = 30
+ability_pct = { sinister_strike = 20, sinister_strike_extra_attack = 20 }
+
+[[buffs]]
+name = "rtb4"               # Jackpot: as rtb3, +15% crit
+duration = 30
+ability_pct = { sinister_strike = 20, sinister_strike_extra_attack = 20 }
+crit_pct = 15
+
+[[buffs]]
+name = "opportunity"        # [db2 195627: 12s, up to 6 charges]
+duration = 12
+max_stacks = 6
+flat = true                 # bonuses apply once, stacks only count charges
+ability_pct = { pistol_shot = 120, pistol_shot_fan_the_hammer = 120 }   # [db2 #2 + Quick Draw]
+
+[[buffs]]
+name = "zero_in"            # [db2 1259486: 20s, 20 stacks] +2% crit and +2% BtE damage per stack
+duration = 20
+max_stacks = 20
+ability_crit_pct = { between_the_eyes = 2 }
+ability_pct = { between_the_eyes = 2 }
+
+[[buffs]]
+name = "supercharge"        # [db2 470347] +3 effective CP each, consumed by finishers
+duration = 1e9
+max_stacks = 2
+
+[[buffs]]
+name = "between_the_eyes"   # [db2 315341: 2s per combo point, 16s at 7] +7% damage [db2 #2/#3 + Fast Action + Expert Duelist]
+duration = 16
+damage_pct = 7
+
+[[buffs]]
+name = "fazed"              # [db2 441224: 10s] +5% damage taken, +3% Hoodwink
+duration = 10
+damage_pct = 8
+
+[[buffs]]
+name = "escalating_blade"   # [db2 441786] 4 Unseen Blades arm Coup de Grace
+duration = 1e9
+max_stacks = 4
+
+[[buffs]]
+name = "flawless_form"      # [db2 441326: 12s, 5 stacks] +4% finisher damage per stack
+duration = 12
+max_stacks = 5
+ability_pct = { dispatch = 4, between_the_eyes = 4, killing_spree = 4, killing_spree_mh = 4, killing_spree_oh = 4, coup_de_grace = 4 }
+
+[[buffs]]
+name = "gravedigger"        # [db2 1265935: 30s] next Between the Eyes costs no energy
+duration = 30
+
+[[buffs]]
+name = "palmed_bullets"     # [db2 1265931: 30s, 10 stacks] 6 bullets load Gravedigger
+duration = 30
+max_stacks = 10
+
+[[buffs]]
+name = "deadly_precision"   # [db2 381542] +5% crit to combo-point generators
+duration = 1e9
+ability_crit_pct = { sinister_strike = 5, sinister_strike_extra_attack = 5, pistol_shot = 5, pistol_shot_fan_the_hammer = 5 }
+
+[[buffs]]
+name = "clever_combatant"   # [db2 1276679] Pistol Shot +20% crit
+duration = 1e9
+ability_crit_pct = { pistol_shot = 20, pistol_shot_fan_the_hammer = 20 }
+
+[[buffs]]
+name = "ks_cp"              # Killing Spree's snapshotted combo points (tick count)
+duration = 30
+max_stacks = 12
+
+[[buffs]]
+name = "cp_bonus"           # Coup de Grace counts as 5 more combo points [db2 441423 #3]
+duration = 1
+max_stacks = 12
+
+# ---------------------------------------------------------------- precombat
+
+[[abilities]]
+name = "outlaw_precombat"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "adrenaline_rush" },        # buff + cooldown + loaded dice + supercharger + 7 CP
+  { type = "buff", buff = "slice_and_dice", duration = 48 },# [obs] 6s x (7+1) precombat SnD
+  { type = "trigger", ability = "rtb_roll" },
+  { type = "buff", buff = "roll_the_bones" },
+  { type = "consume", buff = "loaded_dice" },
+  { type = "gain", resource = "combo_points", amount = -6 },# 7 from Improved AR, less SnD's Ruthlessness [obs start CP 1]
+  { type = "buff", buff = "deadly_precision" },
+  { type = "buff", buff = "clever_combatant" },
+]
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "adrenaline_rush"
+spell_id = 13750
+gcd = 0                     # off the GCD [db2]
+cooldown = 180              # [db2]
+on_cast = [
+  { type = "buff", buff = "adrenaline_rush" },
+  { type = "buff", buff = "loaded_dice" },
+  { type = "buff", buff = "supercharge", stacks = 2 },   # Supercharger 2/2 [db2 470347]
+  { type = "gain", resource = "combo_points", amount = 7 },  # Improved Adrenaline Rush [db2 395422]
+]
+
+[[abilities]]
+name = "preparation"
+spell_id = 1277933
+gcd = 1.07
+cooldown = 240              # [db2]
+on_cast = [
+  { type = "reset_cooldown", ability = "adrenaline_rush" },
+  { type = "reset_cooldown", ability = "between_the_eyes" },
+  { type = "reset_cooldown", ability = "killing_spree" },
+]
+
+[[abilities]]
+name = "keep_it_rolling"
+spell_id = 381989
+gcd = 0
+cooldown = 360              # [db2]
+on_cast = [
+  { type = "extend_buff", buff = "roll_the_bones", seconds = 30 },
+  { type = "extend_buff", buff = "rtb2", seconds = 30 },
+  { type = "extend_buff", buff = "rtb3", seconds = 30 },
+  { type = "extend_buff", buff = "rtb4", seconds = 30 },
+]
+
+[[abilities]]
+name = "roll_the_bones"
+spell_id = 1214909
+cost = { energy = 23.5 }    # 25 - Tight Spender 6% [db2]
+gcd = 1.07
+cooldown = 45               # [db2]
+on_cast = [
+  { type = "consume", buff = "rtb1", all = true },
+  { type = "consume", buff = "rtb2", all = true },
+  { type = "consume", buff = "rtb3", all = true },
+  { type = "consume", buff = "rtb4", all = true },
+  { type = "trigger", ability = "rtb_roll" },
+  { type = "consume", buff = "loaded_dice" },
+  { type = "buff", buff = "roll_the_bones" },
+]
+
+# The state roll: base odds 55/30/10/5 [simc], Loaded Dice adds one state
+# (2/3/4 at 44/35/21%), Sleight of Hand's 20% bump is folded into those.
+[[abilities]]
+name = "rtb_roll"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "if", if = "buff.loaded_dice.up", then = [
+    { type = "trigger", ability = "rtb4", chance = 0.30 },
+    { type = "if", if = "!buff.rtb4.up", then = [{ type = "trigger", ability = "rtb3", chance = 0.55 }] },
+    { type = "if", if = "!buff.rtb2.up&!buff.rtb3.up&!buff.rtb4.up", then = [{ type = "trigger", ability = "rtb2" }] },
+  ], else = [
+    { type = "trigger", ability = "rtb4", chance = 0.12 },
+    { type = "if", if = "!buff.rtb4.up", then = [{ type = "trigger", ability = "rtb3", chance = 0.35 }] },
+    { type = "if", if = "!buff.rtb2.up&!buff.rtb3.up&!buff.rtb4.up", then = [{ type = "trigger", ability = "rtb2", chance = 0.45 }] },
+    { type = "if", if = "!buff.rtb2.up&!buff.rtb3.up&!buff.rtb4.up", then = [{ type = "trigger", ability = "rtb1" }] },
+  ] },
+]
+
+[[abilities]]
+name = "rtb1"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "rtb1", duration = 30 }]
+
+[[abilities]]
+name = "rtb2"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "rtb2", duration = 30 }]
+
+[[abilities]]
+name = "rtb3"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "rtb3", duration = 30 }]
+
+[[abilities]]
+name = "rtb4"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "rtb4", duration = 30 }]
+
+[[abilities]]
+name = "thistle_tea"        # [db2 381623: 3 charges, 60s recharge] auto-drunk below 30 energy
+gcd = 0
+cooldown = 60
+charges = 3
+on_cast = [{ type = "gain", resource = "energy", amount = 100 }]
+
+# ---------------------------------------------------------------- finishers
+
+[[abilities]]
+name = "between_the_eyes"
+spell_id = 315341
+cost = { combo_points = 1 }
+cost_expr = { energy = "23.5*(1-buff.gravedigger.up)" }   # 25 - Tight Spender; Gravedigger makes it free
+cost_max = { combo_points = 7 }
+cooldown = 37               # [db2] 45 - Fast Action 8
+gcd = 1.07
+damage = { ap_coeff = 0.751, school = "physical", crit_damage_bonus = 0.5, scale = "spent.combo_points+3*buff.supercharge.up" }
+on_cast = [
+  { type = "buff", buff = "between_the_eyes" },
+  { type = "consume", buff = "zero_in", all = true },
+  { type = "trigger", ability = "finisher_common" },
+  { type = "trigger", ability = "ace_up", chance_expr = "0.06*(spent.combo_points+3*buff.supercharge.up)" },
+  { type = "if", if = "buff.gravedigger.up", then = [
+    { type = "consume", buff = "gravedigger" },
+    { type = "gain", resource = "combo_points", amount = 6 },       # [db2 1279356]
+    { type = "reset_cooldown", ability = "between_the_eyes" },
+    { type = "buff", buff = "palmed_bullets", set = "buff.palmed_bullets.stack-6" },
+  ] },
+  { type = "consume", buff = "supercharge" },
+]
+
+[[abilities]]
+name = "killing_spree"
+spell_id = 51690
+cost = { energy = 42.3, combo_points = 1 }   # 45 - Tight Spender
+cost_max = { combo_points = 7 }
+cooldown = 180              # [db2]
+gcd = 1.07
+channel = { ticks = 7, ticks_expr = "(buff.ks_cp.stack<7)*buff.ks_cp.stack+7*(buff.ks_cp.stack>=7)" }
+on_cast = [
+  { type = "buff", buff = "ks_cp", set = "spent.combo_points+3*buff.supercharge.up" },
+  { type = "trigger", ability = "finisher_common" },
+  { type = "consume", buff = "supercharge" },
+  { type = "buff", buff = "flawless_form", stacks = 5 },
+]
+[abilities.dot]
+name = "killing_spree"
+tick_time = 0.5             # [db2] 0.5s, x1.339 haste, x0.83 while Adrenaline Rush
+tick_time_expr = "0.5*(1-0.17*buff.adrenaline_rush.up)"
+duration = 10
+hasted = true
+whole_ticks = true
+tick_on_apply = true        # tick_zero [simc]
+on_tick = [
+  { type = "trigger", ability = "killing_spree_mh" },
+  { type = "trigger", ability = "killing_spree_oh" },
+  { type = "gain", resource = "combo_points", amount = 1 },     # [db2 1235074]
+]
+
+[[abilities]]
+name = "killing_spree_mh"
+triggered_only = true
+damage = { ap_coeff = 2.25, school = "physical", scale = "1+0.15*(buff.ks_cp.stack-7)*(buff.ks_cp.stack>7)" }
+on_cast = [{ type = "buff", buff = "fazed" }]     # Devious Distractions [db2 441263]
+
+[[abilities]]
+name = "killing_spree_oh"
+triggered_only = true
+damage = { ap_coeff = 2.25, school = "physical", scale = "1+0.15*(buff.ks_cp.stack-7)*(buff.ks_cp.stack>7)" }
+
+[[abilities]]
+name = "coup_de_grace"
+spell_id = 441776
+requires_buff = "escalating_blade"
+cost = { energy = 32.9, combo_points = 1 }   # 35 - Tight Spender
+cost_max = { combo_points = 7 }
+gcd = 1.2                   # [db2]
+on_cast = [
+  { type = "trigger", ability = "coup_de_grace_damage_1" },
+  { type = "trigger", ability = "coup_de_grace_damage_2" },
+  { type = "trigger", ability = "coup_de_grace_damage_3" },
+  { type = "consume", buff = "supercharge" },
+  { type = "consume", buff = "escalating_blade", all = true },
+  { type = "buff", buff = "cp_bonus", set = "5" },
+  { type = "trigger", ability = "finisher_common" },
+  { type = "buff", buff = "cp_bonus", set = "0" },
+  { type = "if", if = "buff.fazed.up", then = [{ type = "buff", buff = "flawless_form", stacks = 5 }] },
+  { type = "trigger", ability = "scoundrel_strike_coup_de_grace" },
+  { type = "trigger", ability = "palmed_proc", chance_expr = "0.12*(spent.combo_points+3*buff.supercharge.up)" },
+]
+
+# The three Coup de Grace strikes [db2 462140/462239/462240], each with the
+# cast's combo points plus 5 [db2 441423 #3].
+[[abilities]]
+name = "coup_de_grace_damage_1"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.153, school = "physical", scale = "spent.combo_points+5+3*buff.supercharge.up" }
+
+[[abilities]]
+name = "coup_de_grace_damage_2"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.153, school = "physical", scale = "spent.combo_points+5+3*buff.supercharge.up" }
+
+[[abilities]]
+name = "coup_de_grace_damage_3"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.306, school = "physical", scale = "spent.combo_points+5+3*buff.supercharge.up" }
+
+[[abilities]]
+name = "dispatch"
+spell_id = 2098
+cost = { energy = 32.9, combo_points = 1 }   # 35 - Tight Spender
+cost_max = { combo_points = 7 }
+gcd = 1.07
+damage = { ap_coeff = 0.6116, school = "physical", scale = "spent.combo_points+3*buff.supercharge.up" }
+on_cast = [
+  { type = "trigger", ability = "finisher_common" },
+  { type = "trigger", ability = "fatal_flourish", chance = 0.25 },
+  { type = "trigger", ability = "scoundrel_strike_dispatch" },
+  { type = "trigger", ability = "palmed_proc", chance_expr = "0.12*(spent.combo_points+3*buff.supercharge.up)" },
+  { type = "consume", buff = "supercharge" },
+]
+
+# Gravedigger: 5+ combo-point Dispatches (and Coups) strike again [db2 1265862].
+[[abilities]]
+name = "scoundrel_strike_dispatch"
+triggered_only = true
+damage = { ap_coeff = 1.6, school = "physical" }
+
+[[abilities]]
+name = "scoundrel_strike_coup_de_grace"
+triggered_only = true
+damage = { ap_coeff = 1.6, school = "physical" }
+
+# ---------------------------------------------------------------- builders
+
+[[abilities]]
+name = "sinister_strike"
+spell_id = 193315
+cost = { energy = 45 }      # [db2]
+gain = { combo_points = 1 } # [db2]
+gcd = 1.07
+damage = { ap_coeff = 1.223, school = "physical", crit_damage_bonus = 0.5 }
+on_cast = [
+  { type = "if", if = "buff.rtb2.up|buff.rtb3.up|buff.rtb4.up", then = [
+    { type = "gain", resource = "combo_points", amount = 1 },   # Roll the Bones [db2 #2]
+  ] },
+  { type = "trigger", ability = "opportunity_proc", chance_expr = "0.30+0.25*buff.roll_the_bones.up" },
+]
+
+[[abilities]]
+name = "opportunity_proc"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "opportunity", stacks = 3 },   # Fan the Hammer 2/2 [db2 381846 #1]
+  { type = "trigger", ability = "sinister_strike_extra_attack", delay = 0.3 }   # [simc] 300ms secondary,
+]
+
+[[abilities]]
+name = "sinister_strike_extra_attack"
+triggered_only = true
+damage = { ap_coeff = 1.223, school = "physical", crit_damage_bonus = 0.5 }
+on_cast = [
+  { type = "gain", resource = "combo_points", amount = 1 },
+  { type = "if", if = "buff.rtb2.up|buff.rtb3.up|buff.rtb4.up", then = [
+    { type = "gain", resource = "combo_points", amount = 1 },
+  ] },
+]
+
+[[abilities]]
+name = "pistol_shot"
+spell_id = 185763
+cost = { energy = 18.8 }    # 40, halved by Opportunity, less Tight Spender [db2 195627 #1]
+gain = { combo_points = 1 } # [db2]
+gcd = 1.07
+damage = { ap_coeff = 0.834, school = "physical", crit_damage_bonus = 0.5 }
+on_cast = [
+  { type = "gain", resource = "combo_points", amount = 3 },   # Quick Draw: 1 per charge consumed [db2 1254567]
+  { type = "consume", buff = "opportunity" },
+  { type = "consume", buff = "opportunity" },
+  { type = "consume", buff = "opportunity" },
+  { type = "trigger", ability = "pistol_shot_fan_the_hammer", count = "2", interval = 0.1 },
+  { type = "trigger", ability = "fatal_flourish", chance = 0.25 },
+]
+
+[[abilities]]
+name = "pistol_shot_fan_the_hammer"
+triggered_only = true
+damage = { ap_coeff = 0.834, school = "physical", crit_damage_bonus = 0.5, mult = 0.8 }   # -20% per extra shot [db2 381846 #3]
+on_cast = [{ type = "trigger", ability = "fatal_flourish", chance = 0.25 }]
+
+# ---------------------------------------------------------------- Trickster
+
+[[abilities]]
+name = "unseen_blade"
+spell_id = 441144
+triggered_only = true
+damage = { ap_coeff = 2.8, school = "physical" }
+on_cast = [
+  { type = "buff", buff = "fazed" },
+  { type = "buff", buff = "escalating_blade" },
+  { type = "buff", buff = "flawless_form", stacks = 5 },
+]
+
+# ---------------------------------------------------------------- helpers
+
+# Restless Blades: 1s per combo point spent off the rogue's cooldowns, x1.4
+# with Jackpot + Dragon-Bone Dice [db2 79096, 1214937 #4, 1259481 #3].
+[[abilities]]
+name = "restless_blades"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "reduce_cooldown", ability = "adrenaline_rush", seconds_expr = "(1+0.4*(buff.rtb3.up|buff.rtb4.up))*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)" },
+  { type = "reduce_cooldown", ability = "between_the_eyes", seconds_expr = "(1+0.4*(buff.rtb3.up|buff.rtb4.up))*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)" },
+  { type = "reduce_cooldown", ability = "killing_spree", seconds_expr = "(1+0.4*(buff.rtb3.up|buff.rtb4.up))*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)" },
+  { type = "reduce_cooldown", ability = "keep_it_rolling", seconds_expr = "(1+0.4*(buff.rtb3.up|buff.rtb4.up))*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)" },
+  { type = "reduce_cooldown", ability = "roll_the_bones", seconds_expr = "(1+0.4*(buff.rtb3.up|buff.rtb4.up))*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)" },
+]
+
+# Cut to the Chase: finishers extend Slice and Dice 3s per combo point [db2 51667].
+[[abilities]]
+name = "cut_to_the_chase"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "cut_extend", count = "spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack" }]
+
+[[abilities]]
+name = "cut_extend"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "extend_buff", buff = "slice_and_dice", seconds = 3 }]
+
+# Ruthlessness: 20% per combo point to refund a combo point (so 1 guaranteed,
+# plus 20-80% of a second at 6-9 spent) [db2 14161].
+[[abilities]]
+name = "ruthlessness_gain"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "gain", resource = "combo_points", amount = 1 },
+  { type = "trigger", ability = "ruthlessness_bonus", chance_expr = "0.2*(spent.combo_points+3*buff.supercharge.up+buff.cp_bonus.stack)-1" },
+]
+
+[[abilities]]
+name = "ruthlessness_bonus"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "combo_points", amount = 1 }]
+
+[[abilities]]
+name = "finisher_common"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "trigger", ability = "restless_blades" },
+  { type = "trigger", ability = "cut_to_the_chase" },
+  { type = "trigger", ability = "ruthlessness_gain" },
+]
+
+# Ace Up Your Sleeve 2/2: 6% per combo point to gain 4 CP and reset BtE [db2 381828, 394120].
+[[abilities]]
+name = "ace_up"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "gain", resource = "combo_points", amount = 4 },
+  { type = "reset_cooldown", ability = "between_the_eyes", keep_recharge = true },
+]
+
+# Gravedigger 3: Dispatches hide bullets; 6 of them make the next BtE free [db2 1265863, 1265935].
+[[abilities]]
+name = "palmed_proc"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "palmed_bullets" },
+  { type = "if", if = "buff.palmed_bullets.stack>=6&!buff.gravedigger.up", then = [
+    { type = "buff", buff = "gravedigger" },
+  ] },
+]
+
+# Fatal Flourish: 25% per hit, 8 energy, scaled by weapon speed / 2.6 [db2 35551, 35546, simc].
+[[abilities]]
+name = "fatal_flourish"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "energy", amount = 8 }]
+
+# ---------------------------------------------------------------- auto attacks
+# 16.4% of swings miss (dual wield) [obs]
+
+[[abilities]]
+name = "mh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_mh", chance = 0.836 }]
+
+[[abilities]]
+name = "oh_swing"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_oh", chance = 0.836 }]
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+damage = { ap_coeff = 0.1857, weapon_mult = 1.0, school = "physical" }   # AP/14 x 2.6s + weapon damage
+on_crit = [{ type = "trigger", ability = "zero_in_proc" }]
+
+[[abilities]]
+name = "auto_attack_oh"
+triggered_only = true
+# 1.8s dagger off hand at 50%: (dagger damage + AP/14 x 1.8) / 2, weapon damage
+# folded into the coefficient.
+damage = { ap_coeff = 0.1449, school = "physical" }
+on_crit = [{ type = "trigger", ability = "zero_in_proc", chance = 0.30 }]   # dagger: 30% [simc]
+on_cast = [{ type = "trigger", ability = "fatal_flourish", chance = 0.173 }] # 0.25 x 1.8/2.6
+
+[[abilities]]
+name = "zero_in_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "zero_in" }]
+
+# ---------------------------------------------------------------- damage procs
+
+[[abilities]]
+name = "main_gauche"
+spell_id = 86392
+triggered_only = true
+no_procs = true
+# 0.1% + 13.1% per mastery point; mastery_value is in points per percent [db2 76806].
+damage = { ap_coeff = 1.0, school = "physical", scale = "0.001+13.1*mastery" }
+on_cast = [{ type = "trigger", ability = "fatal_flourish", chance = 0.25 }]
+
+[[abilities]]
+name = "instant_poison"
+spell_id = 315585
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 0.074, school = "nature" }
+
+[[abilities]]
+name = "searing_lightwood"
+spell_id = 1296735
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 14.21, school = "holy" }   # [obs] 7,324 per non-crit hit at 433 spell power, 19% vers
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+no_procs = true
+on_cast = [{ type = "trigger", ability = "venomfang_burst", delay = 6.0 }]   # [db2] burst 6s after application
+[abilities.dot]
+name = "venomfang"
+sp_coeff = 3.468            # [obs] 1,787 per tick
+tick_time = 1.0             # [db2]
+duration = 6.0              # [db2]
+hasted = false
+school = "nature"
+crit_bonus = -2.0           # poison ticks don't crit [obs]
+refresh = "reset"
+
+[[abilities]]
+name = "venomfang_burst"
+spell_id = 1306639
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 6.53, school = "nature" }   # [obs] 3,367 per hit
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { sp_coeff = 13.56, school = "fire", crit_bonus = -2.0 }   # [obs] 6,987, never crits
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"
+spell_id = 1287663
+sp_coeff = 0.848            # [obs] 437 per tick
+tick_time = 1.0             # [db2]
+duration = 8.0              # [db2]
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+refresh = "reset"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Outlaw APL, single target, Trickster build.
+# Blade Rush is in SimC's APL but never becomes usable in the reference sim,
+# so it isn't used here either; Vanish/Ambush need Hidden Opportunity, which
+# this build doesn't take.
+
+[[rotation]]
+action = "thistle_tea"
+if = "energy<30"
+
+[[rotation]]
+action = "adrenaline_rush"
+if = "!buff.adrenaline_rush.up"
+
+[[rotation]]
+action = "preparation"
+if = "(cooldown.adrenaline_rush.remains>30&!cooldown.between_the_eyes.ready&!cooldown.killing_spree.ready)|fight_remains<=30"
+
+[[rotation]]
+action = "keep_it_rolling"
+if = "buff.rtb3.up|buff.rtb4.up"
+
+[[rotation]]
+action = "roll_the_bones"
+if = "!buff.roll_the_bones.up|(buff.rtb2.up&buff.loaded_dice.up)|(buff.rtb1.up&!buff.loaded_dice.up)"
+
+# finish_condition = combo_points >= cp_max_spend - 1 = 6 [simc]
+[[rotation]]
+action = "between_the_eyes"
+if = "combo_points>=6&!(buff.supercharge.stack=1&cooldown.killing_spree.ready)&energy>=(23.5+42.3*(buff.supercharge.up&cooldown.killing_spree.ready))"
+
+[[rotation]]
+action = "killing_spree"
+if = "combo_points>=6&(buff.supercharge.up|cooldown.adrenaline_rush.remains>120)&energy>=43"
+
+[[rotation]]
+action = "coup_de_grace"
+if = "combo_points>=6&buff.escalating_blade.stack>=4&energy>=33&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"
+
+[[rotation]]
+action = "dispatch"
+if = "combo_points>=6&energy>=33&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"
+
+# Fan the Hammer: spend at 6 charges or when they're about to expire [simc].
+[[rotation]]
+action = "pistol_shot"
+if = "buff.opportunity.up&(buff.opportunity.stack>=6|buff.opportunity.remains<2)&(combo_points<6|energy>=23.5)&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"
+
+# ... or early when it won't overcap combo points.
+[[rotation]]
+action = "pistol_shot"
+if = "buff.opportunity.up&combo_points<=3&(combo_points>1|(!buff.rtb2.up&!buff.rtb3.up&!buff.rtb4.up))&(combo_points<6|energy>=23.5)&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"
+
+[[rotation]]
+action = "sinister_strike"
+if = "energy>=45&(combo_points<6|energy>=23.5)&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"

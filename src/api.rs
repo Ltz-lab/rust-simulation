@@ -68,6 +68,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../calibration/subtlety_deathstalker.toml"),
     ),
     (
+        "outlaw_trickster",
+        include_str!("../specs/outlaw_trickster.toml"),
+        include_str!("../calibration/outlaw_trickster.toml"),
+    ),
+    (
         "demonology_diabolist",
         include_str!("../specs/demonology_diabolist.toml"),
         include_str!("../calibration/demonology_diabolist.toml"),
