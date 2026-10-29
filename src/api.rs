@@ -82,6 +82,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/devourer_voidscarred.toml"),
         include_str!("../calibration/devourer_voidscarred.toml"),
     ),
+    (
+        "havoc_fel_scarred",
+        include_str!("../specs/havoc_fel_scarred.toml"),
+        include_str!("../calibration/havoc_fel_scarred.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
