@@ -108,6 +108,7 @@ duration = 20
 [[buffs]]
 name = "bloody_frenzy"       # [db2 1265063: 10s] Barbed Shot bleeds faster
 duration = 10
+tick_rate_pct = { barbed_shot = 50 }   # tick interval x 2/3 [simc tick_time_pct_multiplier]
 
 [[buffs]]
 name = "hogstrider"          # [db2 472640: 60s] next Cobra Shot +100%
@@ -243,7 +244,7 @@ on_cast = [
 [abilities.dot]
 name = "barbed_shot"
 ap_coeff = 0.857        # [db2 217200] per 2s tick
-tick_time = 1.706       # [obs] 233 ticks / 300s; folds Bloody Frenzy + Jagged Wounds
+tick_time = 2.0         # [db2 217200]; Bloody Frenzy speeds it up
 duration = 8            # [db2]
 hasted = true
 tick_on_apply = true    # [simc] tick_zero

@@ -4,189 +4,189 @@
 
 [sources."acidbrood_scourge"]
 derived = 1.000000
-mult = 0.889210
+mult = 0.889599
 crit_bonus = +0.001593
 
 [sources."animal_companion_bestial_wrath"]
 derived = 1.000000
-mult = 1.038979
-crit_bonus = -0.001965
+mult = 1.046992
+crit_bonus = -0.001984
 
 [sources."animal_companion_bloodshed"]
 derived = 1.764180
-mult = 2.002295
+mult = 2.001143
 crit_bonus = +0.000000
 
 [sources."animal_companion_kill_command"]
 derived = 1.391500
-mult = 1.538487
-crit_bonus = -0.004470
+mult = 1.542325
+crit_bonus = -0.004478
 
 [sources."animal_companion_melee"]
-mult = 1.303669
+mult = 1.304246
 crit_bonus = -0.001969
 
 [sources."animal_companion_stomp"]
 derived = 1.300000
-mult = 1.316235
-crit_bonus = -0.001085
+mult = 1.313392
+crit_bonus = -0.000718
 
 [sources."animal_companion_thundering_hooves"]
 derived = 1.300000
-mult = 1.246803
-crit_bonus = -0.002415
+mult = 1.256793
+crit_bonus = -0.002556
 
 [sources."auto_shot"]
 derived = 1.562500
-mult = 1.184497
+mult = 1.185835
 crit_bonus = -0.000718
 
 [sources."barbed_shot"]
 derived = 2.134658
-mult = 2.246605
-crit_bonus = +0.000658
+mult = 2.204045
+crit_bonus = +0.000542
 
 [sources."bear_kill_command"]
 derived = 1.391500
-mult = 0.897283
-crit_bonus = +0.003572
+mult = 0.901515
+crit_bonus = +0.002786
 
 [sources."bear_melee"]
-mult = 0.846305
-crit_bonus = -0.000275
+mult = 0.847715
+crit_bonus = -0.000204
 
 [sources."bear_rend_flesh"]
 derived = 1.764180
-mult = 1.535848
-crit_bonus = +0.001883
+mult = 1.536669
+crit_bonus = +0.001716
 
 [sources."boar_charge"]
 derived = 1.080000
-mult = 2.267342
-crit_bonus = -0.002944
+mult = 2.269944
+crit_bonus = -0.002964
 
 [sources."boar_charge_cleave"]
 derived = 1.080000
-mult = 2.266791
-crit_bonus = -0.003666
+mult = 2.269575
+crit_bonus = -0.003040
 
 [sources."cobra_shot"]
 derived = 1.080000
-mult = 2.092642
-crit_bonus = -0.001976
+mult = 2.090135
+crit_bonus = -0.002029
 
 [sources."cobra_shot_snakeskin_quiver"]
 derived = 1.080000
-mult = 2.334935
+mult = 2.336815
 crit_bonus = -0.003867
 
 [sources."dire_beast_kill_command"]
 derived = 1.391500
-mult = 1.071202
-crit_bonus = -0.000976
+mult = 1.074574
+crit_bonus = -0.001103
 
 [sources."dire_beast_melee"]
-mult = 1.395080
-crit_bonus = -0.000664
+mult = 1.394987
+crit_bonus = -0.000622
 
 [sources."duck_bestial_wrath"]
 derived = 1.000000
-mult = 1.040000
-crit_bonus = -0.000542
+mult = 1.048148
+crit_bonus = -0.000312
 
 [sources."duck_bloodshed"]
 derived = 1.764180
-mult = 2.002295
+mult = 2.001143
 crit_bonus = +0.000000
 
 [sources."duck_claw"]
 derived = 1.000000
-mult = 2.525682
+mult = 2.527309
 crit_bonus = +0.001129
 
 [sources."duck_kill_command"]
 derived = 1.391500
-mult = 1.539289
-crit_bonus = +0.002139
+mult = 1.542343
+crit_bonus = +0.002349
 
 [sources."duck_melee"]
-mult = 1.306327
+mult = 1.306910
 crit_bonus = -0.001799
 
 [sources."duck_stomp"]
 derived = 1.300000
-mult = 1.315778
-crit_bonus = +0.001660
+mult = 1.313076
+crit_bonus = +0.001494
 
 [sources."duck_thundering_hooves"]
 derived = 1.300000
-mult = 1.247854
-crit_bonus = -0.001122
+mult = 1.257326
+crit_bonus = -0.001005
 
 [sources."fenryr_kill_command"]
 derived = 1.391500
-mult = 1.089954
-crit_bonus = +0.002461
+mult = 1.092527
+crit_bonus = +0.002073
 
 [sources."fenryr_melee"]
-mult = 1.403499
-crit_bonus = +0.000082
+mult = 1.404128
+crit_bonus = +0.000263
 
 [sources."fenryr_ravenous_leap"]
 derived = 1.633500
-mult = 1.608752
+mult = 1.608716
 crit_bonus = +0.000000
 
 [sources."hati_kill_command"]
 derived = 1.391500
-mult = 1.090700
-crit_bonus = -0.004752
+mult = 1.093245
+crit_bonus = -0.004340
 
 [sources."hati_melee"]
-mult = 1.402765
-crit_bonus = +0.003188
+mult = 1.402890
+crit_bonus = +0.003289
 
 [sources."natures_ally_pet_bestial_wrath"]
 derived = 1.000000
-mult = 1.288594
-crit_bonus = +0.000166
+mult = 1.298749
+crit_bonus = +0.000311
 
 [sources."natures_ally_pet_bloodshed"]
 derived = 1.764180
-mult = 2.002320
+mult = 2.001169
 crit_bonus = +0.000000
 
 [sources."natures_ally_pet_kill_command"]
 derived = 1.391500
-mult = 1.497544
-crit_bonus = -0.002506
+mult = 1.491816
+crit_bonus = -0.002119
 
 [sources."natures_ally_pet_melee"]
-mult = 1.294699
-crit_bonus = -0.001000
+mult = 1.294685
+crit_bonus = -0.000970
 
 [sources."natures_ally_pet_stomp"]
 derived = 1.300000
-mult = 1.312357
-crit_bonus = +0.000692
+mult = 1.314611
+crit_bonus = +0.000571
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.863434
+mult = 0.863950
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.866635
+mult = 0.866979
 crit_bonus = +0.000000
 
 [sources."stampede_tick"]
 derived = 1.080000
-mult = 2.153224
-crit_bonus = -0.000742
+mult = 2.152129
+crit_bonus = -0.000740
 
 [sources."void_eruption"]
 derived = 1.000000
-mult = 0.889831
+mult = 0.890079
 crit_bonus = -0.002972
 
