@@ -1,0 +1,876 @@
+# Unholy Death Knight — Rider of the Apocalypse, Midnight Season 2, core kit.
+# Built from ~/Dev/wow-sims/simc/profiles/MID2/MID2_Death_Knight_Unholy.simc
+# (talents, default APL, hero tree Rider of the Apocalypse) and
+# engine/class_modules/sc_death_knight.cpp.
+#
+# Where numbers come from:
+#   [db2]  game tables (wago.tools exports) via tools/spelldb.py, build 12.1.5.70575
+#   [obs]  observed in SimC's report/log on the core profile
+#          (reference/unholy_core_observations.json)
+#   [simc] read from SimC's class module or the default APL
+# Per-hit residual multipliers (talents, auras, the level-damage scaling SimC
+# applies) live in calibration/unholy.toml, fitted by tools/calibrate.py.
+#
+# Midnight unholy: Festering Strike grants Lesser Ghoul stacks that Scourge
+# Strike and Soul Reaper spend to summon lesser ghouls; Scourge Strike also
+# erupts both diseases. Putrefy summons a ghoul that strikes and explodes and
+# reanimates into a Magus (Lord of the Dead). Army of the Dead raises eight
+# ghouls, a Magus and an Abomination and (Rider of the Apocalypse) all four
+# horsemen; Dark Transformation summons another Magus and Whitemane. Runes and
+# runic power drive everything; Runic Corruption speeds rune regen, and Dread
+# Plague ticks can make the next Death Coil free (Sudden Doom).
+
+name = "Unholy Death Knight (Rider of the Apocalypse, core kit)"
+# [simc] pre-pull permanent ghoul plus the always-on passives
+precombat = ["raise_dead", "lord_of_the_dead_summon", "gear_procs_start"]
+
+[player]
+# [obs] buffed snapshot from reference/unholy_core_observations.json (no gear
+# procs, no consumables, no Bloodlust); strength is attack power for a DK.
+attack_power = 2588
+spell_power = 341
+crit = 0.2556521739
+haste = 0.1969454545
+mastery = 0.6976956522
+versatility = 0.0498148148
+crit_multiplier = 2.07        # [obs] DK direct crits x2.07 (26548 -> 54943)
+weapon = { min = 0, max = 0, speed = 3.6 }   # [db2] Mazeroa, Warlord's Fury: 3.6s two-hander
+
+[fight]
+duration = 300               # [obs] reference setup
+variance = 0.2               # [simc] default
+
+# ---------------------------------------------------------------- resources
+
+[resources.rune]
+max = 6                      # [db2] MAX_RUNES
+start = 6                    # [simc] out of combat
+regen = 0.20                 # [obs] SimC regenerates 162 runes / 300s and waits on runes ~25% of GCDs
+regen_hasted = true
+
+[resources.runic_power]
+max = 100                    # [db2]
+start = 0                    # [simc] decays out of combat
+
+[auto_attack]
+replace_with = "auto_attack_player"
+# Skyfury raid buff: 20% chance to repeat the swing [obs] (SimC's skyfury buff)
+on_hit = [{ type = "trigger", ability = "auto_attack_player", chance = 0.20 }]
+
+# ---------------------------------------------------------------- procs
+
+# Venomfang (Bite of Zul'jan weapon effect): real PPM, hasted [simc unique_gear_midnight.cpp]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 4.7             # [obs] 36.3 applications / 300s at 43% total haste
+hasted = true
+
+# Rune of Unleashed Fire (omnium rune): fixed clock [obs] 50.3 procs / 300s
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.1
+
+# Rune of the Apocalypse (Pestilence): a fraction of pet claw hits rolls the
+# Pestilence plague [simc trigger_rune_of_the_apocalypse]; modelled as a clock
+[[procs]]
+ability = "pestilence_apply"
+per_minute = 22.4            # [obs] 295 ticks at 1s, 6s duration -> ~112 applications
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "gear_procs"          # time-averaged gear/embellishment procs [obs: SimC log]
+duration = 1e9
+crit_pct = 3.16              # [obs] Venomcursed Critical Strike: 377 rating x 38.6% uptime / 46
+haste_pct = 3.8              # [obs] Venomcursed Ascendance: 433 rating x 38.5% uptime / 44
+mastery_pct = 2.81           # [obs] Rune of Masterful Cunning: 78 rating x 87% uptime
+versatility_pct = -0.5       # [obs] Ascendance downsides: 73 rating x 38.6% uptime
+power_pct = 2.42             # [obs] Arcanoweave Insight: +134 strength x 47% uptime
+
+[[buffs]]
+name = "icy_talons"          # [db2 194879] 3 stacks of 6% haste, up from the first swing
+duration = 1e9
+max_stacks = 3
+haste_pct = 6
+
+[[buffs]]
+name = "unholy_aura"         # [db2 1268917] 2% haste per stack from magus summons
+duration = 1e9               # [obs] avg 4.55 stacks = 9.1% haste
+haste_pct = 9.1
+
+[[buffs]]
+name = "berserking"          # [db2 26297] troll racial
+duration = 12
+haste_pct = 10
+
+[[buffs]]
+name = "runic_corruption"    # [db2 51460] doubles rune regeneration
+duration = 3
+resource_regen_pct = { rune = 100 }
+
+[[buffs]]
+name = "rune_mastery"        # [db2 374585] 6% rune regen, 15% chance per rune spent
+duration = 8
+resource_regen_pct = { rune = 6 }
+
+[[buffs]]
+name = "dark_transformation" # [db2 1235391]
+spell_id = 1235391
+duration = 15
+pet_pct = { ghoul = 200 }    # [db2 1233448] ghoul damage +200%
+
+[[buffs]]
+name = "commander_of_the_dead" # [db2 390260]
+spell_id = 390264
+duration = 30
+pet_pct = { army_ghoul = 25 } # [db2 390264] +25% army ghoul damage
+
+[[buffs]]
+name = "army_of_the_dead"    # [db2 42650] 30s; gates the Army ghouls' Death Orders
+duration = 30
+
+[[buffs]]
+name = "forbidden_knowledge" # [db2 1242223] 30s; Death Coil becomes Necrotic Coil
+duration = 30
+
+[[buffs]]
+name = "sudden_doom"         # [db2 81340] next Death Coil is free and deals 35% more
+duration = 10
+
+[[buffs]]
+name = "sudden_doom_damage"  # carries the +35% into the free cast (see on_free)
+duration = 0.001
+ability_pct = { death_coil_player = 35 } # [db2 81340 #3]
+
+[[buffs]]
+name = "festering_scythe"    # [db2 458123] next Festering Strike is a free Festering Scythe
+duration = 15
+
+[[buffs]]
+name = "festering_scythe_tt" # [db2 1241077] plagues tick 35% faster (baked into the tick times)
+duration = 25
+
+[[buffs]]
+name = "lesser_ghoul_ready"  # [db2 1254252] 8 independent stacks of 30s
+duration = 30
+max_stacks = 8
+overlap = true
+
+# ---------------------------------------------------------------- abilities
+
+[[abilities]]
+name = "auto_attack_player"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 6.02, school = "physical" }   # [obs] 11667 non-crit at 2588 AP, armour included
+on_cast = [{ type = "gain", resource = "runic_power", amount = 1.54 }] # [obs] Runic Attenuation 233 RP / 151 swings
+
+[[abilities]]
+name = "raise_dead"          # [db2 46584] permanent ghoul
+cast_time = 1.5
+gcd = 1.5
+on_cast = [{ type = "summon", pet = "ghoul" }]
+
+[[abilities]]
+name = "lord_of_the_dead_summon"  # [simc] 3 magi are sacrificed continuously; modelled as a stand-in
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "summon", pet = "lord_of_the_dead" }]
+
+[[abilities]]
+name = "gear_procs_start"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "gear_procs" },
+  { type = "buff", buff = "icy_talons", stacks = 3 },
+  { type = "buff", buff = "unholy_aura" },
+]
+
+[[abilities]]
+name = "outbreak"            # [db2 77575]
+gcd = 1.5
+cost = { rune = 1 }          # [db2]
+gain = { runic_power = 10 }  # [db2] energize 10
+on_cast = [
+  { type = "trigger", ability = "dread_plague_apply" },
+  { type = "trigger", ability = "virulent_plague_apply" },
+]
+
+[[abilities]]
+name = "dread_plague_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "dread_plague"        # [db2 1240996] 24s, 3s period
+ap_coeff = 0.548887          # [db2]
+tick_time = 1.4625           # [db2/simc] 3s x 0.75 Ebon Fever / 1.35 Festering Scythe
+hasted = false               # [simc] diseases have hasted_ticks = false
+duration = 1e9               # [simc] Mograine's D&D extends them faster than they expire
+school = "shadow"
+mastery = true
+crit_damage_bonus = 0.35     # [obs] disease crits x2.42
+refresh = "reset"
+on_tick = [
+  { type = "buff", buff = "sudden_doom", chance = 0.35 },      # [db2 49530] 35% PRD per tick
+  { type = "trigger", ability = "putrefy_st", chance = 0.20 }, # [simc] FK3 ghoul: 20% per tick
+]
+
+[[abilities]]
+name = "virulent_plague_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "virulent_plague"     # [db2 191587]
+ap_coeff = 0.253568          # [db2]
+tick_time = 1.4625           # [db2/simc] same disease modifiers
+hasted = false
+duration = 1e9
+school = "shadow"
+mastery = true
+crit_damage_bonus = 0.35     # [obs] disease crits x2.42
+refresh = "reset"
+
+[[abilities]]
+name = "festering_strike"    # [db2 85948]
+gcd = 1.5
+cost = { rune = 2 }          # [db2]
+gain = { runic_power = 20 }  # [obs] 20 RP per cast
+damage = { ap_coeff = 2.025, school = "physical" }   # [db2]
+on_cast = [
+  { type = "buff", buff = "festering_scythe" },
+  { type = "buff", buff = "lesser_ghoul_ready", stacks = 3 },          # [simc] rng 2..3
+  { type = "buff", buff = "rune_mastery", chance = 0.15 },             # [simc] 15% per rune spent
+]
+
+[[abilities]]
+name = "festering_scythe"    # [db2 458128] free follow-up
+gcd = 1.5
+damage = { ap_coeff = 1.0125, school = "shadow", mastery = true } # [db2]
+on_cast = [
+  { type = "consume", buff = "festering_scythe" },
+  { type = "buff", buff = "festering_scythe_tt" },
+  { type = "buff", buff = "lesser_ghoul_ready", stacks = 3 },          # [simc] grants 2..3
+  { type = "if", if = "buff.army_of_the_dead.up", then = [
+      { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] },
+]
+
+[[abilities]]
+name = "scourge_strike"      # [db2 55090]
+gcd = 1.5
+cost = { rune = 1 }          # [db2]
+gain = { runic_power = 10 }  # [db2]
+damage = { ap_coeff = 1.35, school = "shadow", mastery = true } # [db2]
+on_cast = [
+  { type = "trigger", ability = "dread_plague_erupt" },   # [simc] erupts both diseases
+  { type = "trigger", ability = "virulent_plague_erupt" },
+  { type = "trigger", ability = "trollbanes_icy_fury", chance = 0.32 }, # [simc] chains of ice spent; ~33 per fight
+  { type = "buff", buff = "rune_mastery", chance = 0.15 },
+  { type = "reduce_cooldown", ability = "putrefy", seconds = 2.5 },  # [db2 276023 #2] Harbinger of Doom
+  { type = "if", if = "buff.lesser_ghoul_ready.up", then = [
+      { type = "consume", buff = "lesser_ghoul_ready" },
+      { type = "summon", pet = "lesser_ghoul", count = 1, duration = 8 }, # [db2 275430] 8s
+      { type = "if", if = "buff.army_of_the_dead.up", then = [
+          { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] } ] },
+]
+
+[[abilities]]
+name = "dread_plague_erupt"  # [simc] 35% of a plague tick, mastery applied twice
+triggered_only = true
+damage = { ap_coeff = 0.19211, school = "shadow", mastery = true, mastery_scale = 2.0 }
+
+[[abilities]]
+name = "virulent_plague_erupt"
+triggered_only = true
+damage = { ap_coeff = 0.088749, school = "shadow", mastery = true, mastery_scale = 2.0 }
+
+[[abilities]]
+name = "soul_reaper"         # [db2 343294]
+gcd = 1.5
+cooldown = 15                # [db2]
+cost = { rune = 1 }          # [db2]
+gain = { runic_power = 10 }
+damage = { ap_coeff = 4.5, school = "shadowfrost", mastery = true } # [db2]
+on_cast = [
+  { type = "trigger", ability = "dread_plague_erupt" },
+  { type = "trigger", ability = "virulent_plague_erupt" },
+  { type = "if", if = "buff.lesser_ghoul_ready.up", then = [
+      { type = "consume", buff = "lesser_ghoul_ready" },
+      { type = "summon", pet = "lesser_ghoul", count = 1, duration = 8 },
+      { type = "if", if = "buff.army_of_the_dead.up", then = [
+          { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] } ] },
+  { type = "if", if = "buff.lesser_ghoul_ready.stack>=2", then = [
+      { type = "consume", buff = "lesser_ghoul_ready" },
+      { type = "summon", pet = "lesser_ghoul", count = 1, duration = 8 },
+      { type = "if", if = "buff.army_of_the_dead.up", then = [
+          { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] } ] },
+]
+
+[[abilities]]
+name = "putrefy"             # [db2 1247378]
+gcd = 1.5
+cooldown = 30                # [db2] recharge
+charges = 2                  # [simc] Putrid Echoes adds a charge
+cost = { rune = 1 }          # [db2]
+gain = { runic_power = 10 }  # [db2]
+on_cast = [
+  { type = "trigger", ability = "putrefy_st" },
+  { type = "if", if = "cooldown.putrefy.charges>=1", then = [   # [simc] Putrid Echoes: second ghoul at 2 charges
+      { type = "trigger", ability = "putrefy_st" } ] },
+  { type = "buff", buff = "rune_mastery", chance = 0.15 },
+]
+
+[[abilities]]
+name = "putrefy_st"          # [db2 1277016]
+triggered_only = true
+damage = { ap_coeff = 1.99665, school = "shadow", mastery = true } # [db2]
+on_cast = [
+  { type = "trigger", ability = "putrefy_aoe" },          # [simc] execute_action
+  { type = "trigger", ability = "dread_plague_erupt" },   # [obs] putrefy triggers the plague eruptions too
+  { type = "trigger", ability = "virulent_plague_erupt" },
+]
+
+[[abilities]]
+name = "putrefy_aoe"         # [db2 390220]
+triggered_only = true
+damage = { ap_coeff = 1.39421, school = "shadow", mastery = true } # [db2]
+
+[[abilities]]
+name = "death_coil_player"   # [db2 47541/47632, 30 RP]
+gcd = 1.5
+cost = { runic_power = 30 }  # [db2]
+free_with = "sudden_doom"    # [db2 81340]
+damage = { ap_coeff = 4.73, school = "shadow", mastery = true } # [obs] 26548 non-crit at 2588 AP / 1.12 sudden doom uptime
+on_free = [{ type = "buff", buff = "sudden_doom_damage" }]
+on_cast = [
+  { type = "buff", buff = "runic_corruption", chance = 0.6 },  # [db2 51462] 2% x 30 RP
+  { type = "extend_buff", buff = "dark_transformation", seconds = 0.5 }, # [db2 390268] Eternal Agony
+  { type = "if", if = "!buff.army_of_the_dead.up", then = [
+      { type = "summon", pet = "lesser_ghoul", count = 1, duration = 8, chance = 0.15 } ] }, # [simc] Doomed Bidding
+  { type = "if", if = "buff.army_of_the_dead.up", then = [
+      { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] },
+]
+[abilities.dot]
+name = "coil_of_devastation" # [db2 390271] residual: 30% of the hit over 4s
+banked = true
+tick_time = 2.0
+duration = 4.0
+hasted = false
+school = "shadow"
+
+[[abilities]]
+name = "necrotic_coil"       # [db2 1242174] replaces Death Coil during Forbidden Knowledge
+gcd = 1.5
+cost = { runic_power = 30 }  # [db2]
+on_cast = [
+  { type = "trigger", ability = "necrotic_coil_shadowstrike" },
+  { type = "trigger", ability = "necrotic_coil_shadow" },
+  { type = "buff", buff = "runic_corruption", chance = 0.6 },
+  { type = "extend_buff", buff = "dark_transformation", seconds = 0.5 },
+  { type = "if", if = "buff.army_of_the_dead.up", then = [
+      { type = "for_each_pet", pet = "army_ghoul", each = [{ type = "trigger", ability = "death_order" }] } ] },
+]
+
+[[abilities]]
+name = "necrotic_coil_shadowstrike" # [db2 1242172]
+triggered_only = true
+damage = { ap_coeff = 2.05335, school = "shadowstrike", mastery = true, feed = [{ dot = "coil_of_devastation", pct = 30 }] } # [db2]
+
+[[abilities]]
+name = "necrotic_coil_shadow"       # [db2 1242178]
+triggered_only = true
+damage = { ap_coeff = 0.64584, school = "shadow", mastery = true }
+
+[[abilities]]
+name = "army_of_the_dead"    # [db2 42650]
+gcd = 1.5
+cooldown = 90                # [db2]
+cost = { rune = 1 }          # [db2]
+gain = { runic_power = 50 }  # [obs] 50 RP
+on_cast = [
+  { type = "summon", pet = "army_ghoul", count = 8, duration = 30 },   # [db2 1294026] 8 x 30s
+  { type = "summon", pet = "magus", count = 1, duration = 15 },        # [db2 317776]
+  { type = "summon", pet = "abomination", count = 1, duration = 30 },  # [db2 288853]
+  { type = "summon", pet = "mograine", count = 1, duration = 45 },     # [simc] all four riders + Fury extensions
+  { type = "summon", pet = "nazgrim", count = 1, duration = 30 },
+  { type = "summon", pet = "trollbane", count = 1, duration = 30 },
+  { type = "summon", pet = "whitemane", count = 1, duration = 30 },
+  { type = "buff", buff = "army_of_the_dead" },
+  { type = "buff", buff = "forbidden_knowledge" },
+  { type = "trigger", ability = "undeath_dot" },
+  { type = "trigger", ability = "death_and_decay" },
+]
+
+[[abilities]]
+name = "dark_transformation" # [db2 1233448] off the GCD
+gcd = 0
+cooldown = 45                # [db2]
+on_cast = [
+  { type = "buff", buff = "dark_transformation" },
+  { type = "buff", buff = "commander_of_the_dead" },
+  { type = "summon", pet = "magus", count = 1, duration = 15 },        # [simc] dt_magus
+  { type = "summon", pet = "whitemane", count = 1, duration = 6 },     # [db2 1265959] Ride or Die!
+  { type = "reset_cooldown", ability = "soul_reaper" },                # [simc] Reaping
+  { type = "trigger", ability = "undeath_apply" },
+]
+
+[[abilities]]
+name = "berserking"          # [db2 26297] troll racial
+gcd = 0
+cooldown = 180
+on_cast = [{ type = "buff", buff = "berserking" }]
+
+[[abilities]]
+name = "trollbanes_icy_fury" # [db2 444834] Scourge Strike consumes Trollbane's Chains of Ice
+triggered_only = true
+damage = { ap_coeff = 2.887, school = "shadowfrost", mastery = true } # [obs] 13316 non-crit
+
+[[abilities]]
+name = "infected_claws_apply" # [db2 1241786] pet auto-attacks have a 15% chance
+triggered_only = true
+[abilities.dot]
+name = "infected_claws"
+ap_coeff = 0.671             # [obs] 3096 per tick including the hidden scaling
+tick_time = 2.0              # [db2]
+duration = 12                # [db2]
+school = "shadow"
+mastery = true
+crit_damage_bonus = 0.35
+refresh = "reset"
+
+[[abilities]]
+name = "pestilence_apply"    # [db2 327093] Rune of the Apocalypse: Pestilence
+triggered_only = true
+[abilities.dot]
+name = "pestilence_runeforge"
+ap_coeff = 0.140625          # [db2]
+tick_time = 1.0              # [db2]
+duration = 6                 # [db2]
+hasted = false
+school = "shadow"
+mastery = true
+crit_damage_bonus = 0.35
+max_stacks = 3               # [db2]
+per_stack = false
+refresh = "reset"
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "venomfang_apply" }]
+
+[[abilities]]
+name = "venomfang_apply"     # [db2 1306635] 6s nature DoT, bursts on expiry
+triggered_only = true
+[abilities.dot]
+name = "venomfang"
+overlap = true               # one independent timer, so expiry can burst
+max_stacks = 1
+ap_coeff = 0.587             # [obs] 1596 per tick
+tick_time = 1.0              # [db2]
+duration = 6
+hasted = false
+school = "nature"
+crit_damage_bonus = 0.35
+on_expire = [{ type = "trigger", ability = "venomfang_burst" }]
+
+[[abilities]]
+name = "venomfang_burst"     # [db2 1306639]
+triggered_only = true
+damage = { ap_coeff = 1.124, school = "nature" }   # [obs] 3053 non-crit
+
+[[abilities]]
+name = "rune_of_unleashed_fire"  # [db2 1286970] omnium rune: direct hit, cannot crit
+triggered_only = true
+gcd = 0
+crit_bonus = -1.0
+damage = { ap_coeff = 2.34, school = "fire", crit_bonus = -1.0 } # [obs] 6357 per hit
+on_cast = [{ type = "trigger", ability = "rune_of_unleashed_fire_lingering_apply" }]
+
+[[abilities]]
+name = "rune_of_unleashed_fire_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering" # [db2 1287663]
+ap_coeff = 0.146             # [obs] 397 per tick
+tick_time = 1.0
+duration = 8
+hasted = false
+school = "cosmic"
+crit_bonus = -1.0
+refresh = "reset"
+
+[[abilities]]
+name = "undeath_apply"       # [db2 444633] Rider of the Apocalypse DoT
+triggered_only = true
+[abilities.dot]
+name = "undeath"
+ap_coeff = 1.426             # [obs] 6577 per tick
+tick_time = 3.0              # [db2]
+duration = 30                # [obs] 24s + Fury of the Horsemen
+hasted = false
+school = "shadowfrost"
+mastery = true
+crit_damage_bonus = 0.35
+refresh = "reset"
+
+[[abilities]]
+name = "undeath_dot"         # first application at the pull / AotD
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "undeath_apply" }]
+
+[[abilities]]
+name = "death_and_decay"     # [db2 1251951] Mograine's aura, modelled as a short-lived dot on AotD
+triggered_only = true
+[abilities.dot]
+name = "death_and_decay"
+ap_coeff = 0.116             # [obs] 534 per tick including the hidden scaling
+tick_time = 1.86             # [obs] 93.7 ticks over 174s of rider uptime
+duration = 45                # [obs] rider lifetime with Fury extensions
+school = "shadow"
+mastery = true
+
+[[abilities]]
+name = "death_order"         # [db2 1294264] Army ghouls' on-demand strike
+triggered_only = true
+damage = { ap_coeff = 0.718, school = "shadow", mastery = true } # [obs] 3426 non-crit (army AP share included)
+
+[[abilities]]
+name = "ruptured_viscera"    # [db2 1247379] Necromancer's Cunning: on natural expiry
+triggered_only = true
+damage = { ap_coeff = 0.946, school = "shadow", mastery = true } # [obs] 4363 non-crit
+
+# ---------------------------------------------------------------- pets
+
+[[pets]]
+name = "ghoul"               # [db2 46584] permanent Raise Dead ghoul
+duration = 0
+energy = 100                 # [simc]
+energy_regen = 18            # [simc] 10/s hasted and Unholy Devotion
+owner_coeff = { ap_from_ap = 0.474 } # [simc]
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s hasted and Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.8630, school = "physical" }   # [obs] 3880 non-crit with Dark Transformation uptime
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }] # [db2 1241792] 15%, scaled to the reference tick count
+
+[[pets.abilities]]
+name = "claw"                # [db2 91776]
+gcd = 1.0
+cost = { energy = 40 }
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.4400, school = "physical" }   # [obs]
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }]
+
+[[pets.abilities]]
+name = "sweeping_claws"      # [db2 91778] only during Dark Transformation (Outnumber)
+gcd = 1.0
+cost = { energy = 40 }
+requires_buff = "dark_transformation"
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.6695, school = "shadow", mastery = true } # [obs] 12167 non-crit during DT
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }]
+
+[[pets.rotation]]
+action = "sweeping_claws"
+[[pets.rotation]]
+action = "claw"
+if = "!buff.dark_transformation.up"
+
+[[pets]]
+name = "lesser_ghoul"        # [db2 275430] Festering Strike / Soul Reaper / Doomed Bidding
+duration = 8
+energy = 100
+energy_regen = 18            # [simc] 10/s hasted and Unholy Devotion
+owner_coeff = { ap_from_ap = 0.180431625 } # [simc]
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+on_expire = [{ type = "trigger", ability = "ruptured_viscera" }] # [simc] Necromancer's Cunning
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.2960, school = "physical" }   # [obs] 628 non-crit
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }]
+
+[[pets.abilities]]
+name = "claw"                # [db2 199373]
+gcd = 1.5
+cost = { energy = 40 }
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.9090, school = "physical" }   # [obs] 444 non-crit
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }]
+
+[[pets.abilities]]
+name = "sweeping_claws"      # [db2 1278150] only during Dark Transformation
+gcd = 1.5
+cost = { energy = 40 }
+requires_buff = "dark_transformation"
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.6840, school = "shadow", mastery = true } # [obs] 1008 non-crit
+on_cast = [{ type = "trigger", ability = "infected_claws_apply", chance = 0.10 }]
+
+[[pets.rotation]]
+action = "sweeping_claws"
+[[pets.rotation]]
+action = "claw"
+if = "!buff.dark_transformation.up"
+
+[[pets]]
+name = "army_ghoul"          # [db2 1294026] Army of the Dead ghouls
+duration = 30
+energy = 100
+energy_regen = 18            # [simc] 10/s hasted and Unholy Devotion
+owner_coeff = { ap_from_ap = 0.252604275 } # [simc] 0.180431625 x 1.4
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.2960, school = "physical" }
+
+[[pets.abilities]]
+name = "claw"
+gcd = 1.5
+cost = { energy = 40 }
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.9090, school = "physical" }
+
+[[pets.rotation]]
+action = "sweeping_claws"
+[[pets.rotation]]
+action = "claw"
+if = "!buff.dark_transformation.up"
+
+[[pets.abilities]]
+name = "sweeping_claws"
+gcd = 1.5
+cost = { energy = 40 }
+requires_buff = "dark_transformation"
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.6840, school = "shadow", mastery = true }
+
+[[pets]]
+name = "magus"               # [db2 317776 / 1242294] Army of the Dead and Dark Transformation magus
+duration = 15
+owner_coeff = { ap_from_ap = 0.4664 } # [simc]
+inherit_haste = true
+
+[[pets.abilities]]
+name = "frostbolt"           # [db2 1292107]
+cast_time = 2.0
+gcd = 0
+cooldown = 6                 # [simc] Frostbolt's slowing debuff limits it to its 6s duration
+damage = { crit_damage_bonus = 1.28, ap_coeff = 4.0140, school = "frost" } # [obs] 5654 non-crit
+
+[[pets.abilities]]
+name = "shadow_bolt"         # [db2 317791]
+cast_time = 2.0
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.3230, school = "shadow", mastery = true } # [obs] 3160 non-crit
+
+[[pets.rotation]]
+action = "frostbolt"
+[[pets.rotation]]
+action = "shadow_bolt"
+
+[[pets]]
+name = "lord_of_the_dead"    # [db2 1292072] Lord of the Dead, near-permanent from sacrificed magi
+duration = 0
+owner_coeff = { ap_from_ap = 0.7 } # [simc] plus ~+40% from the magi durations
+inherit_haste = true
+
+[[pets.abilities]]
+name = "frostbolt"           # [db2 1292107]
+cast_time = 2.3             # [obs] 204.5 casts over 286s of Lord uptime
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 4.9050, school = "frost" } # [obs] 17796 DPE including crits
+
+[[pets.rotation]]
+action = "frostbolt"
+
+[[pets]]
+name = "abomination"         # [db2 288853] Raise Abomination, from Army of the Dead
+duration = 30
+owner_coeff = { ap_from_ap = 2.34 } # [simc]
+melee = { ability = "melee", speed = 3.6 } # [simc] 3.6s, no Unholy Devotion
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 2.1555, school = "physical" } # [obs] 10662 non-crit
+
+[[pets.abilities]]
+name = "disease_cloud"       # [db2 1244347]
+gcd = 2.0                    # [simc] aura period ~2s
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7461, school = "shadowstorm", mastery = true } # [obs] 8945 non-crit
+
+[[pets.rotation]]
+action = "disease_cloud"
+
+[[pets]]
+name = "mograine"            # [db2 444248]
+duration = 45
+owner_coeff = { ap_from_ap = 0.70125 } # [simc]
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7380, school = "physical" } # [obs] 1873 DPE including crits
+
+[[pets.abilities]]
+name = "heart_strike"        # [db2 445504]
+cooldown = 3                 # [db2]
+gcd = 1.5
+damage = { crit_damage_bonus = 1.28, ap_coeff = 3.1770, school = "physical" } # [obs] 4715 non-crit
+
+[[pets.rotation]]
+action = "heart_strike"
+
+[[pets]]
+name = "nazgrim"             # [db2 444252]
+duration = 45
+owner_coeff = { ap_from_ap = 0.70125 }
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7380, school = "physical" }
+
+[[pets.abilities]]
+name = "scourge_strike"      # [db2 445508 + 445509]
+cooldown = 3                 # [db2]
+gcd = 1.5
+damage = { crit_damage_bonus = 1.28, ap_coeff = 5.0940, school = "physical" } # [obs] 7556 non-crit
+on_cast = [{ type = "trigger", ability = "scourge_strike_shadow" }]
+
+[[pets.abilities]]
+name = "scourge_strike_shadow" # [db2 445509]
+triggered_only = true
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7371, school = "shadow", mastery = true } # [obs] 2648 non-crit
+
+[[pets.rotation]]
+action = "scourge_strike"
+
+[[pets]]
+name = "trollbane"           # [db2 444254]
+duration = 45
+owner_coeff = { ap_from_ap = 0.70125 }
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7380, school = "physical" }
+
+[[pets.abilities]]
+name = "obliterate"          # [db2 445507]
+cooldown = 6                 # [db2]
+gcd = 1.5
+damage = { crit_damage_bonus = 1.28, ap_coeff = 6.3450, school = "physical" } # [obs] 9402 non-crit
+
+[[pets.rotation]]
+action = "obliterate"
+
+[[pets]]
+name = "whitemane"           # [db2 444251]
+duration = 45
+owner_coeff = { ap_from_ap = 0.70125 }
+melee = { ability = "melee", speed = 1.7 } # [simc] 2.0s with Unholy Devotion 25%
+
+[[pets.abilities]]
+name = "melee"
+triggered_only = true
+gcd = 0
+damage = { crit_damage_bonus = 1.28, ap_coeff = 0.7380, school = "physical" }
+
+[[pets.abilities]]
+name = "death_coil"          # [db2 445513]
+cooldown = 5                 # [db2]
+gcd = 1.5
+damage = { crit_damage_bonus = 1.28, ap_coeff = 1.6173, school = "shadow", mastery = true } # [obs] 5815 non-crit
+on_cast = [
+  { type = "trigger", ability = "death_coil_let_terror_reign" },                # [db2 1265949] Let Terror Reign
+  { type = "trigger", ability = "death_coil_let_terror_reign", chance = 0.5 },
+]
+
+[[pets.abilities]]
+name = "death_coil_let_terror_reign" # [db2 445513]
+triggered_only = true
+damage = { crit_damage_bonus = 1.28, ap_coeff = 2.0772, school = "shadow", mastery = true } # [obs] 7467 non-crit
+
+[[pets.rotation]]
+action = "death_coil"
+
+# ---------------------------------------------------------------- rotation
+# SimC's default unholy APL, single target (Patchwerk). [simc]
+# Death Coil is replaced by Necrotic Coil while Forbidden Knowledge is up, so
+# every Death Coil line is spelled twice.
+
+[[rotation]]
+action = "army_of_the_dead"
+if = "buff.festering_scythe_tt.up"
+
+[[rotation]]
+action = "dark_transformation"
+if = "buff.army_of_the_dead.up|cooldown.army_of_the_dead.remains>30"
+
+[[rotation]]
+action = "berserking"
+if = "buff.dark_transformation.up|pet.army_ghoul.active>=1|buff.forbidden_knowledge.up"
+
+[[rotation]]
+action = "outbreak"
+if = "!dot.dread_plague.ticking"
+
+[[rotation]]
+action = "festering_scythe"
+if = "buff.festering_scythe.up&(buff.festering_scythe.remains<=3|buff.festering_scythe_tt.remains<3)"
+
+[[rotation]]
+action = "festering_strike"
+if = "!buff.festering_scythe.up&buff.festering_scythe_tt.remains<3"
+
+[[rotation]]
+action = "soul_reaper"
+if = "(buff.dark_transformation.up&cooldown.dark_transformation.remains<38)|target.health.pct<35"
+
+[[rotation]]
+action = "putrefy"
+if = "buff.dark_transformation.up&runic_power<90"
+
+[[rotation]]
+action = "necrotic_coil"
+if = "buff.forbidden_knowledge.up&(buff.sudden_doom.up|runic_power>=90)"
+
+[[rotation]]
+action = "death_coil_player"
+if = "!buff.forbidden_knowledge.up&(buff.sudden_doom.up|runic_power>=90)"
+
+[[rotation]]
+action = "putrefy"
+if = "buff.dark_transformation.up"
+
+[[rotation]]
+action = "necrotic_coil"
+if = "buff.forbidden_knowledge.up&(buff.dark_transformation.up|buff.forbidden_knowledge.up)"
+
+[[rotation]]
+action = "death_coil_player"
+if = "!buff.forbidden_knowledge.up&(buff.dark_transformation.up|cooldown.army_of_the_dead.remains>5|runic_power>50)"
+
+[[rotation]]
+action = "scourge_strike"
+if = "buff.lesser_ghoul_ready.up"
+
+[[rotation]]
+action = "festering_scythe"
+if = "buff.festering_scythe.up"
+
+[[rotation]]
+action = "festering_strike"

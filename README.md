@@ -45,6 +45,7 @@ profiles (core kit, 300s Patchwerk):
 | [Assassination Rogue (Deathstalker)](docs/assassination-rogue.md) | 148,195 | 148,533 | +0.23% | haste +0.66 pts | — |
 | [Frost Death Knight (Deathbringer)](docs/frost-deathknight.md) | 162,970 | 162,532 | -0.27% | crit -2.02 pts | — |
 | [Marksmanship Hunter (Sentinel)](docs/marksmanship-hunter.md) | 155,473 | 156,903 | +0.92% | crit -1.89 pts | — |
+| [Unholy Death Knight (Rider of the Apocalypse)](docs/unholy.md) | 148,582 | 147,786 | -0.54% | strength +2.40 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -82,6 +83,8 @@ cargo build --release
   [Assassination Rogue](docs/assassination-rogue.md),
   [Frost Death Knight](docs/frost-deathknight.md),
   [Marksmanship Hunter](docs/marksmanship-hunter.md) (results, validation, known gaps)
+  [Unholy Death Knight](docs/unholy.md)
+  (results, validation, known gaps)
 - [Spec format](docs/spec-format.md): how a spec file is written
 - [Talents and auras from game data](docs/talents-and-auras.md): the DB2 effect layer
 - [Gear → stats](docs/gear.md): computing stats from /simc gear lines

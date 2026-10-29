@@ -2478,7 +2478,10 @@ impl<'a> State<'a> {
                     next = next.min(now + 0.5);
                 }
                 if next < INF {
-                    self.push(next, Ev::PetAct(k, g));
+                    // The event clock is whole microseconds. An energy-wait of
+                    // under a microsecond would schedule at the current tick
+                    // again and spin; wait at least one tick.
+                    self.push(next.max(now + 1e-6), Ev::PetAct(k, g));
                 }
             }
         }

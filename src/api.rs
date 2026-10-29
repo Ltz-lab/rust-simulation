@@ -107,6 +107,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../specs/marksmanship_sentinel.toml"),
         include_str!("../calibration/marksmanship_sentinel.toml"),
     ),
+    (
+        "unholy_rider",
+        include_str!("../specs/unholy_rider.toml"),
+        include_str!("../calibration/unholy.toml"),
+    ),
 ];
 
 /// Names of the specs built into the library.
