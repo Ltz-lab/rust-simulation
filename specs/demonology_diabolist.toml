@@ -748,3 +748,57 @@ action = "shadow_bolt"
 # [simc] default Diabolist APL (single target, To Hell and Back).
 [[rotation]]
 action = "infernal_bolt"
+
+# ================================================================== class set (Warlock Demonology 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296573): Wild Imp damage +10% (effect 1), Implosion (and Isolated
+# Implosion) +20% (effect 2).
+[[gear.effects]]
+spell = 1296573
+text = '''
+precombat = ["set_demonology_2pc"]
+
+[[buffs]]
+name = "set_demonology_2pc"
+duration = 1e9
+pet_pct = { wild_imp = ${e1} }
+ability_pct = { implosion_aoe = ${e2} }   # Isolated Implosion reports under implosion_aoe, so it gets it too
+
+[[abilities]]
+name = "set_demonology_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_demonology_2pc" }]
+'''
+
+# 4pc (1296574): when a Wild Imp's energy runs out it has a 20% chance (effect
+# 3; a PRD in SimC) to fling itself at the target and Implode there at 350%
+# (effect 1) of Implosion's damage [simc sc_warlock_actions.cpp, Isolated
+# Implosion]. Imps dismissed by Implosion don't expire, so don't roll. Other
+# targets (effect 2, 315%) don't exist on one target.
+[[gear.effects]]
+spell = 1296574
+text = '''
+[[abilities]]
+name = "isolated_implosion"
+source = "implosion_aoe"   # same spell power coefficient: takes its calibration (and the 2pc's Implosion bonus)
+spell_id = 1309535
+triggered_only = true
+gcd = 0
+damage = { sp_coeff = 1.36382, school = "shadowflame", mastery = false, mult = ${e1:pct} }
+
+# A flung imp is dismissed rather than expiring, so it gives no Demonic Core
+# (the imp's own 10% chance, in [[pets]] above, is rolled in the other 80%).
+# `set` replaces the pet's on_expire; one choice of five is the 20%.
+[[patch]]
+pet = "wild_imp"
+set = { on_expire = [{ type = "choose", choices = [
+  { effects = [{ type = "trigger", ability = "isolated_implosion" }] },
+  { effects = [{ type = "buff", buff = "demonic_core", chance = 0.1 }] },
+  { effects = [{ type = "buff", buff = "demonic_core", chance = 0.1 }] },
+  { effects = [{ type = "buff", buff = "demonic_core", chance = 0.1 }] },
+  { effects = [{ type = "buff", buff = "demonic_core", chance = 0.1 }] },
+] }] }
+'''

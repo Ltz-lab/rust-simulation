@@ -685,3 +685,28 @@ action = "blade_of_justice"
 
 [[rotation]]
 action = "judgment"
+
+# MID1 (12.0) class set, for a bag that holds those pieces (set 1985).
+# 2pc (1264848): Expurgation deals +20% (effect 1, label 2901).
+[[gear.effects]]
+spell = 1264848
+text = '''
+precombat = ["set_mid1_2pc"]
+
+[[buffs]]
+name = "set_mid1_2pc"
+duration = 1e9
+ability_pct = { expurgation = ${e1} }
+
+[[abilities]]
+name = "set_mid1_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_mid1_2pc" }]
+'''
+
+# 4pc (1264849) is not modelled (reported `unmodelled`, so the app sims such a
+# bag in SimC). Final Verdict re-applies Expurgation with a damage multiplier of
+# 100% x the Final Verdict action's own base multiplier (SimC's
+# trigger_expurgation(mult)), which a per-application multiplier on one rolling
+# DoT would need: SimC's Expurgation ticks hit 3.8x harder with it (+6.9% DPS).

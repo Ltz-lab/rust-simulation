@@ -392,3 +392,251 @@ stats = { crit_rating = ${1257183.e1:lvl:band} }
 [[effect]]
 spell = 1251905
 none = true
+
+# Vile Vial of Volatile Venom (use 1293316, equip values 1295179): on
+# use, +e1 of one random secondary stat for 15s (Empowering Venom); when it
+# fades, -e2 of one random secondary (Debilitating Venom 1295123) for 15s, the
+# stat rolled independently. 120s cooldown. Both rolls are `choose`s.
+# [simc vile_vial_of_volatile_venom]
+[[effect]]
+spell = 1293316
+text = '''
+[[buffs]]
+name = "empowering_venom_crit"
+duration = ${duration}
+stats = { crit_rating = ${e1} }
+on_expire = [{ type = "trigger", ability = "debilitating_venom" }]
+
+[[buffs]]
+name = "debilitating_venom_crit"
+duration = ${1295123.duration}
+stats = { crit_rating = ${1295179.e2} }
+
+[[buffs]]
+name = "empowering_venom_haste"
+duration = ${duration}
+stats = { haste_rating = ${e1} }
+on_expire = [{ type = "trigger", ability = "debilitating_venom" }]
+
+[[buffs]]
+name = "debilitating_venom_haste"
+duration = ${1295123.duration}
+stats = { haste_rating = ${1295179.e2} }
+
+[[buffs]]
+name = "empowering_venom_mastery"
+duration = ${duration}
+stats = { mastery_rating = ${e1} }
+on_expire = [{ type = "trigger", ability = "debilitating_venom" }]
+
+[[buffs]]
+name = "debilitating_venom_mastery"
+duration = ${1295123.duration}
+stats = { mastery_rating = ${1295179.e2} }
+
+[[buffs]]
+name = "empowering_venom_versatility"
+duration = ${duration}
+stats = { versatility_rating = ${e1} }
+on_expire = [{ type = "trigger", ability = "debilitating_venom" }]
+
+[[buffs]]
+name = "debilitating_venom_versatility"
+duration = ${1295123.duration}
+stats = { versatility_rating = ${1295179.e2} }
+
+[[abilities]]
+name = "debilitating_venom"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "choose", choices = [
+    { effects = [{ type = "buff", buff = "debilitating_venom_crit" }] },
+    { effects = [{ type = "buff", buff = "debilitating_venom_haste" }] },
+    { effects = [{ type = "buff", buff = "debilitating_venom_mastery" }] },
+    { effects = [{ type = "buff", buff = "debilitating_venom_versatility" }] },
+]  },
+]
+
+[[abilities]]
+name = "vile_vial_of_volatile_venom"
+spell_id = 1293316
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [
+  { type = "choose", choices = [
+    { effects = [{ type = "buff", buff = "empowering_venom_crit" }] },
+    { effects = [{ type = "buff", buff = "empowering_venom_haste" }] },
+    { effects = [{ type = "buff", buff = "empowering_venom_mastery" }] },
+    { effects = [{ type = "buff", buff = "empowering_venom_versatility" }] },
+  ] },
+]
+
+[[rotation]]
+action = "vile_vial_of_volatile_venom"
+use = "buff"
+'''
+
+[[effect]]
+spell = 1295179    # equip: the Debilitating Venom rating (effect 2), read by 1293316
+none = true
+
+# Vexhul's Everflowing Gland (use 1295833, values 1295832): on use, 1s of Caustic
+# Venom, a nature hit every 0.2s (5) for e1, each +e2% per 1% of the target's
+# health remaining (read when the venom is unleashed; the ticks are within 1s
+# of it, so each reads its own). 180s cooldown. Each enemy killed takes e3
+# seconds off the cooldown: one target, so none. [simc vexhuls_everflowing_gland]
+[[effect]]
+spell = 1295833
+text = '''
+[[abilities]]
+name = "vexhuls_everflowing_gland"
+spell_id = 1295833
+gcd = 0
+cooldown = ${cooldown}
+no_procs = true
+on_cast = [
+  { type = "trigger", ability = "caustic_venom_tick", delay = 0.2 },
+  { type = "trigger", ability = "caustic_venom_tick", delay = 0.4 },
+  { type = "trigger", ability = "caustic_venom_tick", delay = 0.6 },
+  { type = "trigger", ability = "caustic_venom_tick", delay = 0.8 },
+  { type = "trigger", ability = "caustic_venom_tick", delay = 1.0 },
+]
+
+[[abilities]]
+name = "caustic_venom_tick"
+spell_id = 1306785
+triggered_only = true
+no_procs = true
+damage = { amount = ${1295832.e1}, school = "nature", scale = "1+${1295832.e2:pct}*target.health.pct" }
+
+[[rotation]]
+action = "vexhuls_everflowing_gland"
+use = "other"
+'''
+
+[[effect]]
+spell = 1295832    # equip: damage, health bonus and kill cooldown reduction, read by 1295833
+none = true
+
+# Gebbo's Bottomless Bag (equip 1292291): real-PPM 3 (0.75s ICD); each proc
+# picks one of six artifacts at random [simc gebbos_bottomless_bag]:
+#   50-Lb Midnight Salmon     e6 of every secondary rating, 12s
+#   Slick and Slimy Gralstone e4 haste rating, 12s
+#   Rotting Voidfin           -e7 of every secondary rating, 12s
+#   Tattered Tortollan Scroll mastery, 12 stacks of e2/12 that lose one a second
+#   Seriously Sharp Seashell  crit, e1 per stack, a stack a second up to 12
+#   Brittle Torga Totem       versatility, round(e3/e8) stacks of e8 for 30s,
+#                             each hit (0.75s ICD) spends one
+# (The Seashell's self-bleed and the Gralstone's speed are not modelled.)
+[[effect]]
+spell = 1292291
+text = '''
+[[procs]]
+ability = "gebbos_bag"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+icd = ${icd}
+
+[[abilities]]
+name = "gebbos_bag"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "choose", choices = [
+    { effects = [{ type = "buff", buff = "gebbo_salmon" }] },
+    { effects = [{ type = "buff", buff = "gebbo_gralstone" }] },
+    { effects = [{ type = "buff", buff = "gebbo_voidfin" }] },
+    { effects = [
+      { type = "buff", buff = "gebbo_scroll", stacks = 12 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 1.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 2.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 3.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 4.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 5.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 6.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 7.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 8.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 9.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 10.0 },
+      { type = "trigger", ability = "gebbo_scroll_tick", delay = 11.0 },
+    ] },
+    { effects = [
+      { type = "buff", buff = "gebbo_seashell" },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 1.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 2.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 3.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 4.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 5.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 6.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 7.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 8.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 9.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 10.0 },
+      { type = "trigger", ability = "gebbo_seashell_tick", delay = 11.0 },
+    ] },
+    { effects = [{ type = "buff", buff = "gebbo_totem", stacks = ${e3/e8} }] },
+  ] },
+]
+
+[[buffs]]
+name = "gebbo_salmon"
+duration = ${1308013.duration}
+stats = { crit_rating = ${e6}, haste_rating = ${e6}, mastery_rating = ${e6}, versatility_rating = ${e6} }
+
+[[buffs]]
+name = "gebbo_gralstone"
+duration = ${1308012.duration}
+stats = { haste_rating = ${e4} }
+
+[[buffs]]
+name = "gebbo_voidfin"
+duration = ${1308014.duration}
+stats = { crit_rating = -${e7}, haste_rating = -${e7}, mastery_rating = -${e7}, versatility_rating = -${e7} }
+
+[[buffs]]
+name = "gebbo_scroll"
+duration = ${1306870.duration}
+max_stacks = 12
+refresh_duration = false
+stats = { mastery_rating = ${e2:div12} }
+
+[[abilities]]
+name = "gebbo_scroll_tick"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "consume", buff = "gebbo_scroll" }]
+
+[[buffs]]
+name = "gebbo_seashell"
+duration = ${1292299.duration}
+max_stacks = 12
+refresh_duration = false
+stats = { crit_rating = ${e1} }
+
+[[abilities]]
+name = "gebbo_seashell_tick"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "gebbo_seashell" }]
+
+[[buffs]]
+name = "gebbo_totem"
+duration = ${1292300.duration}
+max_stacks = ${e3/e8}
+stats = { versatility_rating = ${e8} }
+
+[[procs]]
+ability = "gebbo_totem_drain"
+on_hit = true
+chance = 1.0
+icd = ${1292300.icd}
+
+[[abilities]]
+name = "gebbo_totem_drain"
+triggered_only = true
+gcd = 0
+requires_buff = "gebbo_totem"
+on_cast = [{ type = "consume", buff = "gebbo_totem" }]
+'''
