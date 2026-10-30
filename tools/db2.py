@@ -77,6 +77,7 @@ TABLES = [
     "TraitNodeEntry", "TraitDefinition", "TraitSubTree",
     "SpellCooldowns", "SpellCategories", "SpellCategory", "SpellPower", "SpellAuraOptions",
     "SpellDuration", "SpellCastTimes", "SpellProcsPerMinute",
+    "TraitDefinitionEffectPoints", "CurvePoint",   # talent rank curves (effects.py)
 ]
 
 if __name__ == "__main__":

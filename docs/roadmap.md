@@ -21,9 +21,9 @@ unmodelled, and the app sends swaps touching one to SimC.
    starting with the haste over-response (Ret's Expurgation and Hammer of
    Wrath chain, Fire's Fire Blast recharge), and tag what comes from there
    `[simc]`.
-3. Extend the DB2 effect layer: target debuffs (aura 271) on the debuffs the
-   spec applies, talent rank curves, and the coefficient mismatches it flags;
-   then move hand-set buff values (`damage_pct` etc.) over to derived ones.
+3. Extend the DB2 effect layer: run the new target-debuff (aura 271) and rank-curve
+   code against built DB2 tables, check the numbers, regenerate `derived/` and
+   calibration, then move hand-set buff values (`damage_pct` etc.) over to derived ones.
 4. Warcraft Logs ingestion: the same `observe → calibrate → validate` loop on
    real logs instead of SimC output.
 5. A rotation optimizer (search over priority lists with the engine as the judge).
