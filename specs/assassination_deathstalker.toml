@@ -62,6 +62,18 @@ spec_id = 259                 # [db2] ChrSpecialization Assassination
 [gear.procs]
 crit = 0.04835
 
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 consumables for the sample profile
+# plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, crit_rating = 197, haste_rating = 32 }
+#   primary 75.1   food 50 + Void-Touched augment rune 25.1 [obs: +87 attack power]
+#   crit 165       Flask of the Shattered Sun (rank 2) [simc apl/rogue]
+#   crit/haste 32  Thalassian Phoenix Oil (rank 2) on both daggers
+primary_buffs = { lights_potential = 695 }   # [db2 1236616] rank-2 Light's Potential
+
 [fight]
 duration = 300
 variance = 0.2
@@ -791,8 +803,42 @@ school = "cosmic"
 crit_bonus = -2.0
 refresh = "reset"          # a new Rune re-applies it: the tick timer starts over [simc log]
 
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"   # potion: +695 agility for 30s [db2 1236616]
+duration = 30
+power_pct = 16.6            # as a share of attack power; [gear.kit] recomputes it from the gear
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
 # ---------------------------------------------------------------- rotation
 # Paraphrase of SimC's default Assassination APL, single target, Deathstalker.
+
+# Potion [simc APL: potion,if=dot.rupture.ticking&(buff.bloodlust.react|fight_remains<30|debuff.deathmark.up)]
+[[rotation]]
+action = "potion"
+if = "dot.rupture.ticking&(buff.bloodlust.up|buff.deathmark.up|fight_remains<30)"
 
 [[rotation]]
 action = "thistle_tea"
