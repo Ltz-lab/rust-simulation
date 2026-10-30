@@ -114,7 +114,7 @@ struct GearSpec {
     /// multipliers but a new, uncalibrated source would miss (raid debuffs).
     #[serde(default)]
     effect_mult: HashMap<String, f64>,
-    /// 0 turns trinket effects / set bonuses off (stats stay).
+    /// 0 turns item effects (trinkets, rings, weapons...) / set bonuses off (stats stay).
     #[serde(default = "one")]
     trinket_effects: f64,
     #[serde(default = "one")]
@@ -627,12 +627,33 @@ struct Active {
 /// The effects the equipped gear carries: (in play, report rows).
 fn active_effects(eq: &[Equipped], cfg: &GearSpec) -> (Vec<Active>, Vec<Value>) {
     let gd = gamedata();
+    active_effects_with(eq, cfg, |id| gd.item_effects.get(&id.to_string()).map(|v| v.as_slice()).unwrap_or(&[]))
+}
+
+/// DB2 `ItemEffect` trigger type as the report names it.
+fn trigger_name(t: i64) -> &'static str {
+    match t {
+        0 => "use",
+        1 => "equip",
+        2 => "proc",
+        _ => "other",
+    }
+}
+
+/// `active_effects` with the item -> effects lookup given. Items of any slot
+/// (trinkets, rings, necks, weapons...) carry effects the same way.
+fn active_effects_with<'a>(
+    eq: &[Equipped],
+    cfg: &GearSpec,
+    effects_of: impl Fn(i64) -> &'a [[i64; 4]],
+) -> (Vec<Active>, Vec<Value>) {
+    let gd = gamedata();
     let mut act = Vec::new();
     let mut rows = Vec::new();
     let status = |f: f64| if f > 0.0 { Value::Null } else { json!("off") };
     for it in eq {
-        for &[trigger, spell, _, _] in gd.item_effects.get(&it.id.to_string()).map(|v| v.as_slice()).unwrap_or(&[]) {
-            rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": if trigger == 0 { "use" } else { "equip" }, "status": status(cfg.trinket_effects)}));
+        for &[trigger, spell, _, _] in effects_of(it.id) {
+            rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": trigger_name(trigger), "status": status(cfg.trinket_effects)}));
             if cfg.trinket_effects > 0.0 {
                 act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, from: it.slot.clone() });
             }
@@ -1149,6 +1170,30 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             .unwrap();
         let (_, rep) = ret_with(&format!("{RET_CORE_PROFILE}trinket1=,id={other}\n"), &[]);
         assert_eq!(rep["unmodelled"], json!(["trinket1"]));
+    }
+
+    #[test]
+    fn effects_of_any_slot_are_collected() {
+        // a ring with an on-equip effect, a weapon proc and a trinket; the
+        // lookup stands in for ItemEffect (which the committed data only has
+        // for trinkets until tools/gamedata.py is rerun)
+        let eq = |slot: &str, id: i64, inv_type: i64| Equipped { slot: slot.into(), id, ilvl: 344, inv_type };
+        let items = [eq("finger1", 1, 11), eq("main_hand", 2, 13), eq("trinket1", 3, 12)];
+        let table: HashMap<i64, Vec<[i64; 4]>> = HashMap::from([
+            (1, vec![[1, 1297760, 0, 0]]),
+            (2, vec![[2, 1297761, 0, 0]]),
+            (3, vec![[0, 1297761, 90000, 0]]),
+        ]);
+        let cfg: GearSpec = toml::from_str(RET_GEAR_TOML).unwrap();
+        let (act, rows) = active_effects_with(&items, &cfg, |id| table.get(&id).map(|v| v.as_slice()).unwrap_or(&[]));
+        let from: Vec<&str> = act.iter().map(|a| a.from.as_str()).collect();
+        assert_eq!(from, ["finger1", "main_hand", "trinket1"]);
+        let trig: Vec<&str> = rows.iter().map(|r| r["trigger"].as_str().unwrap()).collect();
+        assert_eq!(trig, ["equip", "proc", "use"]);
+        // rating coefficients (class -7) use the slot's combat-rating column: jewelry for a ring, trinket for a trinket
+
+        assert_ne!(budget(-7, 344, 11).unwrap(), budget(-7, 344, 12).unwrap());
+        assert_eq!(act[0].inv_type, 11);
     }
 
     /// A caster spec's own `[gear]` table against its core-kit profile (no trinkets).

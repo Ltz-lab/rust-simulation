@@ -54,7 +54,7 @@ profiles (core kit, 300s Patchwerk):
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
-[effect library](docs/gear.md#trinkets-and-set-bonuses) read at the item's
+[effect library](docs/gear.md#item-effects-and-set-bonuses) read at the item's
 level: on the app's Ret character azsim gives 227,081 against SimC's
 like-for-like 225,566 (+0.67%,
 [full kit vs SimC](docs/retribution.md#full-kit-a-real-character-against-simc)).

@@ -46,10 +46,11 @@ SimC side is core kit. Ret's numbers and the gap they close are in
 [retribution.md](retribution.md#full-kit-a-real-character-against-simc).
 
 
-## Trinkets and set bonuses
+## Item effects and set bonuses
 
-With gear lines, every on-use and on-equip effect of an equipped trinket
-(DB2 `ItemEffect`) and every set bonus the character reaches (`ItemSet`,
+With gear lines, every on-use, on-equip and (for non-trinkets) chance-on-hit
+effect of an equipped item in any slot (DB2 `ItemEffect`: trinkets, rings such
+as Loa Worshiper's Band, necks, weapons) and every set bonus the character reaches (`ItemSet`,
 `ItemSetSpell`, for the spec's `spec_id` or any spec) is looked up by its
 spell id in an effect library: `data/item_effects.toml` for trinkets and
 non-class sets, `[[gear.effects]]` in the spec for class set bonuses. Each
@@ -87,6 +88,19 @@ calibrated sources carry in their fitted multipliers but a new source would
 miss. Against SimC, per hit: Guillotine 79,557 vs 79,456, Devour Morsel
 12,708 vs 12,734; per fight: 24.6 vs 23.9 Guillotines, 35.8 vs 35.3 Devour
 Morsels.
+
+Slots are not special: a ring or weapon effect goes through the same lookup,
+template and placeholders as a trinket's. The report row says the trigger
+(`use`, `equip`, `proc`), and rating coefficients use the item's own
+combat-rating column (jewelry for rings and necks, trinket, weapon, armor). To
+model one, write its template in `data/item_effects.toml` like the trinkets'.
+The committed `data/gamedata.json.gz` still holds `ItemEffect` rows for
+trinkets only: `tools/gamedata.py` now keeps them for every equippable item
+(proc effects of non-trinkets included), but the data hasn't been rebuilt
+(needs DB2 access), so until it is, rings and weapons carry no effects and are
+neither modelled nor listed as `unmodelled`. Enchants that work through a
+spell aura, and embellishments (crafting-bonus spells, not `ItemEffect`) are
+not read yet.
 
 `--gear-stats` (and the Python `gear_stats`) lists every effect with its
 status: `modelled`, `covered` (its values are read by another entry),

@@ -201,7 +201,7 @@ calibration. Through the app's batch path (seed 1, 0.2% target error):
 ### Trinkets and tier set
 
 With gear lines azsim now also models the character's trinket effects and set
-bonuses (see [gear.md](gear.md#trinkets-and-set-bonuses) for the effect
+bonuses (see [gear.md](gear.md#item-effects-and-set-bonuses) for the effect
 library):
 
 - *Zul'jin's Guillotine Technique*: real-PPM physical proc, +2% damage per 1%

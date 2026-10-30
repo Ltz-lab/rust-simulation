@@ -78,8 +78,9 @@ and `sources = ["name", ...]` to restrict eligible damage sources. Hits from
 pets and `no_procs` abilities don't roll.
 Each on-hit proc has its own `hit_proc/<ability>` random stream.
 
-Trinket effects and set bonuses are spec fragments in this same format, added
-with gear lines; see [gear.md](gear.md#trinkets-and-set-bonuses).
+Item effects (trinkets, and the on-equip or proc spell of a ring, neck or weapon)
+and set bonuses are spec fragments in this same format, added with gear lines;
+see [gear.md](gear.md#item-effects-and-set-bonuses).
 
 ## Energy, combo points, dual wield
 
