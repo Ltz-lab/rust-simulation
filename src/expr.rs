@@ -10,6 +10,8 @@ pub enum Var {
     ResourcePct(usize),
     Mastery,
     Haste,
+    /// The player's current crit chance (rating plus crit buffs).
+    Crit,
     GcdRemains,
     PrevGcd(usize),
     /// What the player's last cast paid of a resource (`spent.<resource>`).
