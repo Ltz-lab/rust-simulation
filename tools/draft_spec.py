@@ -53,7 +53,7 @@ TOKEN = re.compile(
     r"|(?P<op><\?|>\?|<=|>=|!=|==|%%|&&|\|\||[|&!<>=+\-*/%()@^]))"
 )
 PREC = {"|": 1, "&": 2, "^": 2, "<": 3, "<=": 3, ">": 3, ">=": 3, "=": 3, "!=": 3,
-        "+": 4, "-": 4, "*": 5, "/": 5}
+        "+": 4, "-": 4, "*": 5, "/": 5, "%%": 5}
 
 
 def lex(s):
@@ -101,7 +101,7 @@ def parse(s):
             if k != "op":
                 break
             v = {"&&": "&", "||": "|", "==": "="}.get(v, v)
-            if v in ("%%", "<?", ">?"):
+            if v in ("<?", ">?"):
                 raise Untranslatable(f"operator {v}")
             if v == "%":
                 v = "/"
@@ -150,7 +150,7 @@ def fold(e):
              "<": lambda: float(x < y), "<=": lambda: float(x <= y), ">": lambda: float(x > y),
              ">=": lambda: float(x >= y), "=": lambda: float(x == y), "!=": lambda: float(x != y),
              "+": lambda: x + y, "-": lambda: x - y, "*": lambda: x * y,
-             "/": lambda: x / y if y else 0.0}.get(op)
+             "/": lambda: x / y if y else 0.0, "%%": lambda: x % y if y else 0.0}.get(op)
         if f:
             return ("num", f())
     for c, o in ((a, b), (b, a)):
@@ -172,7 +172,9 @@ CD_FIELDS = {"ready": "ready", "up": "ready", "remains": "remains", "charges": "
 class Ctx:
     """What the translator knows: the loadout, the hero tree, the action's own name, variables."""
 
-    def __init__(self, talent=None, hero=None, variables=None, action=None):
+    def __init__(self, talent=None, hero=None, variables=None, action=None, bare=False, fight_length=300.0):
+        self.fight_length = fight_length
+        self.bare = bare            # no trinkets or other equipped items (the core-kit references)
         self.talent = talent or (lambda name: None)    # name -> bool | None (unknown)
         self.hero = hero
         self.variables = variables or {}
@@ -204,6 +206,14 @@ def map_id(name, cx):
         return num(norm(p[1]) == norm(cx.hero))
     if h == "fight_style" and n == 2:
         return num(p[1] == "patchwerk")
+    if cx.bare and (h == "equipped" or h == "trinket"):
+        return num(0)
+    if h == "raid_event" and n == 3:
+        # patchwerk has no raid events: nothing exists or is up, and the next one never comes
+        if p[2] in ("exists", "up", "down", "remains", "count", "cooldown", "duration", "max_distance"):
+            return num(1 if p[2] == "down" else 0)
+        if p[2] == "in":
+            return num(1e9)
     if h == "buff" and n == 3:
         f = p[2]
         if f == "up":
@@ -234,6 +244,8 @@ def map_id(name, cx):
         return ident("cooldown", cx.action, name)
     if name == "gcd.max":
         return ident("gcd")
+    if name == "expected_combat_length":
+        return num(cx.fight_length)
     if name == "active_enemies":
         return num(1)    # the engine simulates a single target
     if name in ("gcd", "gcd.remains", "time", "fight_remains", "target.health.pct",
@@ -281,6 +293,8 @@ def translate(cond, cx):
     """SimC condition text -> engine expression text, or raises Untranslatable.
     A constant-true condition comes back as '' (no `if`)."""
     e = fold(translate_ast(parse(cond), cx))
+    if "%%" in unparse(e) if e[0] != "num" else False:
+        raise Untranslatable("operator %% on a value known only at run time")
     if e[0] == "num":
         if e[1]:
             return ""
@@ -341,9 +355,14 @@ def collect_variables(lists):
             if a == "variable" and p.get("op", "set") == "set" and "if" not in p and "value" in p:
                 out[p["name"]] = p["value"]
     # a variable that is also set conditionally or by setif/max/min is not a plain value
+    # (a reset only puts it back to its default, so a variable that is only ever reset stays at it)
     for entries in lists.values():
         for a, p in entries:
-            if a == "variable" and (p.get("op", "set") != "set" or "if" in p):
+            if a == "variable" and p.get("op") == "reset" and "default" in p and p["name"] not in out:
+                out[p["name"]] = p["default"]
+    for entries in lists.values():
+        for a, p in entries:
+            if a == "variable" and (p.get("op", "set") not in ("set", "reset") or "if" in p):
                 out.pop(p["name"], None)
     return out
 
@@ -380,6 +399,25 @@ def translate_conds(conds, cx):
     return "&".join(f"({x})" if re.search(r"\|", x) else x for x in parts)
 
 
+# the APL's name for an action -> the spell that replaces it when the loadout has that talent
+OVERRIDES = {"templars_verdict": "final_verdict"}
+
+
+def adjust_rows(rows, skipped, known):
+    """Rename overridden actions and prune the ones whose talent isn't in the loadout
+    (a bare `templar_strike` has no `talent.` guard in the APL, the spell simply isn't there)."""
+    out = []
+    for r in rows:
+        a = r["action"]
+        if OVERRIDES.get(a) and known(OVERRIDES[a]):
+            r = dict(r, action=OVERRIDES[a])
+        elif known(a) is False:
+            skipped["(talent not taken)"] = skipped.get("(talent not taken)", 0) + 1
+            continue
+        out.append(r)
+    return out
+
+
 def build_rotation(lists, cx_factory):
     """-> list of dicts: action, if (str or None), status 'ok' | 'todo', reason, simc, list."""
     cx0 = cx_factory(None)
@@ -413,7 +451,14 @@ POWER = {0: "mana", 1: "rage", 2: "focus", 3: "energy", 4: "combo_points", 5: "r
          7: "soul_shards", 8: "astral_power", 9: "holy_power", 11: "maelstrom", 12: "chi", 13: "insanity",
          16: "arcane_charges", 17: "fury", 18: "pain", 19: "essence"}
 POWER_DIV = {1: 10, 6: 10, 8: 10, 13: 10, 17: 10, 18: 10}   # stored in tenths (rage, runic power, ...)
-SCHOOL = {1: "physical", 2: "holy", 4: "fire", 8: "nature", 16: "frost", 32: "shadow", 64: "arcane"}
+# SchoolMask -> the name SimC (and the hand-written specs) use, including the multi-school ones
+SCHOOL = {0x01: "physical", 0x02: "holy", 0x04: "fire", 0x08: "nature", 0x10: "frost", 0x20: "shadow", 0x40: "arcane",
+          0x03: "holystrike", 0x05: "flamestrike", 0x06: "holyfire", 0x09: "stormstrike", 0x0a: "holystorm",
+          0x0c: "firestorm", 0x11: "froststrike", 0x12: "holyfrost", 0x14: "frostfire", 0x18: "froststorm",
+          0x21: "shadowstrike", 0x22: "shadowlight", 0x24: "shadowflame", 0x28: "shadowstorm", 0x30: "shadowfrost",
+          0x41: "spellstrike", 0x42: "divine", 0x44: "spellfire", 0x48: "astral", 0x50: "spellfrost",
+          0x60: "spellshadow", 0x1c: "elemental", 0x6a: "cosmic", 0x7c: "chromatic", 0x7d: "chromastrike",
+          0x7e: "magic", 0x7f: "chaos"}
 E_ENERGIZE = 30
 
 
@@ -432,6 +477,7 @@ class Db2Source:
         self.spec_id = spec_id
         self._names = None
         self.spec_spells = set()
+        self.talent_spells = set()      # the loadout's talents; set by main() once decoded
         if spec_id:
             self.spec_spells = {int(r["SpellID"]) for r in self.db.multi("SpecializationSpells", "SpecID").get(spec_id, [])}
 
@@ -446,7 +492,9 @@ class Db2Source:
         return [s for s in self.index().get(norm(name.replace("_", " ")), []) if self.sp.effects.get(s)]
 
     def pick(self, name, aura=False):
-        """Best spell id for a SimC name: spec spells first, then spells that do something."""
+        """Best spell id for a SimC name: a castable (not passive) spell that does something,
+        then one the loadout's talents grant, then the spec's own spells, and among equals
+        the oldest id (newer same-named rows are procs and overrides)."""
         c = self.candidates(name)
         if not c:
             return None, []
@@ -456,7 +504,9 @@ class Db2Source:
             has_dur = misc is not None and num_(misc.get("DurationIndex")) > 0
             dmg = bool(self.sp.damage_indices(s))
             cd = bool(self.db.by("SpellCooldowns", "SpellID").get(s))
-            return (s in self.spec_spells, has_dur if aura else (dmg or cd), not self.sp.passive(s), s)
+            passive = self.sp.passive(s)
+            return (not passive and (has_dur if aura else (dmg or cd)), not passive, s in self.talent_spells,
+                    s in self.spec_spells, dmg and cd, -s)
         c.sort(key=score, reverse=True)
         return c[0], c
 
@@ -490,9 +540,12 @@ class Db2Source:
         cat = by("SpellCategories", "SpellID").get(sid, {})
         chg = by("SpellCategory", "ID").get(int(num_(cat.get("ChargeCategory"))), {})
         recov = max(num_(cd.get("RecoveryTime")), num_(cd.get("CategoryRecoveryTime"))) / 1000
-        if chg and num_(chg.get("MaxCharges")) > 1:
-            f["charges"] = int(num_(chg["MaxCharges"]))
-            f["cooldown"] = num_(chg.get("ChargeRecoveryTime")) / 1000
+        if chg and num_(chg.get("ChargeRecoveryTime")):
+            # a one-charge spell on a charge category keeps its cooldown here too (Blade of
+            # Justice, Wake of Ashes); RecoveryTime is only the lockout between casts
+            if num_(chg.get("MaxCharges")) > 1:
+                f["charges"] = int(num_(chg["MaxCharges"]))
+            f["cooldown"] = num_(chg["ChargeRecoveryTime"]) / 1000
         elif recov:
             f["cooldown"] = recov
         gcd = num_(cd.get("StartRecoveryTime"))
@@ -511,7 +564,8 @@ class Db2Source:
         for e in self.sp.effs(sid):
             if int(e["Effect"]) == E_ENERGIZE and int(num_(e["EffectMiscValue_0"])) in POWER:
                 t = int(num_(e["EffectMiscValue_0"]))
-                gain[POWER[t]] = num_(e["EffectBasePointsF"]) / POWER_DIV.get(t, 1)
+                if num_(e["EffectBasePointsF"]):
+                    gain[POWER[t]] = num_(e["EffectBasePointsF"]) / POWER_DIV.get(t, 1)
         if cost:
             f["cost"] = cost
         if gain:
@@ -608,6 +662,12 @@ def emit(profile, rows, skipped, resources, db, hero, talents_known, extra=()):
     w(f"# talents known: {'yes' if talents_known else 'no (talent.* conditions are TODO)'}; hero tree: {hero or 'unknown'}")
     if skipped:
         w("# APL actions with no spec counterpart, skipped: " + ", ".join(f"{k} x{v}" for k, v in sorted(skipped.items())))
+    todo = {}
+    for r in rows:
+        if r["status"] == "todo":
+            todo[r["reason"]] = todo.get(r["reason"], 0) + 1
+    if todo:
+        w("# untranslated rotation entries by reason: " + "; ".join(f"{k} x{v}" for k, v in sorted(todo.items(), key=lambda kv: -kv[1])))
     w("")
     w(f'name = "{profile["class"].title()} {profile["spec"].title()}{" (" + hero + ")" if hero else ""} DRAFT"')
     w("")
@@ -755,6 +815,14 @@ def main():
                     help="set a talent by hand (when no DB2 to decode the loadout)")
     ap.add_argument("--spec-id", type=int, default=None, help="ChrSpecialization id (default: from the talents= string)")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--apl", default=None, metavar="FILE",
+                    help="SimC action list to translate (default: the profile's own actions= lines, "
+                         "else <--simc>/ActionPriorityLists/default/<class>_<spec>.simc)")
+    ap.add_argument("--simc", default=os.environ.get("SIMC_DIR"),
+                    help="SimC checkout, for the default action list of profiles that have none (env SIMC_DIR)")
+    ap.add_argument("--fight-length", type=float, default=300.0, help="expected_combat_length, seconds")
+    ap.add_argument("--bare", action="store_true",
+                    help="assume no trinkets or other equipped items (equipped.* and trinket.* fold to 0), as in the core-kit references")
     ap.add_argument("--apl-only", action="store_true", help="rotation only, no abilities/buffs")
     ap.add_argument("--diff", default=None, help="hand-written spec to compare the draft with")
     a = ap.parse_args()
@@ -776,6 +844,7 @@ def main():
                 sub_rows = db.db.by("TraitSubTree")
                 hero = next((sub_rows[i]["Name_lang"] for i in subs if i in sub_rows), None)
             tspells = [t["spell"] for t in sel if t["spell"]]
+            db.talent_spells = set(tspells)
             have = {norm(db.db.name(t["spell"])) for t in sel if t["spell"]}
             every = {norm(db.db.name(int(num_(r["SpellID"])))) for r in db.db.rows("TraitDefinition")}
             known = lambda name: (talents[name] if name in talents else
@@ -786,7 +855,16 @@ def main():
         known = lambda name: talents.get(name)
 
     lists = parse_apl(prof["text"])
-    rows, skipped, resources = build_rotation(lists, lambda act: Ctx(talent=known, hero=hero, action=act))
+    apl_file = a.apl
+    if not apl_file and "default" not in lists and a.simc:
+        guess = os.path.join(a.simc, "ActionPriorityLists", "default", f"{prof['class']}_{prof['spec']}.simc")
+        apl_file = guess if os.path.exists(guess) else None
+    if apl_file and ("default" not in lists or a.apl):
+        with open(apl_file, encoding="utf-8") as f:
+            lists = parse_apl(f.read())
+        print(f"rotation from {apl_file}", file=sys.stderr)
+    rows, skipped, resources = build_rotation(lists, lambda act: Ctx(talent=known, hero=hero, action=act, bare=a.bare, fight_length=a.fight_length))
+    rows = adjust_rows(rows, skipped, known)
     pruned = sum(r["status"] == "pruned" for r in rows)
     rows = [r for r in rows if r["status"] != "pruned"]
     if pruned:
