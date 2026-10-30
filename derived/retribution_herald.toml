@@ -10,6 +10,7 @@ derived = 1.386000
 
 [sources."consecration_tick_blade_of_justice"]
 derived = 1.085700
+debuff = 1.300000   # aura 271; folded into derived: false
 
 [sources."crusading_strike"]
 derived = 1.440000
@@ -128,4 +129,10 @@ derived = 1.050000
 "divine_storm_second_sunrise" = 10.0000
 "divine_storm_second_sunrise_tempest" = 10.0000
 "final_verdict" = 10.0000
+
+[buffs."judgment_debuff".ability_pct]
+"divine_storm" = 20.0000
+"divine_storm_second_sunrise" = 20.0000
+"divine_storm_second_sunrise_tempest" = 20.0000
+"final_verdict" = 20.0000
 

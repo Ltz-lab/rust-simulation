@@ -48,4 +48,18 @@ assert c.value(7, 0, 2, 5) == 20.0 and c.value(7, 0, 9, 5) == 30.0   # interpola
 assert c.value(7, 1, 2, 5) == 10.0 and c.value(7, 2, 1, 5) is None   # multiply op; no curve
 assert fx.scaled(c, {5: 7}, 5, {"EffectIndex": 0}, 2, 5) == 20.0
 assert fx.scaled(c, {5: 7}, 6, {"EffectIndex": 0}, 2, 5) == 10     # no definition: linear
+
+# scripted dummies: the number is the effect's points, rank-scaled; the sources come from the data file
+import tempfile
+sp.e[20] = [eff(0, 4, 75)]
+with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False) as f:
+    f.write("[[effect]]\nspell = 20\nindex = 0\nsources = [1]\nsimc = 'test'\n"
+            "[[effect]]\nspell = 21\nindex = 0\nsources = [1]\n"          # not in effect
+            "[[effect]]\nspell = 20\nindex = 3\nsources = [1]\n")          # no such effect
+sc = fx.scripted_effects(sp, {20: (1, "talent")}, f.name)
+assert len(sc) == 1 and sc[0]["value"] == 75 and sc[0]["sources"] == {1}
+assert fx.scripted_effects(sp, {20: (2, "talent")}, f.name)[0]["value"] == 150
+assert fx.dummy_report(sp, {20: (1, "talent")}, sc) == []           # applied ones leave the "not derived" list
+assert fx.dummy_report(sp, {20: (1, "talent")}) == [(20, 0, 75.0)]
+os.unlink(f.name)
 print("ok")

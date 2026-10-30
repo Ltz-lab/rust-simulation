@@ -4,108 +4,108 @@
 
 [sources."blade_of_justice"]
 derived = 1.386000
-mult = 1.538902
-crit_bonus = +0.028608
+mult = 1.539110
+crit_bonus = +0.028272
 
 [sources."blade_of_justice_walk_into_light"]
 derived = 1.386000
-mult = 1.317003
-crit_bonus = -0.008824
+mult = 1.316988
+crit_bonus = -0.008690
 
 [sources."consecration_tick_blade_of_justice"]
 derived = 1.085700
-mult = 1.472309
-crit_bonus = +0.035315
+mult = 1.472524
+crit_bonus = +0.035615
 
 [sources."crusading_strike"]
 derived = 1.440000
-mult = 1.038344
-crit_bonus = +0.021731
+mult = 1.038329
+crit_bonus = +0.021654
 
 [sources."dawnlight"]
 derived = 3.384150
-mult = 0.955969
-crit_bonus = +0.055554
+mult = 0.955847
+crit_bonus = +0.055446
 
 [sources."divine_storm"]
 derived = 1.081500
-mult = 1.786402
-crit_bonus = +0.091078
+mult = 1.760009
+crit_bonus = +0.091005
 
 [sources."divine_storm_second_sunrise"]
 derived = 1.081500
-mult = 0.674508
-crit_bonus = +0.080255
+mult = 0.674119
+crit_bonus = +0.090139
 
 [sources."divine_storm_second_sunrise_tempest"]
 derived = 1.081500
-mult = 0.269723
-crit_bonus = +0.078394
+mult = 0.269565
+crit_bonus = +0.083612
 
 [sources."divine_storm_tempest"]
 derived = 1.081500
-mult = 0.255446
-crit_bonus = -0.009421
+mult = 0.255423
+crit_bonus = -0.009599
 
 [sources."execution_sentence"]
 derived = 1.000000
-mult = 0.895446
+mult = 0.892689
 crit_bonus = +0.000000
 
 [sources."execution_sentence_init"]
 derived = 1.050000
-mult = 1.063391
-crit_bonus = -0.010159
+mult = 1.063380
+crit_bonus = -0.010180
 
 [sources."expurgation"]
 derived = 1.155000
-mult = 2.620918
-crit_bonus = +0.024268
+mult = 2.621035
+crit_bonus = +0.024379
 
 [sources."final_verdict"]
 derived = 1.189650
-mult = 1.394910
-crit_bonus = +0.014055
+mult = 1.253035
+crit_bonus = +0.014340
 
 [sources."hammer_of_wrath"]
 derived = 1.260000
-mult = 1.806267
-crit_bonus = +0.091348
+mult = 1.806272
+crit_bonus = +0.091347
 
 [sources."hammer_of_wrath_divine_resonance"]
 derived = 1.260000
-mult = 1.197967
-crit_bonus = +0.093078
+mult = 1.197959
+crit_bonus = +0.093193
 
 [sources."hammer_of_wrath_divine_toll"]
 derived = 1.260000
-mult = 3.006038
-crit_bonus = +0.084382
+mult = 3.005952
+crit_bonus = +0.084295
 
 [sources."hammer_of_wrath_second_sunrise"]
 derived = 1.260000
-mult = 0.607065
-crit_bonus = +0.094390
+mult = 0.607058
+crit_bonus = +0.098007
 
 [sources."highlords_judgment"]
 derived = 1.050000
-mult = 1.080038
-crit_bonus = +0.010489
+mult = 1.080162
+crit_bonus = +0.009274
 
 [sources."judgment"]
 derived = 1.638000
-mult = 1.667819
-crit_bonus = +0.036353
+mult = 1.667595
+crit_bonus = +0.035596
 
 [sources."light_within_boj"]
 derived = 1.050000
-mult = 2.715620
-crit_bonus = +0.017560
+mult = 2.716678
+crit_bonus = +0.017481
 
 [sources."light_within_boj_wil"]
 derived = 1.050000
-mult = 2.661202
-crit_bonus = -0.008866
+mult = 2.661166
+crit_bonus = -0.008579
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
@@ -119,43 +119,43 @@ crit_bonus = +0.000000
 
 [sources."seething_flames_0"]
 derived = 1.050000
-mult = 1.081317
-crit_bonus = +0.006934
+mult = 1.081338
+crit_bonus = +0.007053
 
 [sources."seething_flames_1"]
 derived = 1.050000
-mult = 1.080891
-crit_bonus = +0.011220
+mult = 1.080944
+crit_bonus = +0.011016
 
 [sources."sun_sear"]
 derived = 1.155000
-mult = 0.991436
-crit_bonus = +0.021026
+mult = 0.991818
+crit_bonus = +0.021398
 
 [sources."suns_avatar"]
 derived = 2.919000
-mult = 0.839111
-crit_bonus = +0.022213
+mult = 0.839085
+crit_bonus = +0.022138
 
 [sources."truths_wake"]
 derived = 1.155000
-mult = 1.052715
-crit_bonus = +0.010948
+mult = 1.052944
+crit_bonus = +0.010941
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.730894
-crit_bonus = +0.027467
+mult = 0.730930
+crit_bonus = +0.027350
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.685122
-crit_bonus = +0.025111
+mult = 0.685121
+crit_bonus = +0.024975
 
 [sources."wake_of_ashes"]
 derived = 1.050000
-mult = 1.080929
-crit_bonus = +0.016902
+mult = 1.080925
+crit_bonus = +0.016979
 
 [buffs."avenging_wrath".ability_pct]
 "blade_of_justice" = 20.0000
@@ -190,4 +190,10 @@ crit_bonus = +0.016902
 "divine_storm_second_sunrise" = 10.0000
 "divine_storm_second_sunrise_tempest" = 10.0000
 "final_verdict" = 10.0000
+
+[buffs."judgment_debuff".ability_pct]
+"divine_storm" = 20.0000
+"divine_storm_second_sunrise" = 20.0000
+"divine_storm_second_sunrise_tempest" = 20.0000
+"final_verdict" = 20.0000
 
