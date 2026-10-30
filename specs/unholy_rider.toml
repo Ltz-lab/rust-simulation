@@ -51,6 +51,22 @@ versatility_bonus = 0.03      # [obs] Mark of the Wild
 weapon_ap_per_dps = 6.4189    # [obs] the spec's flat 1000 base attack power at 155.8 two-hander DPS
 spec_id = 252                 # [db2] ChrSpecialization Unholy
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 148,632 with all, 143,575 with
+# none, +3.52%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["rune_of_unleashed_fire", "rune_of_lynxlike_reflexes", "rune_of_lingering", "rune_of_masterful_cunning", "rune_of_overload"]
+traits = [
+  { id = "rune_of_unleashed_fire", name = "Rune of Unleashed Fire", global_mult = 1.01837 },   # [simc] leave-one-out 1.03540
+  { id = "rune_of_lynxlike_reflexes", name = "Rune of Lynxlike Reflexes", global_mult = 0.99999 },   # [simc] leave-one-out 0.99998
+  { id = "rune_of_lingering", name = "Rune of Lingering", global_mult = 1.00123 },   # [simc] leave-one-out 1.00236
+  { id = "rune_of_masterful_cunning", name = "Rune of Masterful Cunning", global_mult = 1.01340 },   # [simc] leave-one-out 1.02576
+  { id = "rune_of_overload", name = "Rune of Overload", global_mult = 1.00190 },   # [simc] leave-one-out 1.00363
+]
+
 # Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
 # turns it off): SimC's default level-90 consumables for the sample profile
 # plus Bloodlust, measured on its buffed stats. [simc]

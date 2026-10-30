@@ -1353,7 +1353,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         doc["gear"].as_table_mut().unwrap().remove("omnium");
         let (_, rep) = apply_text(doc, &format!("{RET_CORE_PROFILE}omnium_talents=1:1\n")).unwrap();
         assert_eq!(rep["omnium"]["factor"], 1.0);
-        // the shipped Ret table: the sample profile's own five traits change nothing, none loses 3.6%
+        // the shipped Ret table: the sample profile's own five traits change nothing, none loses 3.5%
         let ret = |extra: &str| {
             let doc: toml::Value = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
             let (out, rep) = apply_text(doc, &format!("{RET_CORE_PROFILE}{extra}")).unwrap();
@@ -1362,7 +1362,14 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         let (m_all, rep) = ret("omnium_talents=136822:1/136816:1/136817:1/136821:1/136814:1\n");
         assert_eq!(rep["unmodelled"], json!([]));
         let (m_none, _) = ret("");
-        assert!((m_none / m_all - 127_156.0 / 131_738.0).abs() < 1e-4, "{}", m_none / m_all);
+        assert!((m_none / m_all - 127_168.0 / 131_721.0).abs() < 1e-4, "{}", m_none / m_all);
+        // per trait: dropping Burning Haste alone costs its own 1.01331, not the lump
+        let (m_less, rep) = ret("omnium_talents=136822:1/136816:1/136817:1/136814:1\n");
+        assert!((m_all / m_less - 1.01331).abs() < 1e-9, "{}", m_all / m_less);
+        assert_eq!(rep["unmodelled"], json!([]));
+        // Unleashed Fire alone is worth its own 1.01901, not the whole set
+        let (m_fire, _) = ret("omnium_talents=136822:1\n");
+        assert!((m_fire / m_none - 1.01901).abs() < 1e-9, "{}", m_fire / m_none);
     }
 
     #[test]

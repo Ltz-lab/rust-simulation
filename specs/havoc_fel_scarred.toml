@@ -58,6 +58,22 @@ spec_id = 577                 # [db2] ChrSpecialization
 # magic), Mystic Touch (+5% physical) and Hunter's Mark (+3%). [simc]
 effect_mult = { physical = 1.0815, magic = 1.0609 }
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 159,640 with all, 153,793 with
+# none, +3.80%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136815", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.02004 },   # [simc] leave-one-out 1.03773
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 0.99987 },   # [simc] leave-one-out 0.99975
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00095 },   # [simc] leave-one-out 1.00178
+  { id = "136815", name = "Rune of Critical Power", global_mult = 1.01509 },   # [simc] leave-one-out 1.02835
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00168 },   # [simc] leave-one-out 1.00314
+]
+
 # Raid-night kit with gear lines: SimC's default level-90 Havoc consumables plus
 # Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
 [gear.kit]

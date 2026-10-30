@@ -62,6 +62,22 @@ spec_id = 253                 # [db2] ChrSpecialization Beast Mastery
 [gear.procs]
 haste = 0.03345
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 181,855 with all, 176,563 with
+# none, +3.00%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136821", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01587 },   # [simc] leave-one-out 1.02983
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 0.99975 },   # [simc] leave-one-out 0.99953
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00087 },   # [simc] leave-one-out 1.00162
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01185 },   # [simc] leave-one-out 1.02225
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00139 },   # [simc] leave-one-out 1.00259
+]
+
 # Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
 # turns it off): SimC's default level-90 consumables for the sample profile
 # plus Bloodlust, measured on its buffed stats. [simc]
