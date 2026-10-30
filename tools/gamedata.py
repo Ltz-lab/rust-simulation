@@ -236,9 +236,14 @@ def main():
     # Item on-use / on-equip / proc effects (any slot), set membership and set bonuses.
     ie = {int(r["ID"]): r for r in rows(cache, B, "ItemEffect")}
     item_effects = {}
+    templated = template_spells()
     for r in rows(cache, B, "ItemXItemEffect"):
         iid, e = int(r["ItemID"]), ie.get(int(r["ItemEffectID"]))
-        if e and iid in items and e["TriggerType"] in (("0", "1") if items[iid][0] == 12 else ("0", "1", "2")):
+        # Trinkets keep every on-use / on-equip effect (unmodelled ones are reported). Other slots
+        # keep only effects with a template: thousands of ring/neck/weapon effects have none, and
+        # listing them as unmodelled would send every swap of such an item to SimC.
+        if e and iid in items and (e["TriggerType"] in ("0", "1") if items[iid][0] == 12 else
+                                   e["TriggerType"] in ("0", "1", "2") and int(e["SpellID"]) in templated):
             item_effects.setdefault(iid, []).append(
                 [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
     for v in item_effects.values():

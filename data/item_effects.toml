@@ -202,3 +202,55 @@ use = "other"
 [[effect]]
 spell = 1297911    # Font of Venomous Rage's values, read by 1297908
 none = true
+
+# The King's Unyielding Wind / Stormbound Emblem of Dazar (233987, 233988): on
+# use, a 2s channel (4 ticks); each completed tick adds 5s to a Haste buff, so
+# a full channel gives 20s (the buff starts when the channel ends, as in SimC's
+# last_tick). Haste rating is effect 1 of the equip spell 1294744. The precombat
+# pre-channel isn't modelled. [simc stormbound_emblem_of_dazar]
+[[effect]]
+spell = 1295275
+text = '''
+[[buffs]]
+name = "kings_unyielding_wind"
+duration = 20    # 4 ticks x 5s (1294745 duration)
+stats = { haste_rating = ${1294744.e1} }
+
+[[abilities]]
+name = "kings_unyielding_wind"
+spell_id = 1295275
+gcd = 0
+cast_time = ${duration}
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "kings_unyielding_wind" }]
+
+[[rotation]]
+action = "kings_unyielding_wind"
+use = "buff"
+'''
+
+[[effect]]
+spell = 1294744    # equip: the Haste rating, read by 1295275
+none = true
+
+# Freightrunner's Flask (item 214268): on use, crit rating for 15s, 90s cooldown.
+# A plain stat buff, no script in SimC.
+[[effect]]
+spell = 1250533
+text = '''
+[[buffs]]
+name = "freightrunners_flask"
+duration = ${duration}
+stats = { crit_rating = ${e1} }
+
+[[abilities]]
+name = "freightrunners_flask"
+spell_id = 1250533
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "freightrunners_flask" }]
+
+[[rotation]]
+action = "freightrunners_flask"
+use = "buff"
+'''
