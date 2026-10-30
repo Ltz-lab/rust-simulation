@@ -79,8 +79,8 @@ against 169,379 from the hand-entered stats (+0.01%, same seed; SimC
 `[gear.kit]` (gear lines only) adds the sample profile's raid-night
 consumables as flat stats — Harandar Celebration, Void-Touched augment rune,
 Flask of the Magisters and Thalassian Phoenix Oil — plus Bloodlust and the
-Liquid Luster potion. The potion's Lustrous Gleam stacks (220.82 versatility
-rating each, ~3 average over its 30s) are folded into one versatility buff.
+Liquid Luster potion. The potion's Lustrous Gleam stacks (420 versatility
+rating each per SimC's log, not the 220.82 an unscaled DB2 read gives; ~3 average over its 30s) are folded into one versatility buff.
 `--set gear.kit.enabled=0` switches it off for core-kit comparisons.
 
 ## Known gaps
@@ -121,3 +121,7 @@ rating each, ~3 average over its 30s) are folded into one versatility buff.
   rows carry spell id 0 / the parent spell 274837, so `effects.py` cannot see
   Cat Form's +40% auto-attack, Feral Druid's +560% auto-attack or Focused
   Frenzy's +15%.
+
+Full-gear check (profiles/MID2_Druid_Feral.simc, no trinkets, set bonuses off,
+10k iterations): SimC 193,535, azsim 192,728 (-0.42%); it was -2.04% with the
+220.82-rating potion. Demonology went from -2.71% to -0.09% the same way.
