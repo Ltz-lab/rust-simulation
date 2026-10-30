@@ -5,7 +5,7 @@
 Effects of gear other than trinkets and set bonuses (embellished rings such
 as Loa Worshiper's Band, armor and weapon procs, proc enchants), multi-target, movement, healers and tanks, a real Warcraft Logs ingestion pipeline. The DB2 effect layer covers passive and buff spell modifiers; scripted auras, target debuffs and talent rank curves (TraitDefinitionEffectPoints) are next.
 
-Trinket effects and set bonuses are in (see [gear.md](gear.md#trinkets-and-set-bonuses)):
+Trinket effects and set bonuses are in (see [gear.md](gear.md#item-effects-and-set-bonuses)):
 an effect library of spec fragments keyed by spell id, numbers from DB2 at
 the item's level. It covers six Midnight trinket effects, Bite of Zul'jan and
 Ret's MID2 tier set; every other trinket or set bonus is reported as

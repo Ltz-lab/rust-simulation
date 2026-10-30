@@ -24,8 +24,9 @@ compact gzip'd JSON file:
   spell_scaling_item level -> the "Item" spell scaling column (scales gem and enchant values)
   combat_ratings     level -> rating per 1% for crit/haste/mastery/versatility
   rand_prop_damage   ilvl -> [damage_replace_stat, damage_secondary] (scaling classes -8, -9)
-  item_effects       trinket id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
-                     (on-use 0 and on-equip 1 effects only)
+  item_effects       item id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
+                     (any equippable item: on-use 0 and on-equip 1 effects, plus chance-on-hit 2
+                     effects of non-trinkets such as rings, necks and weapons)
   item_sets          item id -> item set id, for sets with bonuses
   set_bonuses        item set id -> [[pieces, spec_id (0 = any), spell_id], ...]
   spells             spell id -> {"duration", "school", "rppm", "rppm_mods", "icd", "chance",
@@ -232,12 +233,12 @@ def main():
     sst = json.load(open(fetch("https://www.raidbots.com/static/data/live/spell-scaling-table.json", f"{cache}/spell-scaling-table.json")))
     item_col = next(c for c in sst if c["field"] == "Item")["data"]
 
-    # Trinket on-use / on-equip effects, set membership and set bonuses.
+    # Item on-use / on-equip / proc effects (any slot), set membership and set bonuses.
     ie = {int(r["ID"]): r for r in rows(cache, B, "ItemEffect")}
     item_effects = {}
     for r in rows(cache, B, "ItemXItemEffect"):
         iid, e = int(r["ItemID"]), ie.get(int(r["ItemEffectID"]))
-        if e and iid in items and items[iid][0] == 12 and e["TriggerType"] in ("0", "1"):
+        if e and iid in items and e["TriggerType"] in (("0", "1") if items[iid][0] == 12 else ("0", "1", "2")):
             item_effects.setdefault(iid, []).append(
                 [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
     for v in item_effects.values():
@@ -279,7 +280,7 @@ def main():
     with gzip.GzipFile(a.out, "wb", compresslevel=9, mtime=0) as f:
         f.write(data)
     print(f"wrote {a.out}: {len(items)} items, {len(statsets)} stat sets, {len(bonuses)} bonuses, "
-          f"{len(gems)} gems, {len(enchants)} enchants, {len(item_effects)} trinkets with effects, "
+          f"{len(gems)} gems, {len(enchants)} enchants, {len(item_effects)} items with effects, "
           f"{len(item_sets)} set pieces, {len(spells)} spells; {len(data)/1e6:.1f} MB json, {os.path.getsize(a.out)/1e3:.0f} KB gz")
 
 
