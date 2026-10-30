@@ -158,6 +158,7 @@ on_cast = [
   { type = "if", if = "buff.divine_arbiter_verdict.up", then = [{ type = "consume", buff = "divine_arbiter_verdict" }, { type = "trigger", ability = "divine_arbiter" }] },
   { type = "extend_dot", dot = "dawnlight", seconds = 0.3 },     # as every spender
   { type = "trigger", ability = "dawnlight_apply" },
+  { type = "consume", buff = "judgment_debuff" },
   { type = "trigger", ability = "divine_storm_tempest" },
   { type = "trigger", ability = "divine_storm_second_sunrise", chance = 0.20, delay = 0.325 },
   { type = "buff", buff = "divine_purpose", chance = 0.09 },
@@ -266,6 +267,14 @@ name = "divine_resonance"   # from Divine Toll: each Hammer of Wrath fires an ex
 duration = 30
 max_stacks = 3
 
+[[buffs]]
+name = "judgment_debuff"    # Greater Judgment [db2 231663 #0]: each Judgment or Hammer of Wrath puts a stack on
+spell_id = 197277           # the target (18s, 20 max, [db2 197277]); the next Final Verdict or Divine Storm
+duration = 18               # spends one and takes +20% [db2 197277 aura 271, derived to ability_pct]. SimC:
+max_stacks = 20             # judgment_base_t::impact adds it, holy_power_consumer_t::impact spends it.
+overlap = true              # (Divine Storm from Tempest and Second Sunrise's Tempest don't spend one.)
+flat = true
+
 # ---------------------------------------------------------------- player-cast abilities
 
 [[abilities]]
@@ -345,6 +354,7 @@ damage = { ap_coeff = 4.65069, school = "holy", mastery = true }    # [db2 38332
 on_cast = [
   { type = "extend_dot", dot = "dawnlight", seconds = 0.3 },   # [obs] every spender
   { type = "trigger", ability = "dawnlight_apply" },
+  { type = "consume", buff = "judgment_debuff" },           # [simc] spends one Judgment stack
   { type = "trigger", ability = "divine_storm" },           # only if Empyrean Legacy is up
   { type = "buff", buff = "divine_purpose", chance = 0.09 },  # [obs] ~15 extra procs / 160 casts
 ]
@@ -359,6 +369,7 @@ charges = 2                          # [obs] ~34 casts per 5 AW windows = 2 char
 gain = { holy_power = 1 }            # [obs]
 damage = { ap_coeff = 2.15807, school = "holy", mastery = true }    # [db2 24275]
 on_cast = [
+  { type = "buff", buff = "judgment_debuff" },
   { type = "trigger", ability = "blade_of_justice_walk_into_light" },   # [obs] same timestamp
   { type = "trigger", ability = "hammer_of_wrath_divine_resonance" },
   { type = "trigger", ability = "hammer_of_wrath_second_sunrise", chance = 0.20, delay = 0.325 },  # [obs]
@@ -388,6 +399,7 @@ charges = 2
 gain = { holy_power = 1 }   # [obs]
 damage = { ap_coeff = 1.256, school = "holy", mastery = true }     # [db2 sp 1.00739 x 1.247]
 on_cast = [
+  { type = "buff", buff = "judgment_debuff" },
   { type = "trigger", ability = "highlords_judgment", mastery_chance = 0.85 },   # [obs] ~43% at 50% mastery
 ]
 
@@ -429,7 +441,7 @@ triggered_only = true
 requires_buff = "divine_resonance"
 gain = { holy_power = 1 }
 damage = { ap_coeff = 2.15807, school = "holy", mastery = true }
-on_cast = [{ type = "consume", buff = "divine_resonance" }]
+on_cast = [{ type = "consume", buff = "divine_resonance" }, { type = "buff", buff = "judgment_debuff" }]
 on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
 
 [[abilities]]
@@ -438,7 +450,7 @@ spell_id = 1279408
 triggered_only = true
 gain = { holy_power = 1 }
 damage = { ap_coeff = 2.15807, school = "holy", mastery = true }   # [db2 1279408]
-on_cast = [{ type = "trigger", ability = "blade_of_justice_walk_into_light" }]
+on_cast = [{ type = "buff", buff = "judgment_debuff" }, { type = "trigger", ability = "blade_of_justice_walk_into_light" }]
 on_crit = [{ type = "trigger", ability = "sun_sear_apply" }]
 
 [[abilities]]
@@ -447,6 +459,7 @@ spell_id = 24275
 triggered_only = true
 gain = { holy_power = 1 }
 damage = { ap_coeff = 2.15807, school = "holy", mastery = true }
+on_cast = [{ type = "buff", buff = "judgment_debuff" }]
 
 [[abilities]]
 name = "divine_storm"       # free, via Empyrean Legacy
@@ -456,6 +469,7 @@ requires_buff = "empyrean_legacy"
 damage = { ap_coeff = 2.63424, school = "holy", mastery = true }   # [db2 53385]
 on_cast = [
   { type = "consume", buff = "empyrean_legacy" },
+  { type = "consume", buff = "judgment_debuff" },
   { type = "trigger", ability = "divine_storm_tempest" },
   { type = "trigger", ability = "divine_storm_second_sunrise", chance = 0.20, delay = 0.325 },
 ]

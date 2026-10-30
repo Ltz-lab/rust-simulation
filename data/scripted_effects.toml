@@ -1,0 +1,14 @@
+# Scripted (aura 4 "dummy") talent effects whose damage effect is known from
+# SimC's class module, for tools/effects.py. The spell's own effect points are
+# the number (DB2, rank-scaled); this file only names the spells it multiplies.
+#
+#   spell    the passive carrying the dummy
+#   index    effect index of the dummy on it
+#   sources  spell ids (as a combat log records them) whose per-hit damage it scales
+#   simc     where the script lives
+
+[[effect]]
+spell = 1254857            # Deep Impact: +75% to the target nearest Meteor's impact
+index = 0
+sources = [351140]         # Meteor (impact)
+simc = "sc_mage.cpp meteor_impact_t: base_multiplier *= 1 + talents.deep_impact->effectN( 1 ).percent()"

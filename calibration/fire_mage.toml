@@ -4,93 +4,93 @@
 
 [sources."acidbrood_scourge"]
 derived = 1.000000
-mult = 0.662746
-crit_bonus = -0.537404
+mult = 0.642983
+crit_bonus = -0.457185
 
 [sources."arcane_phoenix_arcane_barrage"]
 derived = 1.230000
-mult = 1.053072
+mult = 1.052885
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_arcane_surge"]
 derived = 1.230000
-mult = 1.082566
+mult = 1.082784
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_greater_pyroblast"]
 derived = 1.266900
-mult = 1.033801
+mult = 1.034095
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_meteorite_bug_impact"]
 derived = 1.266900
-mult = 1.008358
+mult = 1.008514
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_meteorite_impact"]
 derived = 1.266900
-mult = 1.004347
+mult = 1.004506
 crit_bonus = +0.000000
 
 [sources."arcane_phoenix_pyroblast"]
 derived = 1.266900
-mult = 1.022271
+mult = 1.021969
 crit_bonus = +0.000000
 
 [sources."fire_blast"]
 derived = 1.821169
-mult = 1.201981
+mult = 1.202111
 crit_bonus = +0.000000
 
 [sources."fireball"]
 derived = 1.266900
-mult = 1.190742
-crit_bonus = +0.111616
+mult = 1.193157
+crit_bonus = +0.110939
 
 [sources."ignite"]
 derived = 1.030000
-mult = 1.168191
+mult = 1.168107
 crit_bonus = +0.000000
 
 [sources."intensifying_flame"]
 derived = 1.030000
-mult = 1.101133
+mult = 1.101053
 crit_bonus = +0.000000
 
 [sources."meteor_burn"]
 derived = 1.266900
-mult = 1.191736
-crit_bonus = -0.066587
+mult = 1.189701
+crit_bonus = -0.063497
 
 [sources."meteor_impact"]
-derived = 1.266900
-mult = 2.071365
-crit_bonus = -0.058178
+derived = 2.217075
+mult = 1.182489
+crit_bonus = -0.056831
 
 [sources."meteorite_impact"]
 derived = 1.266900
-mult = 1.208596
-crit_bonus = +0.048836
+mult = 1.209900
+crit_bonus = +0.046605
 
 [sources."pyroblast"]
 derived = 1.304907
-mult = 1.106839
-crit_bonus = +0.061616
+mult = 1.111089
+crit_bonus = +0.051997
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.030000
-mult = 0.943001
-crit_bonus = -0.089992
+mult = 0.936377
+crit_bonus = -0.074323
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.787824
-crit_bonus = -0.090709
+mult = 0.782122
+crit_bonus = -0.075031
 
 [sources."scorch"]
 derived = 1.266900
-mult = 1.597504
-crit_bonus = +0.069774
+mult = 1.598728
+crit_bonus = +0.047344
 
 [buffs."heat_shimmer".ability_pct]
 "scorch" = 100.0000

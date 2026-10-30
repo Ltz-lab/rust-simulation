@@ -677,6 +677,10 @@ pub enum Effect {
 #[derive(Debug, Deserialize, Clone)]
 pub struct BuffDef {
     pub name: String,
+    /// Game spell id of the buff or target debuff, for `tools/effects.py` to
+    /// derive its damage modifiers from. The engine ignores it.
+    #[serde(default)]
+    pub spell_id: Option<u32>,
     pub duration: f64,
     #[serde(default = "one_u32")]
     pub max_stacks: u32,

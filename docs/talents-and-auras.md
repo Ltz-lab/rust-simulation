@@ -30,8 +30,8 @@ as a factor):
 
 | spec | residual before | residual after | damage with residual beyond ±25% |
 |---|---:|---:|---|
-| Retribution | ×2.10 | ×1.38 | 95% → 60% |
-| Fire | ×1.46 | ×1.18 | 70% → 10% |
+| Retribution | ×2.10 | ×1.32 | 95% → 59% |
+| Fire | ×1.46 | ×1.16 | 70% → 6% |
 | Destruction | ×1.71 | ×1.18 | 75% → 4% |
 
 DPS and the stat probes are unchanged within 0.15 points, except Ret haste,
@@ -66,7 +66,22 @@ move.
   tables the old linear scaling is used. Column meanings are from the public
   DB2 layout, not yet checked against a built table.
 - **Aura-4 dummies** on the active passives (Blessing of Dawn, Light Within)
-  are listed on stderr. Their values live in script, so they are not derived.
+  are listed on stderr. Their values live in script, so by default they are
+  not derived. The ones whose script is known from SimC's class module are in
+  `data/scripted_effects.toml`: the spell, the effect index and the spell ids
+  of the sources it multiplies. The number is still the effect's points from
+  DB2 (rank-scaled), the file only says what it scales, and applied ones leave
+  the "not derived" list. Today: Deep Impact (+75% on Meteor's impact, target
+  nearest the impact is the single target; `meteor_impact` x1.267 -> x2.217).
+- **Target debuffs modelled as a buff**: a spec buff with `spell_id` set to
+  the debuff's spell (or whose id the observations carry) gets its aura-271
+  effects turned into `ability_pct` like any buff. Ret's `judgment_debuff` is
+  spell 197277 (Judgment's target debuff, +20% from the caster's next Holy Power
+  ability; Final Verdict and Divine Storm, by spell family mask). Greater
+  Judgment's dummy (231663) is only the trigger: each Judgment or Hammer of
+  Wrath adds a stack (up to 20, 18s) and each Final Verdict or Divine Storm
+  spends one, as `judgment_base_t::impact` and `holy_power_consumer_t::impact`
+  do in SimC. In the spec this is an `overlap` + `flat` buff.
 - **Hand-set buffs**: a buff with `damage_pct` etc. set in the spec now prints
   the value derived from its spell next to the spec's, to decide whether to
   migrate it. Nothing is migrated automatically.
@@ -77,20 +92,42 @@ against the real tables (build 12.1.5.70575) for Ret and Fire:
 - The derived multipliers equal the committed `derived/` files exactly, with
   and without the rank-curve tables (neither spec has a talent whose curve
   changes a damage modifier), so nothing regenerates. Damage-weighted residual
-  of the committed calibrations: Ret x1.367 (59% of damage beyond +-25%), Fire
-  x1.184 (10%).
+  of the calibrations before this change: Ret x1.367 (59% of damage beyond
+  +-25%), Fire x1.184 (10%).
 - Aura-271 debuffs: the only one found is Truth's Wake +30% on Ret's
   `consecration_tick_blade_of_justice` (written as `debuff = 1.3`, not folded).
-  Judgment's +20% is not a data debuff: Judgment (315867) and Greater Judgment
-  (231663) are aura-4 dummies, so it stays in the residual. Fire has none.
+  Judgment (315867) and Greater Judgment (231663) are aura-4 dummies, but the
+  debuff they apply, spell 197277, is a plain aura 271 (+20%, class mask on
+  Final Verdict / Divine Storm / Hammer of Light): `--debuff 197277` finds it,
+  and it is now in the spec as the `judgment_debuff` buff (above). Fire has none.
 - Hand-set Fire buffs against their spells: Hyperthermia +15% pyroblast and
   Fired Up +2% agree; Spellfire Sphere is +1% in data against +2% hand-set;
   Combustion (190319) and Pyroclasm (269651) derive nothing (scripted).
 
 What stays in the residual, by source: scripted effects the data only names
-(aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), target
-debuffs (Judgment's +20% from spenders, aura 271), buffs and procs the spec
-doesn't model.
+(aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), buffs and
+procs the spec doesn't model.
+
+### Effect-layer results (build 12.1.5.70575)
+
+Run on the built tables, then `calibrate.py --derived` (5,000 iterations):
+
+| | before | after |
+|---|---:|---:|
+| Ret damage-weighted residual | x1.367 | **x1.323** |
+| Ret DPS vs SimC reference (131,766) | +0.89% | +0.87% |
+| Ret stat probes (crit / haste / mastery / vers / str) | -0.30 / +0.86 / -0.08 / +0.03 / +0.05 | -0.31 / +0.82 / -0.08 / +0.03 / +0.05 |
+| Fire damage-weighted residual | x1.184 | **x1.160** |
+| Fire DPS vs SimC reference (147,374) | +0.73% | +0.75% |
+| Fire stat probes | -0.41 / +2.18 / -0.08 / -0.04 / +0.13 | -0.44 / +2.18 / -0.09 / -0.04 / +0.13 |
+
+Ret's `final_verdict` residual fell from 1.395 to 1.253 once Judgment's +20% was
+modelled (the spec, and so its DPS per hit before calibration, changes: this is
+deliberate); Fire's `meteor_impact` from 2.07 to 1.17. Every other spec's DPS
+at seed 1 is unchanged. Rank curves: no talent of either spec has a curve that
+changes a damage modifier (checked against the built `TraitDefinitionEffectPoints`
+and `CurvePoint`), so none of their derived values move; the code path stays as
+the tool for specs that do.
 
 ```sh
 python3 tools/db2.py --build 12.1.5.70575      # fetch the DB2 tables into target/db2

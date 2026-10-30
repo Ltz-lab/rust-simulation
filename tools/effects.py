@@ -315,6 +315,7 @@ def buff_patches(db, sp, spec, obs, srcs):
         if any(b.get(k) for k in HAND_SET):
             print(f"buff {b['name']}: damage set by hand in the spec, not derived", file=sys.stderr)
         mods = modifiers(sp, {sid: (1, "buff")})
+        mods += debuff_mods(sp, [sid])[0]     # a target debuff the spec models as a buff (Judgment)
         pct = {}
         for name, (target, periodic, _) in srcs.items():
             _, used = derive(sp, mods, target, periodic)
@@ -363,11 +364,36 @@ def candidate_debuffs(sp, srcs, obs, extra):
     return out
 
 
-def dummy_report(sp, passives):
+SCRIPTED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "scripted_effects.toml")
+
+
+def scripted_effects(sp, passives, path=SCRIPTED):
+    """Aura-4 dummies whose damage effect is known from SimC's class module
+    (data/scripted_effects.toml), for the passives in effect: a list of
+    {spell, index, value (percent, rank-scaled), sources (spell ids), note}.
+    The number still comes from the effect's points in DB2; the file only
+    says which spells it multiplies."""
+    if not os.path.exists(path):
+        return []
+    out = []
+    for r in tomllib.load(open(path, "rb")).get("effect", []):
+        if r["spell"] not in passives:
+            continue
+        effs = {int(e["EffectIndex"]): e for e in sp.effs(r["spell"])}
+        e = effs.get(r["index"])
+        if e is None or int(e["EffectAura"]) != DUMMY:
+            continue
+        out.append({"spell": r["spell"], "index": r["index"], "sources": set(r["sources"]), "note": r.get("simc", ""),
+                    "value": num(e["EffectBasePointsF"]) * passives[r["spell"]][0]})
+    return out
+
+
+def dummy_report(sp, passives, applied=()):
     """(spell, effect index, points) of aura-4 dummies on active passives: scripted, not derivable."""
     return [(sid, int(e["EffectIndex"]), num(e["EffectBasePointsF"]))
             for sid in sorted(passives) for e in sp.effs(sid)
-            if int(e["Effect"]) in APPLY_AURA and int(e["EffectAura"]) == DUMMY]
+            if int(e["Effect"]) in APPLY_AURA and int(e["EffectAura"]) == DUMMY
+            and (sid, int(e["EffectIndex"])) not in {(x["spell"], x["index"]) for x in applied}]
 
 
 def main():
@@ -397,7 +423,8 @@ def main():
     mods = modifiers(sp, passives, curves, definitions)
     if not curves.by_def:
         print("no TraitDefinitionEffectPoints/CurvePoint tables: talent ranks scale linearly", file=sys.stderr)
-    for sid, i, v in dummy_report(sp, passives):
+    scripted = scripted_effects(sp, passives)
+    for sid, i, v in dummy_report(sp, passives, scripted):
         print(f"scripted aura-4 dummy, not derived: {sid} #{i} ({db.name(sid)}) points {v:g}", file=sys.stderr)
     print(f"spec {spec_id}: {len(passives)} active passives, {len(mods)} damage modifiers", file=sys.stderr)
 
@@ -405,6 +432,10 @@ def main():
     derived = {}
     for name, (sid, periodic, d) in sorted(srcs.items()):
         mult, used = derive(sp, mods, sid, periodic)
+        for x in scripted:
+            if sid in x["sources"]:
+                mult *= 1 + x["value"] / 100
+                used.append({"value": x["value"], "origin": "script", "spell": x["spell"], "index": x["index"]})
         derived[name] = mult
         flag = ""
         c = coefficient(sp, sid, periodic)
