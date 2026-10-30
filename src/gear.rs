@@ -122,6 +122,78 @@ struct GearSpec {
     /// Time-averaged gear stat procs, added on top of the buffed stats.
     #[serde(default)]
     procs: ProcBonus,
+    /// Omnium traits: which the calibration baked in, and what each is worth.
+    #[serde(default)]
+    omnium: Option<Omnium>,
+}
+
+/// `[gear.omnium]`: the profile's `omnium_talents=` traits as per-character
+/// damage. `baseline` lists the traits the calibration reference had on (their
+/// effect is inside the fitted multipliers); each `traits` entry gives one
+/// trait's `global_mult`. A run with gear lines multiplies `[player].global_mult`
+/// by (product over the character's traits) / (product over the baseline),
+/// so the reference character is unchanged and one without a trait loses it.
+#[derive(Deserialize, Default)]
+struct Omnium {
+    /// Trait ids as in the profile (`136822` for `136822:1`, or a rune name).
+    #[serde(default)]
+    baseline: Vec<String>,
+    #[serde(default)]
+    traits: Vec<OmniumTrait>,
+}
+
+#[derive(Deserialize)]
+struct OmniumTrait {
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default = "one")]
+    global_mult: f64,
+}
+
+/// The traits of a profile's `omnium_talents=` line: ids without their rank
+/// (`136822:1/136816:1` or `rune_of_overload/...`); none for a missing line.
+fn omnium_traits(profile: &str) -> Vec<String> {
+    for raw in profile.lines() {
+        let line = raw.split('#').next().unwrap_or("").trim();
+        if let Some(("omnium_talents", rhs)) = line.split_once('=').map(|(l, r)| (l.trim(), r.trim())) {
+            return rhs
+                .split('/')
+                .map(|t| t.split(':').next().unwrap_or("").trim().to_string())
+                .filter(|t| !t.is_empty() && t != "none")
+                .collect();
+        }
+    }
+    vec![]
+}
+
+/// Scale `[player].global_mult` for the traits, and report each trait's status.
+fn apply_omnium(doc: &mut toml::Value, profile: &str, cfg: &GearSpec) -> Result<Value, String> {
+    let have = omnium_traits(profile);
+    let Some(om) = &cfg.omnium else {
+        return Ok(json!({ "traits": have, "baseline": [], "status": "not configured", "factor": 1.0 }));
+    };
+    let value = |id: &str| om.traits.iter().find(|t| t.id == id).map(|t| t.global_mult);
+    let mut rows = Vec::new();
+    let mut factor = 1.0;
+    for id in &have {
+        let status = match value(id) {
+            Some(m) => { factor *= m; "modelled" }
+            None => "unmodelled",
+        };
+        let name = om.traits.iter().find(|t| &t.id == id).map(|t| t.name.clone()).unwrap_or_default();
+        rows.push(json!({ "id": id, "name": name, "status": status, "in_baseline": om.baseline.contains(id) }));
+    }
+    for id in &om.baseline {
+        factor /= value(id).ok_or_else(|| format!("[gear.omnium] baseline trait '{id}' has no entry in traits"))?;
+    }
+    if factor != 1.0 {
+        let player = doc.get_mut("player").and_then(|v| v.as_table_mut()).ok_or("spec has no [player] table")?;
+        let cur = player.get("global_mult").and_then(|v| v.as_float()).unwrap_or(1.0);
+        player.insert("global_mult".into(), toml::Value::Float(cur * factor));
+    }
+    let unmodelled: Vec<&str> = have.iter().filter(|id| value(id).is_none()).map(|s| s.as_str()).collect();
+    Ok(json!({ "traits": rows, "baseline": om.baseline, "unmodelled": unmodelled, "factor": factor }))
 }
 
 /// `[gear.procs]`: final-stat additions for proc uptime (same units as `[player]`).
@@ -934,6 +1006,7 @@ pub fn apply_text(mut doc: toml::Value, profile: &str) -> Result<(toml::Value, V
     apply_buff_stats(&mut doc, &ctx)?;
     report["unmodelled"] = json!(effects.iter().filter(|r| r["status"] == "unmodelled").map(|r| r["from"].clone()).collect::<Vec<_>>());
     report["effects"] = json!(effects);
+    report["omnium"] = apply_omnium(&mut doc, profile, &cfg)?;
 
     let player = doc
         .get_mut("player")
@@ -1123,6 +1196,38 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             let (ds, fv) = (sp.rotation[i - 1].condition.clone().unwrap_or_default(), sp.rotation[i].condition.clone());
             assert!(fv.is_none_or(|c| ds.ends_with(&format!("&({c})"))), "{ds}");
         }
+    }
+
+    #[test]
+    fn omnium_traits_parse_and_scale_against_the_baseline() {
+        assert_eq!(omnium_traits("omnium_talents=136822:1/136816:1\n"), ["136822", "136816"]);
+        assert_eq!(omnium_traits("omnium_talents=rune_of_overload/rune_of_lingering"), ["rune_of_overload", "rune_of_lingering"]);
+        assert!(omnium_traits("level=90\n").is_empty());
+
+        let with = |profile: &str| {
+            let mut doc: toml::Value = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
+            let om: toml::Value = toml::from_str(
+                "baseline = [\"1\", \"2\"]\ntraits = [{id=\"1\", global_mult=1.02}, {id=\"2\", global_mult=1.01}, {id=\"3\", global_mult=1.05}]",
+            )
+            .unwrap();
+            doc["gear"].as_table_mut().unwrap().insert("omnium".into(), om);
+            let (out, rep) = apply_text(doc, profile).unwrap();
+            (out["player"].get("global_mult").and_then(|v| v.as_float()).unwrap_or(1.0), rep["omnium"].clone())
+        };
+        // the reference's own traits: unchanged
+        let (m, rep) = with(&format!("{RET_CORE_PROFILE}omnium_talents=1:1/2:1\n"));
+        assert!((m - 1.0).abs() < 1e-12, "{m}");
+        assert_eq!(rep["unmodelled"], json!([]));
+        // none: the baseline comes out; an extra trait goes on; an unknown one is reported
+        let (m, _) = with(RET_CORE_PROFILE);
+        assert!((m - 1.0 / (1.02 * 1.01)).abs() < 1e-12);
+        let (m, _) = with(&format!("{RET_CORE_PROFILE}omnium_talents=1:1/2:1/3:1/9:1\n"));
+        assert!((m - 1.05).abs() < 1e-12);
+        let (_, rep) = with(&format!("{RET_CORE_PROFILE}omnium_talents=9:1\n"));
+        assert_eq!(rep["unmodelled"], json!(["9"]));
+        // a spec without [gear.omnium] never moves
+        let (_, rep) = ret_with(&format!("{RET_CORE_PROFILE}omnium_talents=1:1\n"), &[]);
+        assert_eq!(rep["omnium"]["factor"], 1.0);
     }
 
     #[test]

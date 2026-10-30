@@ -97,6 +97,34 @@ changes that list to SimC. `--set gear.trinket_effects=0` and
 entry, rerun `tools/gamedata.py` (it keeps data for every spell the templates
 name) and check it against SimC on the same character.
 
+## Omnium traits
+
+The profile's `omnium_talents=` line (`136822:1/136816:1/...`, or rune names such
+as `rune_of_overload`) is parsed into trait ids, ranks dropped, and reported
+under `omnium` in `--gear-stats`. A spec may add `[gear.omnium]`:
+
+```toml
+[gear.omnium]
+baseline = ["136822", "136816", "136817", "136821", "136814"]  # on in the calibration reference
+traits = [ { id = "136822", name = "...", global_mult = 1.0 } ]  # one entry per trait
+```
+
+With gear lines, `[player].global_mult` is multiplied by the product of the
+character's modelled traits divided by the product over `baseline`: the
+reference's own set changes nothing, a character with none loses the baseline's
+worth, and an extra trait adds its own. A baseline trait without an entry is an
+error; a character trait without one is listed as `unmodelled`. Specs without
+`[gear.omnium]` and runs without gear lines (calibration, validation) are
+untouched bit for bit.
+
+**Not filled in yet.** No spec declares `[gear.omnium]`: each trait's value has
+to come from the game data (the trait ids' spells in DB2) and be checked
+against SimC with and without the traits (about +3.6% for Ret in total, see
+[retribution.md](retribution.md)), and neither was available when this landed.
+Traits that are not a flat damage multiplier (procs, rune effects) need a
+spec fragment like the item effects' and aren't supported by this mechanism yet.
+
+
 ## Casters
 
 Fire Mage, Destruction Warlock and Devourer Demon Hunter carry `[gear]` tables too. Casters have no
