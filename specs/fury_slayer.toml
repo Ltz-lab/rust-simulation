@@ -62,6 +62,22 @@ mastery_coeff = 1.4           # [db2 76856] Unshackled Fury, % per mastery point
 versatility_bonus = 0.03      # [obs] Mark of the Wild
 spec_id = 72                  # [db2] ChrSpecialization
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 167,668 with all, 162,289 with
+# none, +3.31%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136823", "136817", "136818", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01751 },   # [simc] leave-one-out 1.03293
+  { id = "136823", name = "Rune of Lynxlike Reflexes", global_mult = 0.99992 },   # [simc] leave-one-out 0.99985
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00089 },   # [simc] leave-one-out 1.00166
+  { id = "136818", name = "Rune of Masterful Cunning", global_mult = 1.01306 },   # [simc] leave-one-out 1.02452
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00146 },   # [simc] leave-one-out 1.00273
+]
+
 # Raid-night kit with gear lines (see Ret): SimC's default level-90 Fury
 # consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
 [gear.kit]

@@ -48,6 +48,22 @@ mastery_points = 16.2         # [obs] incl. 2 Skyfury, in mastery points (44.37%
 mastery_coeff = 1.0           # [obs] Mastery: Monster Within, +1% per point; +500 probe gives +9.97 points
 versatility_bonus = 0.03      # [obs] Mark of the Wild
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 164,196 with all, 159,657 with
+# none, +2.84%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136818", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01507 },   # [simc] leave-one-out 1.02813
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 0.99975 },   # [simc] leave-one-out 0.99954
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00063 },   # [simc] leave-one-out 1.00116
+  { id = "136818", name = "Rune of Masterful Cunning", global_mult = 1.01147 },   # [simc] leave-one-out 1.02137
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00130 },   # [simc] leave-one-out 1.00240
+]
+
 # Raid-night kit with gear lines (see Ret): SimC's default level-90 Devourer
 # consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
 [gear.kit]

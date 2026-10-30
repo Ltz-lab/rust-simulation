@@ -34,6 +34,22 @@ haste = 0.0492 # [obs]
 mastery = 0.0093 # [obs]
 versatility = 0.0339 # [obs]
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 150,550 with all, 146,042 with
+# none, +3.09%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136816", "136817", "136820", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01619 },   # [simc] leave-one-out 1.03121
+  { id = "136816", name = "Rune of Void-Tainted Shell", global_mult = 0.99997 },   # [simc] leave-one-out 0.99995
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00116 },   # [simc] leave-one-out 1.00221
+  { id = "136820", name = "Rune of the Versatile Warrior", global_mult = 1.01114 },   # [simc] leave-one-out 1.02142
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00214 },   # [simc] leave-one-out 1.00409
+]
+
 [gear.kit]
 enabled = 1 # [simc] standard raid consumables
 stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil

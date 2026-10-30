@@ -59,6 +59,22 @@ spec_id = 103                 # [db2] ChrSpecialization
 # the Void, Venomcursed) are not modelled: [player] holds the plain buffed
 # snapshot, so there is no [gear.procs] on top.
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 169,273 with all, 163,783 with
+# none, +3.35%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136814", "136821", "136817", "136823", "136822"]
+traits = [
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00155 },   # [simc] leave-one-out 1.00293
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01319 },   # [simc] leave-one-out 1.02510
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00085 },   # [simc] leave-one-out 1.00160
+  { id = "136823", name = "Rune of Lynxlike Reflexes", global_mult = 0.99979 },   # [simc] leave-one-out 0.99961
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01783 },   # [simc] leave-one-out 1.03398
+]
+
 # Raid-night kit with gear lines: SimC's default level-90 Feral consumables
 # plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
 [gear.kit]
