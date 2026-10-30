@@ -16,16 +16,16 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 159,675 |
-| azsim | 158,613 (±74) |
-| difference | **-0.66%** |
+| azsim | 158,332 (±72) |
+| difference | **-0.84%** |
 
 Stat probes (+500 rating / +200 agility, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
-| crit | +10.40% | +10.13% | -0.27 |
-| haste | +7.72% | +7.13% | -0.59 |
-| mastery | +9.70% | +10.42% | +0.72 |
+| crit | +10.40% | +8.60% | -1.80 |
+| haste | +7.72% | +7.10% | -0.62 |
+| mastery | +9.70% | +10.41% | +0.71 |
 | versatility | +8.42% | +8.50% | +0.08 |
 | agility | +6.40% | +6.32% | -0.08 |
 
@@ -116,9 +116,10 @@ different highest/lowest stats would need its own buff.
   tick cadence, which costs about one tick per application.
 - **Essence Break's echo** procs 21.0 times against 22.9 (its 1s internal
   cooldown is right; the hits inside the 4s window land a little further apart).
-- **Critical Chaos's refund** is modelled as `chance_expr = "0.10+crit"` (the
-  new `crit` expression variable): the 10% / 1.0 slope is a fit to the crit probe,
-  not read from SimC, and the mean refund rate is unchanged (~0.5).
+- **Fury refund** follows SimC: chance = 20% (spell data) + 30% x crit chance
+  (Critical Chaos) + 80% while Chaos Theory is up, 0.5s internal cooldown, 20 fury.
+  An earlier fit (10% + 1.0 x crit) matched the crit probe better but is not
+  SimC's formula; the remaining crit-probe gap (-1.8 pts) is something else.
 - **Chaos Theory's crit** applies to Chaos Strike/Annihilation only
   (`ability_crit_pct`). As a global buff it also lifted the Death Sweep hits in
   flight, and haste made Annihilations eat the buff before the 4th hit, which

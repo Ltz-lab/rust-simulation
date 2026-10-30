@@ -41,7 +41,7 @@ profiles (core kit, 300s Patchwerk):
 | [Enhancement Shaman (Stormbringer)](docs/enhancement-shaman.md) | 148,565 | 142,652 | -4.0% (known gap) | crit -1.30 pts | — |
 | [Feral Druid (Wildstalker)](docs/feral-druid.md) | 169,230 | 169,363 | +0.08% | haste +0.17 pts | — |
 | [Devourer Demon Hunter (Void-Scarred)](docs/devourer-demon-hunter.md) | 164,261 | 164,308 | +0.03% | haste -1.13 pts | — |
-| [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,613 | -0.66% | mastery +0.72 pts | ~10× |
+| [Havoc Demon Hunter (Fel-Scarred)](docs/havoc-demon-hunter.md) | 159,675 | 158,332 | -0.84% | mastery +0.72 pts | ~10× |
 | [Survival Hunter (Sentinel)](docs/survival-hunter.md) | 163,198 | 163,103 | -0.06% | agility +1.71 pts | — |
 | [Assassination Rogue (Deathstalker)](docs/assassination-rogue.md) | 148,195 | 148,533 | +0.23% | haste +0.66 pts | — |
 | [Frost Death Knight (Deathbringer)](docs/frost-deathknight.md) | 162,970 | 162,532 | -0.27% | crit -2.02 pts | — |
