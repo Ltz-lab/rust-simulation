@@ -253,6 +253,38 @@ equal SimC's to 0.01 points), so the remaining swap error is the engine's
 response to the stats (Fire's haste over-response, below) and item effects the
 ring carries (issue #19).
 
+## Raid-night kit: Assassination, Beast Mastery, Enhancement, Unholy
+
+These four had a `[gear]` table but no `[gear.kit]`, so gear runs read 13-19%
+low against SimC. Each kit now carries the sample profile's consumables
+(measured as the difference in SimC's buffed stats with and without them),
+Bloodlust at the pull and the potion, used as in SimC's APL:
+
+| spec | flask (165) | oil | potion | used |
+|---|---|---|---|---|
+| Assassination | crit | 16 crit/haste x2 daggers (32) | Light's Potential | Rupture up and Bloodlust / Deathmark / last 30s |
+| Beast Mastery | haste | 16 crit/haste (bow) | Recklessness (+1725 haste, -232 versatility) | Bestial Wrath ready |
+| Enhancement | haste | none (disabled in the profile) | Recklessness (+1725 mastery, -232 versatility) | Ascendance or Doom Winds up |
+| Unholy | mastery | 16 crit/haste | Recklessness (+1725 mastery, -232 versatility) | Army ghouls / Forbidden Knowledge / Dark Transformation |
+
+Recklessness raises the highest rating on the gear and lowers the lowest, so
+the buff names them per spec. Every spec's buffed attack power, crit, haste,
+mastery and versatility match SimC's to rounding. DPS on the sample profiles
+(trinkets and tier set removed, SimC 20,000 iterations, azsim 10,000, seed 1):
+
+| spec | SimC | azsim before | azsim after |
+|---|---:|---:|---:|
+| assassination_deathstalker | 173,631 | 148,534 (-14.5%) | 173,574 (-0.03%) |
+| beast_mastery_pack_leader | 207,264 | 178,626 (-13.8%) | 206,903 (-0.17%) |
+| enhancement_stormbringer | 174,833 | 142,230 (-18.7%) | 165,253 (-5.5%) |
+| unholy_rider | 172,340 | 149,951 (-13.0%) | 173,509 (+0.68%) |
+
+Enhancement's remaining gap is its known -4% rotation residue (hit counts, see
+[enhancement-shaman.md](enhancement-shaman.md#known-gaps)) plus about 1.5
+points from Bloodlust and the potion landing on a rotation that is already
+GCD-bound. Core-kit runs (`--calib`, no gear) are bit-identical before and
+after for all four.
+
 ## Agility
 
 Subtlety Rogue's `[gear]` works like Ret's: `attack_power_mult` (Battle

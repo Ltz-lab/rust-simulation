@@ -62,6 +62,17 @@ spec_id = 253                 # [db2] ChrSpecialization Beast Mastery
 [gear.procs]
 haste = 0.03345
 
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 consumables for the sample profile
+# plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, crit_rating = 17, haste_rating = 181 }
+#   primary 75.1   food 50 + Void-Touched augment rune 25.1 [obs: +85 attack power]
+#   haste 165      Flask of the Blood Knights (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the bow [obs: +17 crit, +16 haste]
+
 [fight]
 duration = 300  # [obs] reference setup
 variance = 0.2  # [simc] reference settings
@@ -400,10 +411,44 @@ gcd = 0
 triggered_only = true
 damage = { amount = 7299, school = "nature", crit_bonus = 0.034 }  # [db2 1310088]
 
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { haste_rating = 1725, versatility_rating = -232 }   # [simc] haste is this gear's highest rating with the flask (1223 vs mastery 1205), versatility its lowest
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
+
 # ---------------------------------------------------------------- rotation
 # Paraphrase of the SimC default single-target APL.
 
 # At two charges Barbed Shot stops recharging: spend one rather than cap.
+# Potion [simc APL: potion,if=cooldown.bestial_wrath.ready|fight_remains<31]
+[[rotation]]
+action = "potion"
+if = "cooldown.bestial_wrath.ready|fight_remains<31"
+
 [[rotation]]
 action = "barbed_shot"
 if = "cooldown.barbed_shot.charges>=2"
