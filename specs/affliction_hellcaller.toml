@@ -516,3 +516,54 @@ action = "malefic_grasp"
 if = "pet.darkglare.active"
 [[rotation]]
 action = "shadow_bolt"
+
+# ================================================================== class set (Warlock Affliction 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296568): Wither +25% (periodic and direct, effects 1 and 4), Agony
+# +15% (effects 2 and 3).
+[[gear.effects]]
+spell = 1296568
+text = '''
+precombat = ["set_affliction_2pc"]
+
+[[buffs]]
+name = "set_affliction_2pc"
+duration = 1e9
+ability_pct = { wither = ${e1}, wither_direct = ${e1}, wither_malefic_grasp = ${e1}, agony = ${e2}, agony_malefic_grasp = ${e2} }
+
+[[abilities]]
+name = "set_affliction_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_affliction_2pc" }]
+'''
+
+# 4pc (1296569): Unstable Empowerment, +2% damage (spells and pets) per active
+# Unstable Affliction, 3 at most [db2 1305774]. The stacks follow the target's
+# UA count, checked twice a second (SimC updates them on every UA change).
+# Seed of Corruption's weaker UA is not modelled (single target).
+[[gear.effects]]
+spell = 1296569
+text = '''
+precombat = ["unstable_empowerment_clock"]
+
+[[buffs]]
+name = "unstable_empowerment"
+duration = 1e9
+max_stacks = ${1305774.stacks}
+pets = true
+damage_pct = ${1305774.e1}
+
+[[abilities]]
+name = "unstable_empowerment_clock"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "unstable_empowerment_clock"
+tick_time = 0.5
+duration = 1e9
+hasted = false
+on_tick = [{ type = "buff", buff = "unstable_empowerment", set = "dot.unstable_affliction.stack" }]
+'''

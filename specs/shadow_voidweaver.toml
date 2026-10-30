@@ -1023,3 +1023,46 @@ action = "void_volley"
 action = "crushing_void_volley"
 [[rotation]]
 action = "mind_flay"
+
+# ================================================================== class set (Priest Shadow 12.1, MID2)
+# Applied with gear lines when the pieces are worn (ItemSetSpell; `--set
+# gear.set_bonuses=0` turns them off). Same fragment format as
+# data/item_effects.toml; numbers from the set spells through ${...}. [db2, simc]
+
+# 2pc (1296579): Tentacle Slam deals +100% (effect 1) and recharges 3s sooner
+# (effect 2, 15s -> 12s, a 1.25x recharge rate). Both are spell data, applied
+# by SimC without script.
+[[gear.effects]]
+spell = 1296579
+text = '''
+[[buffs]]
+name = "set_tentacle_slam"
+duration = 1e9
+ability_pct = { tentacle_slam_damage = ${e1} }
+cooldown_rate_pct = { tentacle_slam = 25 }
+
+[[abilities]]
+name = "set_tentacle_slam"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_tentacle_slam" }]
+
+[[patch]]
+ability = "shadowform"
+on_cast = [{ type = "trigger", ability = "set_tentacle_slam" }]
+'''
+
+# 4pc (1296580): Tentacle Slam has a 100% (effect 1) chance to grant a free
+# Void Volley at 100% (effect 2) effectiveness: a stack of Void Volley in
+# Voidform, of Crushing Void out of it [simc sc_priest_shadow.cpp].
+[[gear.effects]]
+spell = 1296580
+text = '''
+[[patch]]
+buff = "crushing_void"
+set = { max_stacks = ${1279437.stacks} }   # the spec keeps 1 (the talent alone never gives more)
+
+[[patch]]
+ability = "tentacle_slam_damage"
+on_cast = [{ type = "if", if = "buff.voidform.up", then = [{ type = "buff", buff = "void_volley", chance = ${e1:pct} }], else = [{ type = "buff", buff = "crushing_void", chance = ${e1:pct} }] }]
+'''

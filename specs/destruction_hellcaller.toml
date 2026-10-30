@@ -35,6 +35,7 @@ mastery = 0.8240         # 0.7357 + 0.0883: Chaotic Energies, up to this much da
 crit_multiplier = 2.466  # [obs] Incinerate crit/non-crit (Ruin +15% crit damage [db2 387103])
 
 [gear]
+spec_id = 267                # [db2] Destruction: lets the 2066 class set bonuses (spec 267) be found
 primary = "intellect"
 base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3030 from gear = 2411 items + 619)
 primary_mult = 1.113945       # [obs] x1.05 x1.03 passives (unbuffed 3276) x1.03 Arcane Intellect (buffed 3375; +200 int probe 3598)
@@ -617,3 +618,61 @@ action = "incinerate_instant"
 
 [[rotation]]
 action = "incinerate"
+
+# ================================================================== class set (Warlock Destruction 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296571): Incinerate +25% (effect 1), and Embers of Nihilam's Echo of
+# Sargeras chance on Incinerate 10% -> 20% (effect 2, +10 points). The base 10%
+# is rolled by the Incinerates already; a second roll of 1 - 0.8/0.9 = 11.11%
+# makes the pair 20%.
+[[gear.effects]]
+spell = 1296571
+text = '''
+precombat = ["set_destruction_2pc"]
+[[buffs]]
+name = "set_destruction_2pc"
+duration = 1e9
+ability_pct = { incinerate = ${e1} }   # incinerate_instant has it as its source
+
+[[abilities]]
+name = "set_destruction_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_destruction_2pc" }]
+
+
+[[patch]]
+ability = "incinerate"
+on_cast = [{ type = "trigger", ability = "echo_of_sargeras", chance = 0.1111 }]
+
+[[patch]]
+ability = "incinerate_instant"
+on_cast = [{ type = "trigger", ability = "echo_of_sargeras", chance = 0.1111 }]
+'''
+
+# 4pc (1296572): an Echo of Sargeras that hits marks the target with Dark
+# Titan's Mark: +6% damage taken from the warlock's spells and pets for 6s
+# [db2 1305711 effects 1-3].
+[[gear.effects]]
+spell = 1296572
+text = '''
+[[buffs]]
+name = "dark_titans_mark"
+duration = ${1305711.duration}
+pets = true
+damage_pct = ${1305711.e1}
+
+[[patch]]
+ability = "echo_of_sargeras"
+on_cast = [{ type = "buff", buff = "dark_titans_mark" }]
+
+[[patch]]
+ability = "echo_of_sargeras_cb"
+on_cast = [{ type = "buff", buff = "dark_titans_mark" }]
+
+[[patch]]
+ability = "echo_of_sargeras_sb"
+on_cast = [{ type = "buff", buff = "dark_titans_mark" }]
+'''

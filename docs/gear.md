@@ -332,13 +332,81 @@ is within 0.2% of the same specs with hand-entered stats. None has a
   embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
   340 vs 341). Trinket effects and set bonuses count only where the
-  effect library has an entry (eight trinket effects and two sets so far,
-  see above); others are reported as `unmodelled`. Library procs are rolled
+  effect library has an entry (eleven trinket effects and the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs so far,
+  see above and [Fallbacks closed](#fallbacks-closed)); others are reported as `unmodelled`. Library procs are rolled
   on direct hits as real PPM, but which hits may trigger them isn't read from
   the proc flags. On-use items share no category cooldown, and Font of
   Venomous Rage is used on cooldown where SimC's APL waits for the other
   trinket. Item data is the full equippable item set of build 12.1.5.70575
   (871 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.
+
+
+## Fallbacks closed
+
+Effects the app used to send to SimC because azsim reported them `unmodelled`.
+Each was validated by running the same profile on SimC and azsim with and
+without it (10,000 SimC / 5,000 azsim iterations, Patchwerk 300s, one target,
+the profile's own gear, kit on, other trinkets and the tier set removed;
+`tools/validate_effects.py` for trinkets, set bonuses by SimC's
+`set_bonus=midnight_season_N_{2,4}pc=0`). Contribution is the DPS the effect adds
+over the same character without it, so the trinket rows include the item's own stats.
+
+| effect | where | SimC | azsim |
+|---|---|---:|---:|
+| Vile Vial of Volatile Venom (1293316) | Demonology | +9.43% | +9.28% |
+| | Affliction | +9.17% | +9.60% |
+| | Shadow | +9.44% | +8.94% |
+| | Destruction | +8.37% | +8.62% |
+| | Retribution | +9.18% | +8.98% |
+| | Fire (see below) | +8.99% | +6.80% |
+| Vexhul's Everflowing Gland (1295833) | Demonology | +8.65% | +8.58% |
+| | Affliction | +9.19% | +9.01% |
+| | Shadow | +8.01% | +8.50% |
+| | Destruction | +8.87% | +9.12% |
+| | Retribution | +3.57% | +4.08% |
+| Gebbo's Bottomless Bag (1292291) | Demonology | +8.99% | +8.70% |
+| | Affliction | +9.36% | +8.60% |
+| | Shadow | +8.93% | +8.78% |
+| | Destruction | +8.86% | +8.94% |
+| | Retribution | +8.29% | +8.10% |
+| Shadow 2pc (set 2063, 1296579) | Shadow | +5.44% | +5.45% |
+| Shadow 4pc (1296580) | Shadow | +6.4% (12.18% with the 2pc) | +5.5% (11.25%) |
+| Affliction 2pc (set 2066, 1296568) | Affliction | +3.11% | +3.03% |
+| Affliction 4pc (1296569) | Affliction | +4.3% (7.54%) | +4.4% (7.62%) |
+| Demonology 2pc (1296573) | Demonology | +2.44% | +2.40% |
+| Demonology 4pc (1296574) | Demonology | +4.7% (7.27%) | +4.8% (7.36%) |
+| Destruction 2pc (1296571) | Destruction | +4.20% | +4.21% |
+| Destruction 4pc (1296572) | Destruction | +5.7% (10.11%) | +5.7% (10.18%) |
+| Retribution MID1 2pc (set 1985, 1264848) | Retribution | +0.51% | +0.49% |
+
+The 4pc rows give the 4pc's own gain over the 2pc, and the total in brackets.
+
+How they are modelled (`data/item_effects.toml`, class sets in the specs'
+`[[gear.effects]]`):
+
+- **Vile Vial**: on use (120s), one of the four secondary ratings at random for
+  15s, then a smaller penalty to an independently rolled one for 15s (`choose`).
+- **Vexhul's**: on use (180s), five nature hits 0.2s apart, each scaled by the
+  target's remaining health. The kill cooldown reduction is not modelled (one target).
+- **Gebbo's**: real PPM 3, each proc one of six artifacts at random: Salmon, Gralstone
+  and Voidfin as flat buffs, the Scroll (12 mastery stacks that decay), the Seashell (crit
+  stacks that build) and the Totem (versatility stacks spent by hits, 0.75s apart).
+- **Shadow 4pc** gives Tentacle Slam a free Void Volley stack (Crushing Void raised to
+  its 4 stacks), **Affliction 4pc** +2% damage per active Unstable Affliction (checked every
+  0.5s), **Demonology 4pc** a 20% chance for an expiring Wild Imp to Implode at 350%, and
+  **Destruction 4pc** a 6% damage-taken debuff on an Echo of Sargeras hit.
+
+New generic pieces: `:divN` and `eN/eM` placeholder forms, `[[patch]]` on `pet =`
+and `set = { field = value }`. Destruction's `[gear]` had no `spec_id`, so its class
+set bonuses were never looked up; it has one now.
+
+Known gaps: the Fire Mage spec has no `use_items` condition, so the Vial is used
+on cooldown rather than inside Combustion as SimC's APL does (the +6.8%);
+the Shadow 4pc is about 0.9 points light (the rotation spends the volleys slightly
+differently); Retribution's MID1 4pc (set 1985) stays `unmodelled`: Final Verdict
+re-applies Expurgation with its own base multiplier, which makes the DoT's ticks 3.8x
+stronger in SimC (+6.9%). Wavecaller's Seastone (1295058, Shadow's other trinket)
+is still `unmodelled`.
 
 ## Checking a trinket against SimC
 

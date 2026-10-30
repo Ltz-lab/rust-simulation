@@ -820,7 +820,9 @@ fn library() -> &'static [EffectTpl] {
 /// `stacks`, `chance` or `ilvl`. Modifiers (chainable): `pct` (/100), `ap`/`sp`
 /// (the coefficient instead), `lvl` (scale at the character's level, for spells
 /// without the item-level flag), `band` (x2 with the Bandolier embellishment)
-/// and `per_option` (divided by one plus the gem colours worn).
+/// `per_option` (divided by one plus the gem colours worn) and `divN` (divided
+/// by the integer N, e.g. `div12`). A field `eN/eM` is the ratio of two
+/// effects, rounded to a whole number (a stack count).
 fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
     let gd = gamedata();
     let (body, mods) = match expr.split_once(':') {
@@ -836,6 +838,12 @@ fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
     };
     if field == "ilvl" {
         return Ok(a.ilvl.to_string());
+    }
+    if let Some((n, d)) = field.split_once('/') {
+        let get = |f: &str| -> Result<f64, String> {
+            placeholder(&format!("{spell}.{f}"), a)?.parse::<f64>().map_err(|e| format!("${{{expr}}}: {e}"))
+        };
+        return Ok(((get(n)? / get(d)?).round().max(1.0) as i64).to_string());
     }
     let sp = gd.spells.get(&spell.to_string()).ok_or_else(|| {
         format!("spell {spell} isn't in the game data (rerun tools/gamedata.py after adding a template)")
@@ -878,12 +886,18 @@ fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
         }
         _ => return Err(format!("unknown field in ${{{expr}}}")),
     };
-    if let Some(m) = mods.iter().find(|m| !["ap", "sp", "lvl", "pct", "per_option", "band"].contains(m)) {
+    let div = |m: &str| m.strip_prefix("div").and_then(|n| n.parse::<f64>().ok()).filter(|n| *n != 0.0);
+    if let Some(m) = mods.iter().find(|m| !["ap", "sp", "lvl", "pct", "per_option", "band"].contains(m) && div(m).is_none()) {
         return Err(format!("unknown modifier ':{m}' in ${{{expr}}}"));
     }
     let mut v = v;
     if has("pct") {
         v /= 100.0;
+    }
+    for m in &mods {
+        if let Some(n) = div(m) {
+            v /= n;
+        }
     }
     if has("band") && a.bandolier {
         v *= 2.0;
@@ -1047,15 +1061,17 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
     Ok(rows)
 }
 
-/// `[[patch]]`: append lists to an existing ability's or buff's (`ability =` /
-/// `buff =`), e.g. `on_cast`; skipped when the target or anything in
-/// `requires` (ability names) isn't in the spec.
+/// `[[patch]]`: append lists to an existing ability's, buff's or pet's (`ability =` /
+/// `buff =` / `pet =`), e.g. `on_cast`; skipped when the target or anything in
+/// `requires` (ability names) isn't in the spec. `set = { field = value }`
+/// overwrites scalar fields instead.
 fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
     let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
-    let (kind, name) = match (p.remove("ability"), p.remove("buff")) {
-        (Some(n), None) => ("abilities", n),
-        (None, Some(n)) => ("buffs", n),
-        _ => return Err("a patch names one ability or one buff".into()),
+    let (kind, name) = match (p.remove("ability"), p.remove("buff"), p.remove("pet")) {
+        (Some(n), None, None) => ("abilities", n),
+        (None, Some(n), None) => ("buffs", n),
+        (None, None, Some(n)) => ("pets", n),
+        _ => return Err("a patch names one ability, one buff or one pet".into()),
     };
     let name = name.as_str().unwrap_or("").to_string();
     let has = |root: &toml::Table, kind: &str, n: &str| {
@@ -1078,6 +1094,14 @@ fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
         .and_then(|e| e.as_table_mut())
         .unwrap();
     for (k, v) in p {
+        // `set = { field = value, .. }` overwrites scalar fields (e.g. a buff's max_stacks)
+        if k == "set" {
+            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'set' must be a table")) };
+            for (f, x) in fields {
+                target.insert(f, x);
+            }
+            continue;
+        }
         let toml::Value::Array(items) = v else { return Err(format!("patch '{name}': '{k}' must be a list")) };
         let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
         list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?.extend(items);
