@@ -25,7 +25,18 @@ damage. This tool reads them:
   4. buffs the spec models get the same treatment while they're up: the
      buff's spell (id from the observations) adds `ability_pct` /
      `school_pct` to the sources it modifies, unless the spec already sets
-     its damage by hand.
+     its damage by hand (then the derived value is printed next to the
+     spec's, to check or migrate it).
+  5. target debuffs (aura 271, "damage taken from the caster's spells", e.g.
+     Judgment +20%): looked for among the spells the sources trigger or
+     apply and the spells in the observations' buff list, plus `--debuff
+     SPELLID`. They are reported per source and written as `debuff` in the
+     output; `--fold-debuffs` multiplies them into `derived`, scaled by
+     `--debuff-uptime` (default 1: the debuff is assumed always up).
+  6. talent rank curves (TraitDefinitionEffectPoints + CurvePoint), when
+     those tables are present, replace the linear "base x ranks" scaling for
+     the effects they name. Scripted aura-4 dummies on the active passives
+     are listed (not applied; their numbers live in script).
 
 The output feeds calibrate.py (`--derived`), which writes it into the
 calibration file next to the residual it fits on top. Modifiers it can't
@@ -53,6 +64,10 @@ APPLY_AURA = {6, 35, 119, 128, 129, 143, 174}   # aura-applying effect types
 DAMAGE_EFFECTS = {2, 9, 17, 31, 58, 121}
 PERIODIC_DAMAGE_AURAS = {3, 53, 89}
 MOD_DAMAGE_DONE = 79      # misc0: school mask
+MOD_DAMAGE_FROM_CASTER = 271   # target debuff: percent damage taken from the caster's spells
+DUMMY = 4                 # scripted aura; the value lives in script, not in data
+OP_ALL = -1               # debuffs scale whatever damage the matched spell does
+TRIGGER_EFFECTS = {64, 140}   # trigger spell / trigger spell with value
 
 
 class Spells:
@@ -111,8 +126,59 @@ def active_passives(db, sp, spec_id, talents):
     return {s: v for s, v in out.items() if sp.passive(s)}
 
 
-def modifiers(sp, passives):
-    """All damage-scaling spell modifiers from {spell: (ranks, origin)}."""
+class RankCurves:
+    """TraitDefinitionEffectPoints: per talent definition and effect index, a
+    curve of rank -> points. OperationType 0 sets the effect's points, 1
+    multiplies them. Absent tables mean no curves (linear scaling stays)."""
+
+    def __init__(self, db):
+        self.by_def = defaultdict(dict)
+        self.points = defaultdict(list)
+        try:
+            for r in db.rows("TraitDefinitionEffectPoints"):
+                self.by_def[int(num(r["TraitDefinitionID"]))][int(num(r["EffectIndex"]))] = (
+                    int(num(r["OperationType"])), int(num(r["CurveID"])))
+            for r in db.rows("CurvePoint"):
+                self.points[int(num(r["CurveID"]))].append(
+                    (int(num(r["OrderIndex"])), num(r["Pos_0"]), num(r["Pos_1"])))
+        except FileNotFoundError:
+            self.by_def.clear()
+        for v in self.points.values():
+            v.sort()
+
+    def value(self, definition, index, rank, base):
+        """Points of effect `index` at `rank`, or None if no curve covers it."""
+        c = self.by_def.get(definition, {}).get(index)
+        pts = self.points.get(c[1]) if c else None
+        if not pts:
+            return None
+        xs = [(x, y) for _, x, y in pts]
+        if rank <= xs[0][0]:
+            y = xs[0][1]
+        elif rank >= xs[-1][0]:
+            y = xs[-1][1]
+        else:
+            y = xs[-1][1]
+            for (x0, y0), (x1, y1) in zip(xs, xs[1:]):
+                if x0 <= rank <= x1:
+                    y = y0 + (y1 - y0) * (rank - x0) / (x1 - x0) if x1 != x0 else y1
+                    break
+        return y if c[0] == 0 else base * y
+
+
+def scaled(curves, definitions, sid, e, ranks, base):
+    """Points at `ranks`: the talent's rank curve if it has one, else linear."""
+    if curves and definitions and sid in definitions:
+        v = curves.value(definitions[sid], int(e["EffectIndex"]), ranks, base)
+        if v is not None:
+            return v
+    return base * ranks   # multi-rank talents scale linearly otherwise
+
+
+def modifiers(sp, passives, curves=None, definitions=None):
+    """All damage-scaling spell modifiers from {spell: (ranks, origin)}.
+    `curves` (RankCurves) and `definitions` ({spell: trait definition id})
+    replace the linear rank scaling for talents that have a rank curve."""
     mods = []
     for sid, (ranks, origin) in passives.items():
         for e in sp.effs(sid):
@@ -124,7 +190,7 @@ def modifiers(sp, passives):
                 if base:
                     mods.append({"spell": sid, "origin": origin, "index": int(e["EffectIndex"]), "pct": True,
                                  "school": int(num(e["EffectMiscValue_0"])), "label": None, "op": None,
-                                 "value": base * ranks})
+                                 "value": scaled(curves, definitions, sid, e, ranks, base)})
                 continue
             if aura not in (PCT_MASK, FLAT_MASK, PCT_LABEL, FLAT_LABEL):
                 continue
@@ -143,7 +209,7 @@ def modifiers(sp, passives):
                 "label": int(num(e["EffectMiscValue_1"])) if aura in (PCT_LABEL, FLAT_LABEL) else None,
                 "mask": tuple(int(num(e[f"EffectSpellClassMask_{i}"])) & 0xFFFFFFFF for i in range(4)),
                 "op": op,
-                "value": base * ranks,   # multi-rank talents scale linearly
+                "value": scaled(curves, definitions, sid, e, ranks, base),
             })
     return mods
 
@@ -164,6 +230,8 @@ def applies(sp, mod, target, index, periodic):
         if not any(a & b for a, b in zip(mask, mod["mask"])):
             return False
     op = mod["op"]
+    if op == OP_ALL:
+        return True
     if op == OP_DAMAGE:
         return not periodic
     if op == OP_PERIODIC:
@@ -246,7 +314,6 @@ def buff_patches(db, sp, spec, obs, srcs):
             continue
         if any(b.get(k) for k in HAND_SET):
             print(f"buff {b['name']}: damage set by hand in the spec, not derived", file=sys.stderr)
-            continue
         mods = modifiers(sp, {sid: (1, "buff")})
         pct = {}
         for name, (target, periodic, _) in srcs.items():
@@ -256,9 +323,51 @@ def buff_patches(db, sp, spec, obs, srcs):
                 total *= 1 + m["value"] / 100
             if used:
                 pct[name] = (total - 1) * 100
+        if any(b.get(k) for k in HAND_SET):
+            for k in HAND_SET:
+                if b.get(k):
+                    print(f"  hand-set {k}={b[k]!r}; derived from {sid}: {pct or 'nothing'}", file=sys.stderr)
+            continue
         if pct:
             out[b["name"]] = pct
     return out
+
+
+def debuff_mods(sp, spell_ids):
+    """Aura-271 target debuffs on `spell_ids` as percent modifiers restricted
+    by class mask; those with an empty mask are returned apart (not applied)."""
+    mods, unresolved = [], []
+    for sid in spell_ids:
+        for e in sp.effs(sid):
+            if int(e["Effect"]) not in APPLY_AURA or int(e["EffectAura"]) != MOD_DAMAGE_FROM_CASTER:
+                continue
+            base = num(e["EffectBasePointsF"])
+            mask = tuple(int(num(e[f"EffectSpellClassMask_{i}"])) & 0xFFFFFFFF for i in range(4))
+            m = {"spell": sid, "origin": "debuff", "index": int(e["EffectIndex"]), "pct": True, "school": None,
+                 "label": None, "mask": mask, "op": OP_ALL, "value": base}
+            (mods if any(mask) and base else unresolved).append(m)
+    return mods, unresolved
+
+
+def candidate_debuffs(sp, srcs, obs, extra):
+    """Spells that may carry a target debuff: those the sources trigger or
+    apply, the observations' buffs, and explicit ids."""
+    out = set(extra)
+    for target, _, _ in srcs.values():
+        out.add(target)
+        for e in sp.effs(target):
+            t = int(num(e.get("EffectTriggerSpell")))
+            if int(e["Effect"]) in TRIGGER_EFFECTS and t:
+                out.add(t)
+    out.update(b["spell_id"] for b in obs["buffs"].values() if b.get("spell_id"))
+    return out
+
+
+def dummy_report(sp, passives):
+    """(spell, effect index, points) of aura-4 dummies on active passives: scripted, not derivable."""
+    return [(sid, int(e["EffectIndex"]), num(e["EffectBasePointsF"]))
+            for sid in sorted(passives) for e in sp.effs(sid)
+            if int(e["Effect"]) in APPLY_AURA and int(e["EffectAura"]) == DUMMY]
 
 
 def main():
@@ -269,6 +378,9 @@ def main():
     ap.add_argument("talents")
     ap.add_argument("--out")
     ap.add_argument("--explain", action="append", default=[])
+    ap.add_argument("--debuff", type=int, action="append", default=[], help="extra spell id to scan for aura-271 target debuffs")
+    ap.add_argument("--fold-debuffs", action="store_true", help="multiply target debuffs into `derived` (default: report and write `debuff` only)")
+    ap.add_argument("--debuff-uptime", type=float, default=1.0, help="fraction of the time folded debuffs are up")
     a = ap.parse_args()
 
     db = Db2(a.db2)
@@ -280,7 +392,13 @@ def main():
         loadout = next(l.split("=", 1)[1].strip() for l in open(loadout) if l.startswith("talents="))
     _, spec_id, talents = decode(db, loadout)
     passives = active_passives(db, sp, spec_id, talents)
-    mods = modifiers(sp, passives)
+    curves = RankCurves(db)
+    definitions = {t["spell"]: t["definition"] for t in talents if t["spell"]}
+    mods = modifiers(sp, passives, curves, definitions)
+    if not curves.by_def:
+        print("no TraitDefinitionEffectPoints/CurvePoint tables: talent ranks scale linearly", file=sys.stderr)
+    for sid, i, v in dummy_report(sp, passives):
+        print(f"scripted aura-4 dummy, not derived: {sid} #{i} ({db.name(sid)}) points {v:g}", file=sys.stderr)
     print(f"spec {spec_id}: {len(passives)} active passives, {len(mods)} damage modifiers", file=sys.stderr)
 
     srcs = sources(spec, obs)
@@ -299,6 +417,17 @@ def main():
         if name in a.explain:
             for m in used:
                 print(f"    {m['value']:+8.1f}%  {m['origin']:7s} {m['spell']:8d} #{m['index']} {db.name(m['spell'])}", file=sys.stderr)
+    dmods, dunres = debuff_mods(sp, sorted(candidate_debuffs(sp, srcs, obs, a.debuff)))
+    for m in dunres:
+        print(f"target debuff {m['spell']} ({db.name(m['spell'])}) aura 271 {m['value']:g}% has no class mask: not applied", file=sys.stderr)
+    debuff = {}
+    for name, (sid, periodic, _) in sorted(srcs.items()):
+        mult, used = derive(sp, dmods, sid, periodic)
+        if used:
+            debuff[name] = mult
+            print(f"{name:42s} target debuff x{mult:6.3f}: " + ", ".join(f"{m['spell']} {db.name(m['spell'])} {m['value']:+g}%" for m in used), file=sys.stderr)
+            if a.fold_debuffs:
+                derived[name] *= 1 + (mult - 1) * a.debuff_uptime
     buffs = buff_patches(db, sp, spec, obs, srcs)
     for b, pct in buffs.items():
         print(f"buff {b}: " + ", ".join(f"{k} +{v:g}%" for k, v in sorted(pct.items())), file=sys.stderr)
@@ -309,7 +438,10 @@ def main():
             f.write("# game's spell modifiers (talents, spec auras), and the damage modifiers\n")
             f.write("# of the buffs the spec models. calibrate.py --derived merges it.\n\n")
             for name in sorted(derived):
-                f.write(f'[sources."{name}"]\nderived = {derived[name]:.6f}\n\n')
+                f.write(f'[sources."{name}"]\nderived = {derived[name]:.6f}\n')
+                if name in debuff:
+                    f.write(f'debuff = {debuff[name]:.6f}   # aura 271; folded into derived: {str(a.fold_debuffs).lower()}\n')
+                f.write("\n")
             for b in sorted(buffs):
                 f.write(f'[buffs."{b}".ability_pct]\n')
                 for k, v in sorted(buffs[b].items()):

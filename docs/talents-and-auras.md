@@ -46,6 +46,35 @@ artifact spell 205273), not the 3.2186 of the logged spell 255937. It now uses
 damage is the same either way (3.479 AP), so DPS and the stat probes didn't
 move.
 
+### Target debuffs, rank curves and dummies (code in, numbers pending)
+
+`tools/effects.py` also reads, when the DB2 tables are present:
+
+- **Target debuffs** (aura 271, damage taken from the caster's spells, e.g.
+  Judgment +20%). Candidates are the spells each damage source triggers, the
+  spells in the observations' buff list and `--debuff SPELLID`; an effect
+  applies to a source whose spell family mask matches. Per source it prints
+  `target debuff xN` and writes `debuff = N` next to `derived`. Debuffs with
+  an empty class mask are listed but not applied (not guessed). By default
+  `derived` is unchanged; `--fold-debuffs [--debuff-uptime F]` multiplies the
+  debuff in, which assumes the debuff is up a fraction F of the time (default
+  1, which overstates Judgment, up only after a Judgment cast).
+- **Talent rank curves** (`TraitDefinitionEffectPoints`, `CurvePoint`;
+  `tools/db2.py` now fetches both). Where a talent's definition has a curve for
+  an effect index, the curve at the loadout's rank replaces base x ranks
+  (operation 0 sets, 1 multiplies; linear interpolation, clamped). Without the
+  tables the old linear scaling is used. Column meanings are from the public
+  DB2 layout, not yet checked against a built table.
+- **Aura-4 dummies** on the active passives (Blessing of Dawn, Light Within)
+  are listed on stderr. Their values live in script, so they are not derived.
+- **Hand-set buffs**: a buff with `damage_pct` etc. set in the spec now prints
+  the value derived from its spell next to the spec's, to decide whether to
+  migrate it. Nothing is migrated automatically.
+
+`python3 tools/test_effects.py` checks these paths with synthetic spells. This
+was written without access to the DB2 tables (the build host was unreachable),
+so the Ret x1.38 and Fire x1.18 residuals above have not been re-measured.
+
 What stays in the residual, by source: scripted effects the data only names
 (aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), target
 debuffs (Judgment's +20% from spenders, aura 271), buffs and procs the spec
