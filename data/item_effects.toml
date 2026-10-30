@@ -254,3 +254,141 @@ on_cast = [{ type = "buff", buff = "freightrunners_flask" }]
 action = "freightrunners_flask"
 use = "buff"
 '''
+
+# Loa Worshiper's Band (ring 251513, driver 1251904): real-PPM 2; each proc
+# summons one loa chosen at random among Blessing of the Capybara (always) and
+# one per unique gem colour worn anywhere in the gear: Garnet Nalorakk, Amethyst
+# Halazzi, Lapis Jan'alai, Peridot Akil'zon. A uniform pick among N options is N
+# independent procs at rppm/N, so every entry procs at `rppm:per_option` (the
+# gem entries exist only with their colour). Gem colour is the stat the gem
+# carries first. Values double with the Bandolier embellishment (`:band`); the
+# Akil'zon and Nalorakk auras lack SimC's item-level flag, so they are scaled at
+# the character's level (`:lvl`). [simc loa_worshipers_band; driver values 1251904 e2..e4]
+# Capybara: primary stat for 15s.
+[[effect]]
+spell = 1251904
+text = '''
+[[procs]]
+ability = "loa_capybara"
+per_minute = ${rppm:per_option}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "loa_capybara"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "loa_capybara" }]
+
+[[buffs]]
+name = "loa_capybara"
+duration = ${1252524.duration}
+stats = { primary = ${e2:band} }
+'''
+
+# Akil'zon (Peridot): haste rating for 15s.
+[[effect]]
+spell = 1251904
+gem = "peridot"
+text = '''
+[[procs]]
+ability = "loa_akilzon"
+per_minute = ${rppm:per_option}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "loa_akilzon"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "loa_akilzon" }]
+
+[[buffs]]
+name = "loa_akilzon"
+duration = ${1252818.duration}
+stats = { haste_rating = ${1252818.e1:lvl:band} }
+'''
+
+# Claws of Halazzi (Amethyst): a physical hit for effect 3.
+[[effect]]
+spell = 1251904
+gem = "amethyst"
+text = '''
+[[procs]]
+ability = "loa_halazzi"
+per_minute = ${rppm:per_option}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "loa_halazzi"
+spell_id = 1252814
+triggered_only = true
+no_procs = true
+damage = { amount = ${e3:band}, school = "physical" }
+'''
+
+# Jan'alai's Flames (Lapis): a fire hit for effect 4 (one target here).
+[[effect]]
+spell = 1251904
+gem = "lapis"
+text = '''
+[[procs]]
+ability = "loa_janalai"
+per_minute = ${rppm:per_option}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "loa_janalai"
+spell_id = 1252817
+triggered_only = true
+no_procs = true
+damage = { amount = ${e4:band}, school = "fire" }
+'''
+
+# Nalorakk's Call to War (Garnet): for 10s, a tick every second (the first at
+# once, so 11) adds a stack of crit rating, up to 10; a tick refreshes all stacks to 6s.
+[[effect]]
+spell = 1251904
+gem = "garnet"
+text = '''
+[[procs]]
+ability = "loa_nalorakk"
+per_minute = ${rppm:per_option}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "loa_nalorakk"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "loa_nalorakk_tick" },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 1.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 2.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 3.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 4.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 5.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 6.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 7.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 8.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 9.0 },
+  { type = "trigger", ability = "loa_nalorakk_tick", delay = 10.0 },
+]
+
+[[abilities]]
+name = "loa_nalorakk_tick"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "loa_nalorakk" }]
+
+[[buffs]]
+name = "loa_nalorakk"
+duration = ${1257183.duration}
+max_stacks = ${1257183.stacks}    # each tick refreshes every stack's 6s
+stats = { crit_rating = ${1257183.e1:lvl:band} }
+'''
+
+# Bandolier (embellishment 1251905): doubles the values of the other
+# embellishments (SimC's bandolier_mul). The templates that scale with it use
+# the `:band` modifier; there is nothing to model for the embellishment itself.
+[[effect]]
+spell = 1251905
+none = true

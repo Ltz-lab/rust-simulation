@@ -78,6 +78,15 @@ the app's Ret character and its bag:
 | Font of Venomous Rage | on use: 2s channel of nature damage | a 2s cast dealing the total |
 | The King's Unyielding Wind (Stormbound Emblem of Dazar) | on use: 2s channel, 5s of Haste per tick (20s) | a 2s cast, then a 20s Haste-rating buff |
 | Freightrunner's Flask | on use: crit rating for 15s, 90s cooldown | on-use stat buff |
+| Loa Worshiper's Band (ring) | real-PPM 2; each proc summons one loa: Capybara (primary stat, always), plus one per unique gem colour worn (Peridot Akil'zon haste, Amethyst Halazzi physical hit, Lapis Jan'alai fire hit, Garnet Nalorakk stacking crit) | one proc per option at rppm / options, `gem`-keyed templates |
+| Bandolier embellishment (bonus 13454) | doubles the other embellishments' values | `:band` modifier on the templates' numbers |
+
+Templates may carry a `gem = "garnet" | "peridot" | "amethyst" | "lapis"` key
+(used only when that colour is socketed anywhere in the gear; a gem's colour
+is the stat it carries first) and the placeholder modifiers `:band`, `:lvl`
+(scale at the character's level, for spells SimC doesn't item-scale) and
+`:per_option`. Effects an item *bonus* adds (embellishments) come from
+`bonus_effects` in the game data.
 
 Buff stats (`stats = { primary = .., crit_rating = .. }` per stack) turn into
 the character's own percent bonuses at the margin: primary stat as a share of
