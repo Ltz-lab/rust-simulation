@@ -52,6 +52,9 @@ Examples to copy: `specs/retribution_herald.toml` (melee: `[gear]`,
 2. **Spec.** `specs/<spec>_<herotree>.toml`, using the hero tree of the
    profile in `profiles/`. Model resources, cooldowns, procs and the
    rotation from the APL. Look spells up with `tools/spelldb.py`.
+   `tools/draft_spec.py` writes a first draft (abilities and buffs from DB2,
+   rotation translated from the profile's APL, TODOs for the rest); see
+   `docs/draft-spec.md`. Mark a draft as WIP and don't register it until it runs.
 3. **Derived modifiers.** `tools/effects.py` → `derived/<spec>.toml`
    (`docs/talents-and-auras.md`).
 4. **Calibrate.** `tools/calibrate.py ... --derived ...` →
