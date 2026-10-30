@@ -1,0 +1,657 @@
+# Protection Warrior — Colossus, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust; matches the core-kit
+# profile tools/make_reference.sh builds from MID2_Warrior_Protection.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_warrior.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py — not hand-tuned here.
+#
+# A tank, simulated only for the damage it deals to a Patchwerk boss that
+# hits it every 2s. What the boss does to the warrior still matters in three
+# ways, and each is modelled as its own source of rage or procs:
+#   * rage from damage taken: 3 every 2s [simc rage_from_damage_taken];
+#   * Tough as Nails: a damage proc on a block, ~12.8 a minute [obs 63.8 a fight];
+#   * Revenge: a free Revenge when the warrior dodges or parries [simc rppm.revenge],
+#     ~3.3 a minute [obs 16.6 buff starts].
+# Rage (max 130): Shield Slam +19 (+50% inside Violent Outburst), Thunder Clap
+# +5, Shield Charge +20, Demoralizing Shout +20 (Booming Voice), Charge +20, a
+# swing +3 and the Devastator it fires +2 (Instigate). Spent on Ignore Pain
+# (35), Shield Block (30), Revenge (10 here, free with the proc) and Execute.
+# Ignore Pain only matters to the sim as the rage sink: 250 rage spent triggers
+# Violent Outburst [db2 386477], which triples the next Shield Slam, casts a
+# free Ignore Pain and raises its rage by 50% [db2 386478].
+#
+# Every swing fires Devastator (1.314 AP, [db2 236282]) and each Devastator,
+# Thunder Clap, Revenge or Execute has a 20% chance to reset Shield Slam
+# [db2 458008 #1; obs: 0.275 reproduces 97 Shield Slams]. Shield Slam stacks Colossal Might (2 on
+# a crit, Precise Might); Demolish (a 30s three-hit channel) spends it. Thunder
+# Clap applies Rend and a Phalanx that the next Shield Slam spends for an extra
+# hit. Execute and Demolish's third hit apply Deep Wounds (Decimator).
+
+name = "Protection Warrior (Colossus, core kit)"
+
+# Charge at the pull (+20 rage), the stance, and the gear-proc haste
+precombat = ["battle_stance", "charge", "gear_haste_procs"]
+
+[player]
+# Final stats = SimC's buffed snapshot [obs]. Crit is the rate abilities
+# actually crit at in the log (31%); the sheet says 25.5% before Wild
+# Strikes, Rune of Critical Power and Celeritous Conclusion.
+attack_power = 3046.6    # [obs] 2817 strength x 1.0815 (Battle Shout x Skyfury); mastery rides on top
+crit = 0.31              # [obs] abilities and auto attacks crit 31% (sheet 25.5%)
+haste = 0.3527           # [obs] buffed
+versatility = 0.0498     # [obs] buffed
+mastery = 0.2359         # [db2 76857 #4] Critical Block: attack power x(1 + 0.666 x mastery), mastery 35.41% [obs]; every AP-scaled source takes it
+crit_multiplier = 2.12   # [obs] SimC's "Crit Dmg Mult: 1.0612" x2
+# One-hander and a shield, 2.6s swing [obs]
+weapon = { min = 0, max = 0, speed = 2.6 }
+
+# How `--gear profile.simc` turns gear into the [player] stats above (see
+# docs/gear.md). All [obs] from SimC's reported stats unless tagged.
+[gear]
+primary = "strength"
+base_primary = 838            # [obs] 2817 buffed strength / 1.05 less the 1845 the items sum to (the profile's summary says 2042: ~197 strength is not in the item tables)
+primary_mult = 1.05           # [obs] plate specialization
+attack_power_mult = 1.0815    # [obs] Battle Shout x1.05 and Skyfury x1.03
+crit_bonus = 0.1348           # [obs] the sheet says 25.5% but abilities crit 31% (Wild Strikes, Rune of Critical Power, Celeritous Conclusion); 17.52% from rating
+haste_mult = 1.0404           # [obs] Into the Fray 4 x 2% [db2 202603] and the rest of the sheet's 35.27%
+mastery_points = 10           # [obs] 8 base + 2 Skyfury
+mastery_ap = 0.666            # read by tools/validate_stats.py: the reference's attack power carries (1 + 0.666 x mastery)
+mastery_coeff = 1.0           # [db2 76857 #5] Critical Block: attack power +1% per mastery %; the sheet's mastery_value is 1.5x (AP 3765 -> 4096 on +500 rating)
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+spec_id = 73                  # [db2] ChrSpecialization
+
+# Raid-night kit with gear lines (see Ret): SimC's default level-90 Protection
+# consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+# The potion (Liquid Luster, a 30s periodic proc of "Lustrous Gleam") is not modelled.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]      # Bloodlust at the pull
+stats = { primary = 75.1, crit_rating = 181, haste_rating = 16 }
+#   primary 50     Harandar Celebration [obs: +78 strength with the augment]
+#   primary 25.1   Void-Touched augment rune [db2 1264426]
+#   crit 165       Flask of the Shattered Sun (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+
+# Class set bonuses (the Midnight 12.1 Protection set, spells 1296647 / 1296648).
+# 2pc [simc]: a free Revenge grants Vengeful Shield, +20% on the next Shield Slam
+# [db2 1300681]. Its other effect, +15% to the label-4989 proc chance (Revenge's
+# trigger), is not modelled. 4pc [simc bloody_rebuke]: Ravager hits and Revenge
+# cast on its proc apply Bloody Rebuke, a 12s bleed [db2 1300690]. SimC applies it
+# 55 times from Ravager and 13 from Revenge a fight.
+[[gear.effects]]
+spell = 1296647
+text = '''
+[[buffs]]
+name = "vengeful_shield"
+duration = 12
+ability_pct = { shield_slam = 20 }
+
+[[patch]]
+ability = "revenge"
+on_free = [{ type = "buff", buff = "vengeful_shield" }]
+
+[[patch]]
+ability = "shield_slam"
+on_cast = [{ type = "consume", buff = "vengeful_shield" }]
+'''
+
+[[gear.effects]]
+spell = 1296648
+text = '''
+[[abilities]]
+name = "bloody_rebuke_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "bloody_rebuke"      # [db2 1300690: 12s, 3s period, 0.761862 AP]
+ap_coeff = 0.761862
+tick_time = 3.0
+duration = 12.0
+hasted = true
+mastery = true
+refresh = "rolling"
+
+[[patch]]
+ability = "ravager_whirling_blade"
+on_cast = [
+  { type = "trigger", ability = "bloody_rebuke_apply" },
+  { type = "trigger", ability = "bloody_rebuke_apply" },
+]
+
+[[patch]]
+ability = "revenge"
+on_free = [{ type = "trigger", ability = "bloody_rebuke_apply" }]
+'''
+
+[fight]
+duration = 300
+variance = 0.2
+ready_tolerance = 1e-5
+
+[resources.rage]
+max = 130                # [db2]
+start = 0
+
+[auto_attack]
+replace_with = "auto_attack_mh"
+
+# Skyfury raid buff: 20% to repeat the swing [obs]
+[[procs]]
+ability = "skyfury_mh"
+on_hit = true
+chance = 0.20
+sources = ["auto_attack_mh"]
+
+# Rage from damage taken: 3 rage, ~every 5s [obs 59 a fight]
+[[procs]]
+ability = "damage_taken"
+per_minute = 11.8
+
+# Tough as Nails: damage on a block [obs 63.8 a fight]
+[[procs]]
+ability = "tough_as_nails"
+per_minute = 12.76
+
+# Free Revenge when the warrior dodges or parries [obs 16.6 starts a fight]
+# Sudden Death beyond the Demoralizing Shout's [obs 13.5 starts a fight; 3/min reproduces SimC's 31 Executes]
+[[procs]]
+ability = "sudden_death_proc"
+per_minute = 3.0
+
+[[procs]]
+ability = "revenge_proc"
+per_minute = 3.4
+
+# Gear procs [obs]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 6.0
+hasted = true
+
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.08       # [obs] 50.4 a fight
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "full_kit"           # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "gear_haste_procs"   # time-averaged haste: Into the Fray (4 x 2% [db2 202602]) and Celeritous Conclusion (33% x 9%)
+duration = 1e9
+haste_pct = 6.0
+
+[[buffs]]
+name = "battle_stance"      # [db2 386164: 3% damage]
+duration = 1e9
+
+[[buffs]]
+name = "wild_strikes"       # auto crit: +20% attack speed [db2 392778: 10s]
+duration = 10
+attack_speed_pct = 20
+
+[[buffs]]
+name = "avatar"             # [db2 107574: 20s, +20% damage]
+duration = 20
+
+[[buffs]]
+name = "sudden_death"       # Execute usable at any health, free [db2 52437: 12s]
+duration = 12
+
+[[buffs]]
+name = "revenge"            # free Revenge [db2 5302: 3s]
+duration = 3
+
+[[buffs]]
+name = "phalanx"            # Thunder Clap: the next Shield Slam throws an extra hit [db2 1278009]
+duration = 8
+
+[[buffs]]
+name = "shield_block"       # [db2 132404: 6s]; Heavy Repercussions extends it per Shield Slam
+duration = 6
+
+[[buffs]]
+name = "colossal_might"     # Shield Slam: +1 stack, +2 on a crit [db2 440989: 24s, 5 -> 10 stacks]
+duration = 24
+max_stacks = 10
+
+[[buffs]]
+name = "cut_to_the_bone"    # Shield Slam crit [db2 1270840: 8s]
+duration = 8
+
+[[buffs]]
+name = "violent_outburst"   # 250 rage spent [db2 386478: Shield Slam x3, +50% rage]
+duration = 30
+ability_pct = { shield_slam = 200 }
+
+[[buffs]]
+name = "rune_of_critical_power"   # Omnium rune: crit [obs 88% uptime], folded into the 31% crit above
+duration = 1e9
+
+# ---------------------------------------------------------------- opener
+
+[[abilities]]
+name = "battle_stance"
+spell_id = 386164
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "battle_stance" }]
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "gear_haste_procs"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "gear_haste_procs" }]
+
+[[abilities]]
+name = "charge"
+spell_id = 100
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "charge_impact" }]
+
+[[abilities]]
+name = "charge_impact"      # [db2 126664: 0.21 AP], +20 rage [obs]
+triggered_only = true
+gcd = 0
+gain = { rage = 20 }
+damage = { mastery = true, ap_coeff = 0.21 }
+
+# ---------------------------------------------------------------- auto attack
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 0.4333 }   # swing 2.6s / 6 [db2]
+gain = { rage = 3 }              # [obs] 3 a swing
+on_cast = [{ type = "trigger", ability = "devastator" }]
+on_crit = [{ type = "trigger", ability = "wild_strikes_proc" }]
+
+[[abilities]]
+name = "skyfury_mh"
+source = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 0.4333 }
+gain = { rage = 3 }
+on_cast = [{ type = "trigger", ability = "devastator" }]
+
+[[abilities]]
+name = "wild_strikes_proc"  # 8s internal cooldown [db2 382946]
+triggered_only = true
+gcd = 0
+cooldown = 8
+on_cast = [{ type = "buff", buff = "wild_strikes" }]
+
+[[abilities]]
+name = "devastator"         # [db2 236282: 1.314 AP]; Instigate +2 rage [simc]
+spell_id = 236282
+triggered_only = true
+gcd = 0
+gain = { rage = 2 }
+damage = { mastery = true, ap_coeff = 1.314 }
+on_cast = [{ type = "trigger", ability = "shield_slam_reset", chance = 0.275 }]
+
+[[abilities]]
+name = "shield_slam_reset"  # [db2 458008 #1: 20%]; cooldown_t::reset(true) restarts the recharge
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "reset_cooldown", ability = "shield_slam" }]
+
+[[abilities]]
+name = "damage_taken"       # 3 rage from taking a hit [simc rage_from_damage_taken]
+triggered_only = true
+gcd = 0
+gain = { rage = 3 }
+
+[[abilities]]
+name = "tough_as_nails"     # [db2 385890: 1.2 AP], never crits [simc may_crit = false]
+spell_id = 385890
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 1.2, crit_bonus = -2.0 }
+
+[[abilities]]
+name = "sudden_death_proc"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "sudden_death" },
+  { type = "reset_cooldown", ability = "execute" },
+]
+
+[[abilities]]
+name = "revenge_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "revenge" }]
+
+# ---------------------------------------------------------------- cooldowns
+
+[[abilities]]
+name = "avatar"
+spell_id = 107574
+gcd = 0
+cooldown = 48               # [obs] 6.3 casts a fight; the 90s base is cut by talents
+on_cast = [{ type = "buff", buff = "avatar" }]
+
+[[abilities]]
+name = "demoralizing_shout"
+spell_id = 1160
+cooldown = 32               # [obs] 9.2 casts a fight
+gain = { rage = 20 }        # Booming Voice [simc]
+on_cast = [
+  { type = "buff", buff = "sudden_death" },
+  { type = "reset_cooldown", ability = "execute" },
+]
+
+[[abilities]]
+name = "ravager"
+spell_id = 228920
+cooldown = 90               # [db2]
+on_start = []
+[abilities.dot]
+name = "ravager_dot"
+tick_time = 2.0
+duration = 12.0
+tick_on_apply = true
+hasted = false
+on_tick = [{ type = "trigger", ability = "ravager_whirling_blade" }]
+
+[[abilities]]
+name = "ravager_whirling_blade"
+spell_id = 228920
+triggered_only = true
+gcd = 0
+gain = { rage = 20 }        # [obs] 552 rage on 28 ticks
+damage = { mastery = true, ap_coeff = 1.24581, hits = 3 }   # [db2]; [obs] 83 hits on 28 ticks
+
+[[abilities]]
+name = "shield_charge"
+source = "shield_charge_main"
+spell_id = 385952
+cooldown = 45               # [db2]
+gain = { rage = 20 }        # [obs]
+damage = { mastery = true, ap_coeff = 8.4 } # [db2 385954]
+on_cast = [{ type = "buff", buff = "shield_block" }]
+
+[[abilities]]
+name = "shield_block"
+spell_id = 2565
+gcd = 0
+cooldown = 16               # [db2] recharge, hasted [simc]
+cooldown_hasted = true
+cost = { rage = 30 }        # [db2]
+on_cast = [{ type = "buff", buff = "shield_block" }]
+
+[[abilities]]
+name = "ignore_pain"
+spell_id = 190456
+gcd = 0
+cooldown = 1                # [db2]
+cost = { rage = 35 }        # [db2]
+on_cast = [{ type = "trigger", ability = "vo_check" }]
+
+[[abilities]]
+name = "vo_check"           # 250 rage spent triggers Violent Outburst [db2 386477]
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "violent_outburst_proc", chance_expr = "spent.rage/250" }]
+
+[[abilities]]
+name = "violent_outburst_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "violent_outburst" }]
+
+# ---------------------------------------------------------------- builders
+
+[[abilities]]
+name = "shield_slam"
+spell_id = 23922
+cooldown = 9                # [db2]
+cooldown_hasted = true
+damage = { mastery = true, ap_coeff = 2.30594, crit_bonus = 0.25 }   # [db2]; [obs] crits 56% vs 31%
+on_cast = [
+  { type = "if", if = "buff.violent_outburst.up", then = [
+    { type = "gain", resource = "rage", amount = 28.5 },    # 19 x1.5 [db2 386478 #1]
+    { type = "consume", buff = "violent_outburst" },
+  ], else = [{ type = "gain", resource = "rage", amount = 19 }] },   # [obs]
+  { type = "buff", buff = "colossal_might" },
+  { type = "if", if = "buff.phalanx.up", then = [
+    { type = "trigger", ability = "phalanx" },
+    { type = "consume", buff = "phalanx" },
+  ] },
+]
+on_crit = [
+  { type = "buff", buff = "colossal_might" },   # Precise Might: 2 stacks on a crit
+  { type = "buff", buff = "cut_to_the_bone" },
+]
+
+[[abilities]]
+name = "phalanx"
+spell_id = 1270116
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 1.98 }   # [db2]
+
+[[abilities]]
+name = "thunder_clap"
+spell_id = 6343
+cooldown = 6                # [db2]
+cooldown_hasted = true
+gain = { rage = 5 }         # [db2 6343 #4]
+damage = { mastery = true, ap_coeff = 2.3568 }   # [db2]
+on_cast = [
+  { type = "buff", buff = "phalanx" },
+  { type = "trigger", ability = "rend_apply" },
+  { type = "trigger", ability = "shield_slam_reset", chance = 0.275 },
+]
+
+[[abilities]]
+name = "rend_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rend_dot"           # [db2 388539: 15s, 3s period, hasted]
+mastery = true
+ap_coeff = 0.380931
+tick_time = 3.0
+duration = 15.0
+hasted = true
+
+[[abilities]]
+name = "revenge"
+spell_id = 6572
+cost = { rage = 10 }        # [obs]
+free_with = "revenge"
+damage = { mastery = true, ap_coeff = 2.81664 }   # [db2]
+on_cast = [
+  { type = "gain", resource = "rage", amount = 5, chance = 0.16 },   # Frothing Berserker [obs 11.9 gains a fight]
+  { type = "trigger", ability = "shield_slam_reset", chance = 0.275 },
+]
+
+[[abilities]]
+name = "execute"
+source = "execute_damage"
+spell_id = 163201
+cooldown = 3.5   # [db2 1235386]
+cooldown_hasted = true
+cost = { rage = 20 }
+free_with = "sudden_death"
+damage = { mastery = true, ap_coeff = 2.42125 }   # [db2 260798]
+on_cast = [
+  { type = "trigger", ability = "deep_wounds_apply" },
+  { type = "trigger", ability = "shield_slam_reset", chance = 0.275 },
+]
+
+[[abilities]]
+name = "deep_wounds_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "deep_wounds"        # [db2 262115: 6s, 1s period, not hasted]
+mastery = true
+ap_coeff = 0.242466
+tick_time = 1.0
+duration = 6.0
+hasted = false
+refresh = "rolling"
+
+# Demolish: a 30s channel of three hits [db2 436358; obs 0.07s, 0.21s, 0.55s in]
+[[abilities]]
+name = "demolish"
+spell_id = 436358
+cooldown = 30
+cast_time = 1.4
+on_cast = [
+  { type = "trigger", ability = "demolish_first_attack", delay = 0.07 },
+  { type = "trigger", ability = "demolish_second_attack", delay = 0.21 },
+  { type = "trigger", ability = "demolish_third_attack", delay = 0.55 },
+  { type = "consume", buff = "colossal_might", all = true },
+]
+
+[[abilities]]
+name = "demolish_first_attack"
+spell_id = 440884
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 5.31455 }
+
+[[abilities]]
+name = "demolish_second_attack"
+spell_id = 440886
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 5.31455 }
+
+[[abilities]]
+name = "demolish_third_attack"
+spell_id = 440888
+triggered_only = true
+gcd = 0
+damage = { mastery = true, ap_coeff = 12.3236 }
+on_cast = [{ type = "trigger", ability = "deep_wounds_apply" }]
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+damage = { mastery = true, ap_coeff = 2.27, school = "fire", crit_bonus = -2.0 }   # gear; scale from calibration; never crits [obs]
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+mastery = true
+ap_coeff = 0.15
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "venomfang_apply" },
+  { type = "trigger", ability = "venomfang_burst", delay = 5.0 },
+]
+
+[[abilities]]
+name = "venomfang_burst"
+spell_id = 1306639
+triggered_only = true
+damage = { mastery = true, ap_coeff = 1.09, school = "nature", crit_damage_bonus = -0.15 }
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+[abilities.dot]
+name = "venomfang"           # [db2 1306635: 6s]
+mastery = true
+ap_coeff = 0.58
+tick_time = 1.2
+duration = 5.0
+hasted = false
+school = "nature"
+crit_damage_bonus = -0.15
+refresh = "extend"
+
+# ---------------------------------------------------------------- rotation
+# Paraphrase of SimC's default Protection APL, Colossus, single target
+# (actions + actions.colossus_st in MID2_Warrior_Protection.simc). Wrecking
+# Throw, Shattering Throw (Javelineer), Champion's Spear and Leap are not taken
+# or not cast in the reference (<1 a fight) and left out.
+
+[[rotation]]
+action = "avatar"
+
+[[rotation]]
+action = "ignore_pain"
+if = "target.health.pct>=20&(rage.max-rage<=15&cooldown.shield_slam.ready|rage.max-rage<=20&cooldown.shield_charge.ready|rage.max-rage<=20&cooldown.demoralizing_shout.ready|rage.max-rage<=15|rage.max-rage<=18&cooldown.shield_slam.ready)|rage>=70&cooldown.shield_slam.remains<=1&buff.shield_block.remains"
+
+[[rotation]]
+action = "ravager"
+
+[[rotation]]
+action = "demoralizing_shout"
+
+[[rotation]]
+action = "demolish"
+if = "buff.colossal_might.stack>=5"
+
+[[rotation]]
+action = "shield_charge"
+
+[[rotation]]
+action = "shield_block"
+if = "buff.shield_block.remains<=10"
+
+[[rotation]]
+action = "shield_slam"
+
+[[rotation]]
+action = "thunder_clap"
+if = "!buff.phalanx.up"
+
+[[rotation]]
+action = "execute"
+if = "target.health.pct<20|buff.sudden_death.up"
+
+[[rotation]]
+action = "revenge"
+if = "buff.revenge.up"
+
+[[rotation]]
+action = "thunder_clap"
+
+[[rotation]]
+action = "revenge"

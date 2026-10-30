@@ -26,8 +26,16 @@ def main():
     length = rep["sim"]["statistics"]["simulation_length"]["mean"]
     sources = {}
 
-    def walk(stats, prefix=""):
+    top = {s["name"] for s in p["stats"]}
+
+    def walk(stats, prefix="", parent=None):
         for s in stats:
+            # A summoned copy (Blood's Dancing Rune Weapon) nests its own
+            # "heart_strike" under the action that summoned it: keep both.
+            if parent and s["name"] in top:
+                name = parent + "_" + s["name"]
+            else:
+                name = s["name"]
             if s.get("type") == "damage":
                 dr, tr = s.get("direct_results", {}), s.get("tick_results", {})
                 d_hit = dr.get("hit", {}).get("count", {}).get("mean", 0.0)
@@ -36,7 +44,7 @@ def main():
                 t_crit = tr.get("crit", {}).get("count", {}).get("mean", 0.0)
                 amount = mean(s, "actual_amount")
                 if amount > 0:
-                    sources[prefix + s["name"]] = {
+                    sources[prefix + name] = {
                         "spell_id": s.get("id"),
                         "school": s.get("school"),
                         "dps": amount / length,
@@ -49,7 +57,7 @@ def main():
                         "tick_noncrit_avg": mean(tr, "hit", "actual_amount"),
                         "tick_crit_rate": t_crit / (t_hit + t_crit) if t_hit + t_crit else 0.0,
                     }
-            walk(s.get("children", []), prefix)
+            walk(s.get("children", []), prefix, s["name"])
 
     walk(p["stats"])
     # pets (e.g. a summoned phoenix) as "<pet>_<spell>"

@@ -1,0 +1,760 @@
+# Blood Death Knight — Deathbringer, Midnight Season 2, core kit
+# (no trinkets / tier set / consumables / Bloodlust / embellishments; matches the
+# core-kit profile tools/make_reference.sh builds from
+# profiles/MID2_Death_Knight_Blood_Deathbringer.simc).
+#
+# Where numbers come from:
+#   [db2]  raw game tables (wago.tools exports) via tools/spelldb.py
+#   [obs]  observed behaviour in combat logs (here: SimC's log as a stand-in)
+#   [simc] read from SimC's source (sc_death_knight.cpp) or its default APL
+# Damage coefficients are attack-power coefficients straight from SpellEffect.
+# Residual damage multipliers (talents, auras, armor) live in a separate
+# calibration file produced by tools/calibrate.py, not hand-tuned here.
+#
+# A tank, simulated only for the damage it deals to a Patchwerk boss that hits
+# it every 1.5-2s. What the boss does to the death knight matters in a few ways
+# and each is its own source: Bone Shield loses a stack on boss hits (outside
+# Dancing Rune Weapon windows), Bloody Reflection fires on a hit while Blood
+# Shield is up, and Blood Draw never procs (health stays high).
+#
+# Runes: 6, regenerating 10s/haste, at most 3 at a time [simc]. Heart Strike 1
+# (+15 RP, +2 Heartbreaker), Marrowrend 1 (+20 RP, +3 Bone Shield), Death's
+# Caress 1 (+10 RP, +2 Bone Shield), Death and Decay 1 (+10 RP; free with
+# Crimson Scourge), Reaper's Mark 2 (+20 RP, +3 Bone Shield). Runic power (max
+# 125): the rest comes from Runic Attenuation (3, RPPM 15.6), Relish in Blood
+# and Blood Mist (2 a second while Dancing Rune Weapon's mist is up). Death
+# Strike spends 35 and is the biggest hit in the rotation, so almost every RP
+# is turned into one.
+#
+# Deathbringer: Reaper's Mark (45s) explodes for 40 stacks of 0.544 AP when its
+# debuff reaches the stack cap, 3-11s later, and arms two Exterminates; every
+# Dancing Rune Weapon arms one. Marrowrend consumes an Exterminate and fires it
+# 500ms later (12.88 AP, then 5.72 AP). Wave of Souls hits twice per Mark.
+#
+# Dancing Rune Weapon (120s with Insatiable Blade) and Dance of Midnight (12.5%
+# per rune spent, 8s) summon pets that copy the death knight's Death Strike,
+# Heart Strike, Marrowrend, Blood Boil, Blood Plague and swings. They are
+# modelled as echoes: a share of each of the player's hits, with the shares
+# measured per source from the reference (see the echo buffs).
+
+name = "Blood Death Knight (Deathbringer, core kit)"
+
+precombat = ["gear_procs_start", "deaths_caress"]
+
+[player]
+# SimC's buffed snapshot (raid buffs, no procs). Damage uses the sheet attack
+# power plus ~1000 flat base attack power from the two-hander's DPS, and
+# Blood's mastery adds attack power x(1 + 0.5 x mastery value) [db2 77513].
+attack_power = 3387      # [obs] 2387 strength-derived + 1000 flat [simc]: the strength probe (+265 sheet AP) adds 6.2% damage
+mastery = 0.2858         # [obs] 0.5455 x the sheet's 52.39%: the mastery probe lifts every source 9.35%, the sheet's attack power only 8.6%
+crit = 0.2587            # [obs]
+haste = 0.334            # [obs] the GCD averages 1.124s in the log: sheet 23.29% plus Berserking, Parry Haste and the like
+versatility = 0.1252     # [obs]
+crit_multiplier = 2.08   # [obs] DK direct crits, as Frost
+# Two-hander, 3.6s [db2 Mazeroa, Warlord's Fury]
+weapon = { min = 0, max = 0, speed = 3.6 }
+
+# How `--gear profile.simc` turns gear into the [player] stats above (see
+# docs/gear.md). All [obs] from SimC's reported stats unless tagged.
+[gear]
+primary = "strength"
+base_primary = 464.4           # [obs] 2387 AP (3387 less the 1000 flat) less the items' strength
+primary_mult = 1.05           # [obs] plate specialization
+attack_power_mult = 1.0815    # [obs] Battle Shout x1.05 and Skyfury x1.03
+crit_bonus = 0.05             # [obs] 25.87% on the sheet at 960 rating (20.87% from rating): Wild Strikes-type passives
+haste_mult = 1.04             # [obs] 23.29% on the sheet at 816 rating (18.55% from rating)
+mastery_points = 10           # [obs] 8 base + 2 Skyfury
+mastery_ap = 0.5455           # read by tools/validate_stats.py: damage scales with (1 + 0.5455 x the sheet's mastery value)
+mastery_coeff = 1.0909        # [obs] mastery_ap x the sheet's 2.0% a point (Blood Shield, 26.2 points = 52.39%)
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.4189    # [obs] the flat 1000 attack power at the 155.8 DPS two-hander, as Unholy
+spec_id = 250                 # [db2] ChrSpecialization
+
+# The time-averaged haste above the sheet: Berserking, Parry Haste and the like
+# (the GCD averages 1.124s in the log = 33.4% haste), folded into [player].haste
+[gear.procs]
+haste = 0.1011
+
+# Raid-night kit with gear lines (see Ret): SimC's default level-90 Blood
+# consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]      # Bloodlust at the pull; unlocks the potion
+stats = { primary = 69.1, versatility_rating = 165, crit_rating = 16, haste_rating = 16 }
+primary_buffs = { draught_of_rampant_abandon = 870 }   # Draught of Rampant Abandon [simc unique_gear_midnight.cpp 1236998]: fitted to SimC's +4.1% DPS, 27.5s uptime a use
+#   primary 69.1   Silvermoon Parade and the Void-Touched augment rune [obs: sheet attack power +99]
+#   vers 165       Flask of Thalassian Resistance (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+
+[fight]
+duration = 300
+variance = 0.2
+idle_poll = 0.1          # [simc] death_knight_t::available(): re-check while pooling runes/RP
+ready_tolerance = 1e-5
+
+[resources.runes]
+max = 6                  # [db2]
+start = 6                # [obs]
+regen = 0.2998           # [obs] 115.2 runes a fight at 33.4% haste (0.384/s); 0.40/s here, the engine spends runes as they arrive and never banks the 2 Reaper's Mark needs, so 0.40 restores its 7 Marks
+regen_hasted = true      # [simc] 10s / haste a rune
+
+[resources.runic_power]
+max = 125                # [obs] "runic_power 24.00/125.00" in the log
+start = 0
+
+[auto_attack]
+replace_with = "auto_attack_mh"
+wakes = false
+
+# ---------------------------------------------------------------- procs
+
+# Skyfury raid buff: 20% to repeat the swing [obs 28.7 a fight]
+[[procs]]
+ability = "skyfury_mh"
+on_hit = true
+chance = 0.167          # chained: the repeat can proc again; 28.7 of 172 hits
+sources = ["auto_attack_mh"]
+
+# Runic Attenuation: real PPM, hasted, 3 RP [obs 78 procs a fight]
+[[procs]]
+ability = "runic_attenuation"
+on_hit = true
+per_minute = 10.7
+hasted = true
+
+# Bloody Reflection: a hit while Blood Shield is up, 0.5s ICD [obs 25.2 a fight]
+[[procs]]
+ability = "bloody_reflection"
+per_minute = 5.04
+
+# Bone Shield loses a stack to boss hits, but not while a Dancing Rune Weapon is
+# out [obs 29 a fight, none inside the windows]
+[[procs]]
+ability = "bone_shield_loss"
+per_minute = 4.8
+
+# Rune of Unleashed Fire (Omnium) [obs: 50.1 a fight]
+[[procs]]
+ability = "rune_of_unleashed_fire"
+per_minute = 10.0
+
+# Venomfang [obs: 38.3 a fight]
+[[procs]]
+ability = "venomfang_proc"
+per_minute = 7.66
+
+# Pets that are not Dancing Rune Weapon: the ghoul (auto attacks, Claw) and
+# the Bloodworms [obs: 143.9 ghoul swings, 7.5 Claws, 428.7 worm swings]
+[[procs]]
+ability = "ghoul_swing"
+per_minute = 28.8
+[[procs]]
+ability = "ghoul_claw"
+per_minute = 1.5
+[[procs]]
+ability = "bloodworm_swing"
+per_minute = 86
+
+# ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "full_kit"           # marker: consumables and Bloodlust are in play (see [gear.kit])
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "draught_of_rampant_abandon"   # potion: strength for 30s [db2 1236998]
+duration = 30
+power_pct = 20              # as a share of attack power; [gear.kit] recomputes it from the gear
+
+[[buffs]]
+name = "vampiric_blood"        # [db2 55233: 10s]
+duration = 10
+
+[[buffs]]
+name = "bone_shield"         # [db2 195181: 30s, 12 stacks seen]
+duration = 30
+max_stacks = 12
+
+[[buffs]]
+name = "icy_talons"          # [db2 194879: +6% attack speed a stack, 10s]
+duration = 10
+max_stacks = 6
+attack_speed_pct = 4.3          # [obs] fitted: 172 swings a fight (the sheet haste already counts gear-proc haste that does not speed swings)
+
+[[buffs]]
+name = "dark_talons"         # [db2 443595: 6s, 3 extra Icy Talons stacks]
+duration = 6
+attack_speed_pct = 18
+
+[[buffs]]
+name = "dancing_rune_weapon"   # [db2 81256: 8s; the cast gives 12s with Everlasting Bond]
+duration = 12
+
+[[buffs]]
+name = "dance_of_midnight"     # a summoned copy, 8s [db2 1264353]
+duration = 8
+
+[[buffs]]
+name = "dance_of_midnight_1"   # [db2 1264568: 15s] next Heart Strike +150%, one rune cheaper
+duration = 15
+ability_pct = { heart_strike = 150 }
+
+[[buffs]]
+name = "crimson_scourge"       # [db2 81141: 15s] Death and Decay is free
+duration = 15
+
+[[buffs]]
+name = "boiling_point"         # [db2 1265968]
+duration = 3.3
+
+[[buffs]]
+name = "exterminate"           # [db2 441416: 30s, 2 stacks]
+duration = 30
+max_stacks = 2
+
+[[buffs]]
+name = "reapers_mark_debuff"   # [db2 434765]; explodes for 40 stacks when it reaches the cap
+duration = 6.7
+max_stacks = 40
+
+[[buffs]]
+name = "reapers_mark_stacks"   # the stacks the debuff reaches before it explodes [obs: always the 40 cap]
+duration = 1e9
+max_stacks = 40
+
+[[buffs]]
+name = "death_and_decay"       # [db2 188290: 10s, extended by 4s]
+duration = 14
+
+[[buffs]]
+name = "blood_mist"            # [db2 1263729: 8s]
+duration = 8
+
+[[buffs]]
+name = "sanguinary_burst"      # [db2 1263789: RP spent while Blood Mist is up]
+duration = 10
+max_stacks = 125
+
+# Echoes of the three summoned Dancing Rune Weapons (permanent, share per
+# source = the pets' damage / the player's, from the reference)
+[[buffs]]
+name = "drw_death_strike"
+duration = 1e9
+echo = { ability = "drw_death_strike_hit", pct = 14.5, pre_armor = false, sources = ["death_strike"] }
+[[buffs]]
+name = "drw_heart_strike"
+duration = 1e9
+echo = { ability = "drw_heart_strike_hit", pct = 17.3, pre_armor = false, sources = ["heart_strike"] }
+[[buffs]]
+name = "drw_marrowrend"
+duration = 1e9
+echo = { ability = "drw_marrowrend_hit", pct = 52.0, pre_armor = false, sources = ["marrowrend"] }
+[[buffs]]
+name = "drw_blood_boil"
+duration = 1e9
+echo = { ability = "drw_blood_boil_hit", pct = 28.9, pre_armor = false, sources = ["blood_boil"] }
+[[buffs]]
+name = "drw_blood_plague"
+duration = 1e9
+echo = { ability = "drw_blood_plague_hit", pct = 42.0, pre_armor = false, sources = ["blood_plague"] }
+[[buffs]]
+name = "drw_auto"
+duration = 1e9
+echo = { ability = "drw_auto_hit", pct = 3.7, pre_armor = false, sources = ["auto_attack_mh"] }
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "full_kit" },
+  { type = "buff", buff = "bloodlust" },
+]
+
+[[abilities]]
+name = "gear_procs_start"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "drw_death_strike" },
+  { type = "buff", buff = "drw_heart_strike" },
+  { type = "buff", buff = "drw_marrowrend" },
+  { type = "buff", buff = "drw_blood_boil" },
+  { type = "buff", buff = "drw_blood_plague" },
+  { type = "buff", buff = "drw_auto" },
+]
+
+[[abilities]]
+name = "drw_death_strike_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "physical", crit_bonus = -2.0 }
+[[abilities]]
+name = "drw_heart_strike_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "physical", crit_bonus = -2.0 }
+[[abilities]]
+name = "drw_marrowrend_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "physical", crit_bonus = -2.0 }
+[[abilities]]
+name = "drw_blood_boil_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "shadow", crit_bonus = -2.0 }
+[[abilities]]
+name = "drw_blood_plague_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "shadow", crit_bonus = -2.0 }
+[[abilities]]
+name = "drw_auto_hit"
+triggered_only = true
+gcd = 0
+damage = { school = "physical", crit_bonus = -2.0 }
+
+# ---------------------------------------------------------------- auto attacks
+
+[[abilities]]
+name = "auto_attack_mh"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.6, mastery = true }   # swing 3.6s / 6 [db2]; the two-hander's damage rides in the flat attack power
+
+[[abilities]]
+name = "skyfury_mh"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "auto_attack_mh" }]
+
+[[abilities]]
+name = "runic_attenuation"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "runic_power", amount = 3 }]
+
+# ---------------------------------------------------------------- core abilities
+
+# Death Strike: 35 RP
+[[abilities]]
+name = "death_strike"
+spell_id = 49998
+cost = { runic_power = 35 }          # [db2 450 less Improved Death Strike's 10, obs 35]
+damage = { ap_coeff = 1.761, mastery = true }   # [db2 49998 #0]
+on_cast = [
+  { type = "buff", buff = "icy_talons" },
+  { type = "trigger", ability = "sanguinary_burst_check" },
+]
+
+# Heart Strike: 1 rune, +15 RP (+2 Heartbreaker)
+[[abilities]]
+name = "heart_strike"
+spell_id = 206930
+cost = { runes = 1 }
+cost_expr = { runes = "1-buff.dance_of_midnight_1.up" }   # [db2 1264568 #1: -1 rune]
+gain = { runic_power = 17 }          # [db2 -150 + Heartbreaker 2; obs 17]
+damage = { ap_coeff = 1.967, mastery = true }   # [db2 206930 #1]
+on_cast = [
+  { type = "trigger", ability = "rune_spent_1" },
+  { type = "if", if = "buff.dance_of_midnight_1.up", then = [{ type = "consume", buff = "dance_of_midnight_1" }] },
+  { type = "if", if = "buff.dancing_rune_weapon.up|buff.dance_of_midnight.up", then = [
+    { type = "buff", buff = "dance_of_midnight_1", chance = 0.31 },   # [obs 12.9 starts] Dance of Midnight 1
+  ] },
+]
+
+# Marrowrend: 1 rune, +20 RP, +3 Bone Shield; fires an armed Exterminate
+[[abilities]]
+name = "marrowrend"
+spell_id = 195182
+cost = { runes = 1 }
+gain = { runic_power = 20 }          # [db2 -200 type 6]
+damage = { ap_coeff = 2.2065, mastery = true }   # [db2 195182 #1]
+on_cast = [
+  { type = "buff", buff = "bone_shield", stacks = 3 },
+  { type = "trigger", ability = "rune_spent_1" },
+  { type = "trigger", ability = "dark_talons_proc", chance = 0.25 },
+  { type = "if", if = "buff.exterminate.up", then = [
+    { type = "consume", buff = "exterminate" },
+    { type = "trigger", ability = "exterminate", delay = 0.5 },   # [simc] 500ms
+  ] },
+]
+
+# Blood Boil: 2 charges of 7.5s (hasted), applies Blood Plague
+[[abilities]]
+name = "blood_boil"
+spell_id = 50842
+cooldown = 7.0               # [db2] 7.5; [obs] 56.9 casts a fight, the sheet haste misses a few % of cooldown haste
+cooldown_hasted = true
+charges = 2
+damage = { ap_coeff = 1.64, school = "shadow", mastery = true }   # [db2 50842 #0]
+on_cast = [
+  { type = "trigger", ability = "blood_plague_apply" },
+  { type = "buff", buff = "crimson_scourge", chance = 0.18 },     # [obs 10.2 starts a fight]
+  { type = "trigger", ability = "blood_boil_boiling_point", chance = 0.20 },   # [obs 11.3 echoes a fight] Boiling Point 15% + echo
+]
+
+[[abilities]]
+name = "blood_boil_boiling_point"
+spell_id = 50842
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.64, school = "shadow", mastery = true }
+
+# Blood Plague: 24s, 3s ticks (hasted) [db2 55078]; applied by Death's Caress and Blood Boil
+[[abilities]]
+name = "blood_plague_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "blood_plague"
+ap_coeff = 0.3348
+tick_time = 1.7
+duration = 24.0
+hasted = true
+school = "shadow"
+mastery = true
+refresh = "extend"
+
+# Death's Caress: 1 rune, +10 RP, 2 Bone Shield, applies Blood Plague
+[[abilities]]
+name = "deaths_caress"
+spell_id = 195292
+cooldown = 6
+cost = { runes = 1 }
+gain = { runic_power = 10 }
+damage = { ap_coeff = 0.4374, school = "shadow", mastery = true }   # [db2 195292 #0]
+on_cast = [
+  { type = "buff", buff = "bone_shield", stacks = 2 },
+  { type = "trigger", ability = "blood_plague_apply" },
+  { type = "trigger", ability = "rune_spent_1" },
+]
+
+# Death and Decay: 1 rune (free with Crimson Scourge), +10 RP, 14s
+[[abilities]]
+name = "death_and_decay"
+spell_id = 43265
+cooldown = 15
+cooldown_hasted = true
+cost = { runes = 1 }
+free_with = "crimson_scourge"
+gain = { runic_power = 10 }
+on_cast = [
+  { type = "buff", buff = "death_and_decay" },
+  { type = "trigger", ability = "death_and_decay_apply" },
+  { type = "trigger", ability = "rune_spent_1" },
+]
+
+[[abilities]]
+name = "death_and_decay_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "death_and_decay_damage"
+ap_coeff = 0.083               # [db2 52212 #0]
+tick_time = 1.0
+duration = 12.9
+hasted = false
+school = "shadow"
+mastery = true
+
+# Consumption: 45s, 6.25 AP, leeches a share back as damage
+[[abilities]]
+name = "consumption"
+spell_id = 1263824
+cooldown = 45
+gcd = 0.5
+damage = { ap_coeff = 6.251, school = "shadow", mastery = true }   # [db2 1263825 #0]
+on_cast = [{ type = "trigger", ability = "consumption_leech" }]
+
+[[abilities]]
+name = "consumption_leech"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.0, school = "shadow", mastery = true }
+
+# Rune spends: Dance of Midnight (12.5% per rune, 8s) [simc accumulated RNG]
+[[abilities]]
+name = "rune_spent_1"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "dance_of_midnight_spawn", chance = 0.125 }]
+
+[[abilities]]
+name = "dance_of_midnight_spawn"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "dance_of_midnight" }]
+
+[[abilities]]
+name = "bone_shield_loss"
+triggered_only = true
+gcd = 0
+requires_buff = "bone_shield"
+on_cast = [{ type = "if", if = "!buff.dancing_rune_weapon.up&!buff.dance_of_midnight.up", then = [{ type = "consume", buff = "bone_shield" }] }]
+
+[[abilities]]
+name = "dark_talons_proc"          # [db2 436687]
+triggered_only = true
+gcd = 0
+cooldown = 1
+on_cast = [
+  { type = "buff", buff = "dark_talons" },
+  { type = "buff", buff = "icy_talons", stacks = 3 },
+]
+
+# ---------------------------------------------------------------- cooldowns
+
+# Dancing Rune Weapon: 120s [db2], +5 Bone Shield (Insatiable Blade), Blood Mist,
+# an Exterminate (Echoing Fury) [simc]
+[[abilities]]
+name = "dancing_rune_weapon"
+spell_id = 49028
+cooldown = 90                      # [obs] cast at 0, 90, 180 and as the fight ends
+on_cast = [
+  { type = "buff", buff = "dancing_rune_weapon" },
+  { type = "buff", buff = "bone_shield", stacks = 5 },
+  { type = "buff", buff = "exterminate", stacks = 1 },
+  { type = "buff", buff = "blood_mist" },
+  { type = "trigger", ability = "blood_mist" },
+  { type = "trigger", ability = "blood_mist", delay = 1.0 },
+  { type = "trigger", ability = "blood_mist", delay = 2.0 },
+  { type = "trigger", ability = "blood_mist", delay = 3.0 },
+  { type = "trigger", ability = "blood_mist", delay = 4.0 },
+  { type = "trigger", ability = "blood_mist", delay = 5.0 },
+  { type = "trigger", ability = "blood_mist", delay = 6.0 },
+  { type = "trigger", ability = "blood_mist", delay = 7.0 },
+  { type = "trigger", ability = "blood_mist", delay = 8.0 },
+  { type = "trigger", ability = "sanguinary_burst_release", delay = 10.0 },
+]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236998
+gcd = 0
+cooldown = 300              # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "draught_of_rampant_abandon" }]
+
+[[abilities]]
+name = "vampiric_blood"
+spell_id = 55233
+gcd = 0
+cooldown = 90
+on_cast = [{ type = "buff", buff = "vampiric_blood" }]
+
+[[abilities]]
+name = "blood_mist"                # [db2 1263752: 0.64 AP] a hit a second for the 9s the mist lasts [obs 33.3 hits for 3.7 casts]
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.64, school = "shadow", mastery = true }
+on_cast = [{ type = "gain", resource = "runic_power", amount = 2 }]   # [simc blood_mist_t: 2 RP a hit]
+
+[[abilities]]
+name = "sanguinary_burst_check"
+triggered_only = true
+gcd = 0
+
+[[abilities]]
+name = "sanguinary_burst_release"      # [db2 1263786: 2.76 AP]
+source = "sanguinary_burst"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.76, school = "shadow", mastery = true }
+
+[[abilities]]
+name = "bloody_reflection"             # [db2 1279656: 1.1 AP]
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.1, school = "shadow", mastery = true }
+
+# Reaper's Mark: 2 runes, 45s, +20 RP, 3 Bone Shield (Grim Reaper)
+[[abilities]]
+name = "reapers_mark"
+spell_id = 439843
+cooldown = 45
+cost = { runes = 2 }
+gain = { runic_power = 20 }
+damage = { ap_coeff = 5.30712, school = "shadowfrost", mastery = true }   # [db2 439843 #0]
+on_cast = [
+  { type = "buff", buff = "bone_shield", stacks = 3 },
+  { type = "trigger", ability = "rune_spent_1" },
+  { type = "trigger", ability = "rune_spent_1" },
+  { type = "buff", buff = "reapers_mark_debuff" },
+  { type = "buff", buff = "reapers_mark_stacks", set = "40" },
+  { type = "trigger", ability = "wave_of_souls", delay = 0.05 },
+  { type = "trigger", ability = "wave_of_souls_second", delay = 1.0 },
+  { type = "trigger", ability = "reapers_mark_explosion", delay = 6.7 },
+]
+
+[[abilities]]
+name = "wave_of_souls"              # [db2 435802]
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.54304, school = "shadowfrost", mastery = true }
+
+[[abilities]]
+name = "wave_of_souls_second"       # the return wave always crits [simc wave_of_souls_t]
+source = "wave_of_souls"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.54304, school = "shadowfrost", mastery = true, crit_bonus = 0.85 }
+
+[[abilities]]
+name = "reapers_mark_explosion"     # [db2 436304: 0.544176 AP a stack, 40 stacks]
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 0.544176, school = "shadowfrost", mastery = true, scale = "buff.reapers_mark_stacks.stack" }
+on_cast = [{ type = "buff", buff = "exterminate", stacks = 2 }]
+
+# Exterminate [db2 441424, 441426]
+[[abilities]]
+name = "exterminate"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 12.8781, school = "shadowfrost", mastery = true }
+on_cast = [{ type = "trigger", ability = "exterminate_second_hit", delay = 0.5 }]
+
+[[abilities]]
+name = "exterminate_second_hit"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 5.72424, school = "shadowfrost", mastery = true }
+
+# ---------------------------------------------------------------- gear procs
+
+[[abilities]]
+name = "rune_of_unleashed_fire"
+spell_id = 1286970
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 2.27, school = "fire", crit_bonus = -2.0 }
+on_cast = [{ type = "trigger", ability = "rune_lingering_apply" }]
+
+[[abilities]]
+name = "rune_lingering_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "rune_of_unleashed_fire_lingering"   # [db2 1287663: 8s]
+ap_coeff = 0.15
+tick_time = 1.0
+duration = 8.0
+hasted = false
+school = "cosmic"
+crit_bonus = -2.0
+
+[[abilities]]
+name = "venomfang_proc"
+triggered_only = true
+gcd = 0
+no_procs = true
+on_cast = [
+  { type = "trigger", ability = "venomfang_apply" },
+  { type = "trigger", ability = "venomfang_burst", delay = 5.0 },
+]
+
+[[abilities]]
+name = "venomfang_burst"
+spell_id = 1306639
+triggered_only = true
+no_procs = true
+damage = { ap_coeff = 1.09, school = "nature", crit_damage_bonus = -0.15 }
+
+[[abilities]]
+name = "venomfang_apply"
+triggered_only = true
+gcd = 0
+[abilities.dot]
+name = "venomfang"                  # [db2 1306635: 6s]
+ap_coeff = 0.58
+tick_time = 1.2
+duration = 5.0
+hasted = false
+school = "nature"
+crit_damage_bonus = -0.15
+refresh = "extend"
+
+# Pets: the ghoul and the Bloodworms, as small flat sources
+[[abilities]]
+name = "ghoul_swing"
+source = "raise_dead_auto_attack_mh"
+triggered_only = true
+no_procs = true
+gcd = 0
+damage = { ap_coeff = 0.1, school = "physical" }
+[[abilities]]
+name = "ghoul_claw"
+source = "claw"
+triggered_only = true
+no_procs = true
+gcd = 0
+damage = { ap_coeff = 0.2, school = "physical" }
+[[abilities]]
+name = "bloodworm_swing"
+source = "bloodworm_auto_attack_mh"
+triggered_only = true
+no_procs = true
+gcd = 0
+damage = { ap_coeff = 0.05, school = "physical" }
+
+# ---------------------------------------------------------------- rotation
+# SimC's default single-target APL for this profile (Deathbringer): the
+# cooldown lines, then the deathbringer list.
+
+[[rotation]]
+action = "vampiric_blood"
+if = "!buff.vampiric_blood.up"
+
+[[rotation]]
+action = "potion"
+if = "cooldown.dancing_rune_weapon.remains>78|fight_remains<=30"
+
+[[rotation]]
+action = "dancing_rune_weapon"
+if = "!buff.exterminate.up&!buff.reapers_mark_debuff.up&(fight_remains>95|fight_remains<25|time>300)"
+
+[[rotation]]
+action = "death_strike"
+if = "runic_power.max-runic_power<20|(runic_power.max-runic_power<26&(buff.dancing_rune_weapon.up|buff.dance_of_midnight.up))"
+
+[[rotation]]
+action = "death_and_decay"
+if = "!buff.death_and_decay.up"
+
+[[rotation]]
+action = "reapers_mark"
+
+[[rotation]]
+action = "marrowrend"
+if = "buff.exterminate.up"
+
+[[rotation]]
+action = "deaths_caress"
+if = "(!buff.bone_shield.up|buff.bone_shield.remains<3|buff.bone_shield.stack<6)&runes<4"
+
+[[rotation]]
+action = "marrowrend"
+if = "!buff.bone_shield.up|buff.bone_shield.remains<3|buff.bone_shield.stack<6"
+
+[[rotation]]
+action = "death_strike"
+
+[[rotation]]
+action = "blood_boil"
+
+[[rotation]]
+action = "consumption"
+if = "!buff.dancing_rune_weapon.up&!buff.dance_of_midnight.up"
+
+[[rotation]]
+action = "heart_strike"
+
+[[rotation]]
+action = "consumption"
