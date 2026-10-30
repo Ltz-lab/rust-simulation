@@ -245,9 +245,17 @@ Patchwerk, SimC 60,000 iterations at 0.15% error, azsim 10,000):
 | subtlety_deathstalker | 202,849 | 181,258 (-10.6%) | 210,013 (+3.5%) |
 
 What is left is the spec-level residue (Havoc -3.9%, Demonology -2.7%, Balance
-and Feral about -2%) and Fire and Subtlety reading 3.5% high, because their
-`[gear.procs]` still add the sample gear's time-averaged trinket procs to a
-character that has none. Trinket and set effects are modelled separately.
+and Feral about -2%) and Fire and Subtlety reading 3.5% high. That is not trinket
+procs in `[gear.procs]`: `tools/proc_audit.py` (SimC's per-second stat
+timelines, with and without the profile's trinkets) shows those values equal
+the trinket-free character's own proc averages (Fire: +28 crit, +124 haste,
++223 mastery, +154 versatility rating against the spec's 0.45%, 2.78%, 2.14%,
+2.91%; the trinkets add another +233 haste on top, which is not in the spec).
+The excess comes from the raid kit's response: with consumables, potion and
+Bloodlust split out (5,000 iterations), Fire's Bloodlust is worth +8.7% in
+azsim against +6.2% in SimC, and Subtlety's consumables plus Bloodlust +20.3k
+against +14.6k, while the no-kit baselines are within +0.8% and +1.1%.
+Trinket and set effects are modelled separately.
 A ring swap that only moves ratings is mapped exactly (`--gear-stats` deltas
 equal SimC's to 0.01 points), so the remaining swap error is the engine's
 response to the stats (Fire's haste over-response, below) and item effects the
@@ -314,5 +322,9 @@ the DPS the item adds on each. Results (20,000 iterations, same raid buffs):
 | Freightrunner's Flask, Shadow | +9.33% | +8.55% | +5.71% |
 
 The trinket-free baselines differ from SimC by -23% (Fire), -6% (Demonology)
-and -12% (Shadow): the specs' `[player]` stats carry the sample gear's trinket
-procs, which the profile here removes. That gap is not the effect's.
+and -12% (Shadow). That gap is not the effect's, and it is not trinket procs
+baked into `[player]` either (`tools/proc_audit.py` finds none): this
+comparison leaves SimC's tier set on, which azsim does not model, and the
+kit-less specs lack consumables. Switch the set bonuses off on the SimC side
+(`set_bonus=midnight_season_2_2pc=0`, `..._4pc=0`) for baselines that mean
+something.
