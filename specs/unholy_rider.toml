@@ -38,6 +38,19 @@ versatility = 0.0498148148
 crit_multiplier = 2.07        # [obs] DK direct crits x2.07 (26548 -> 54943)
 weapon = { min = 0, max = 0, speed = 3.6 }   # [db2] Mazeroa, Warlord's Fury: 3.6s two-hander
 
+[gear]
+primary = "strength"
+base_primary = 621.0          # [obs] level-90 troll death knight base strength (SimC: 2465 buffed = (620.5 + 1727 from gear) x 1.05)
+primary_mult = 1.05           # [obs] buffed 2465 / unbuffed 2348 (the strength probe's +200 gives +220 attack power)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2465 strength -> 2588 attack power
+crit_bonus = 0.05             # [obs] 25.57% at 946 rating (20.57% from rating)
+haste_mult = 1.04             # [obs] 19.69% at 664 rating (15.09%): x1.04
+mastery_points = 10           # [obs] 69.77% / Dreadblade 1.8 [simc spell 77515] = 38.76 points, 28.76 from rating
+mastery_coeff = 1.8           # [simc] Dreadblade, % per mastery point
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.4189    # [obs] the spec's flat 1000 base attack power at 155.8 two-hander DPS
+spec_id = 252                 # [db2] ChrSpecialization Unholy
+
 [fight]
 duration = 300               # [obs] reference setup
 variance = 0.2               # [simc] default

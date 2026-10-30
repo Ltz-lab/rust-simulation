@@ -18,7 +18,7 @@
 # and Deathmark are the 60s/120s cooldowns. Deathstalker's Mark is applied by
 # Garrote; finishers spend its stacks, and the last one arms Darkest Night.
 #
-# Not modelled yet (draft): gear (no [gear]/[gear.kit]) and registration. The
+# Gear stats come from the [gear] table below. The
 # fight's average gear haste and crit procs are folded into `gear_haste` and
 # [player].crit (Alacrity included); Lethal Dose, Zoldyck Recipe, Precise
 # Killer, Implacable's +20% to the Mark and Hunt Them Down, and the persistent
@@ -43,6 +43,24 @@ crit_multiplier = 2.305  # [obs] 2.0 x Precise Killer +10% x Eyes of the Eagle +
 # Daggers swing every 1.8s [db2]; ability damage comes from coefficients below.
 weapon = { min = 0, max = 0, speed = 1.8 }
 off_hand = { min = 0, max = 0, speed = 1.8 }
+
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 rogue base agility (SimC: 2519 buffed = (618 + 1708 from gear) x 1.08297)
+primary_mult = 1.0831        # [obs] buffed 2519 / unbuffed 2326 (the agility probe's +200 gives +217 +-0.5)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2519 agility -> 2644 attack power
+crit_bonus = 0.12             # [obs] 33.565% at 992 rating = 21.565% from rating + 12%
+haste_mult = 1.03             # [obs] 31.11% at 1201 rating (27.30%): x1.03, multiplicative with rating haste
+mastery_points = 10           # [obs] 8 base + 2 Skyfury, in mastery points (43.57% at 25.63 points)
+mastery_coeff = 1.7           # [obs] Potent Assassin, % per mastery point (10.0 base points fits exactly)
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.2994    # [obs] weapon_attack_power 741 at 117.64 main-hand DPS
+spec_id = 259                 # [db2] ChrSpecialization Assassination
+
+# The time-averaged gear crit procs folded into [player] above (poison crit rate
+# in the log), so --gear lands on the same final stats.
+[gear.procs]
+crit = 0.04835
 
 [fight]
 duration = 300

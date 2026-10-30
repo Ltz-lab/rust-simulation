@@ -44,6 +44,24 @@ weapon = { min = 417, max = 564, speed = 3.0 }
 replace_with = "auto_shot"
 wakes = false   # [simc] Auto Shot does not wake the APL
 
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 dwarf hunter base agility (SimC: 2536 buffed = (618 + 1727 from gear) x 1.08145)
+primary_mult = 1.08145        # [obs] buffed 2536 / unbuffed 2345 (the agility probe's +200 gives +216)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2536 agility -> 2662 attack power
+crit_bonus = 0.1459           # [obs] 29.5% at 713 rating; SimC counts 27 crit rating more than the items and gems sum to (686), so it is folded in here
+haste_mult = 1.02             # [obs] 26.16% at 1042 rating (23.68%): x1.02, multiplicative with rating haste
+mastery_points = 13           # [obs] 74.47% at 39.19 points / Master of Beasts 1.9 [simc spell 76657] less 26.2 from rating
+mastery_coeff = 1.9           # [simc] Master of Beasts, % per mastery point
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.3032    # [obs] weapon attack power 982 at 155.8 bow DPS (x1.05 Battle Shout x 6)
+spec_id = 253                 # [db2] ChrSpecialization Beast Mastery
+
+# The fight-average haste from the sample gear's procs (130 Auto Shots a fight)
+# that [player] above folds in on top of the buffed 26.16%.
+[gear.procs]
+haste = 0.03345
+
 [fight]
 duration = 300  # [obs] reference setup
 variance = 0.2  # [simc] reference settings
