@@ -159,7 +159,7 @@ haste_pct = 30
 [[buffs]]
 name = "lights_potential"   # the warlock default potion is Liquid Luster [simc apl/warlock.cpp]: Lustrous Gleam stacks to 5 [db2 1295147]
 duration = 30
-versatility_pct = 16.9      # [db2 1295132] 220.82 rating a stack / 54 rating a point x 4.13 stacks averaged over 30s [simc: 124 stack-seconds a use]
+versatility_pct = 32.15     # [simc log] 420 rating a stack (not 220.82) / 54 rating a point x 4.13 stacks averaged over 30s [simc: 124 stack-seconds a use]
 
 # [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
 [[pets]]
