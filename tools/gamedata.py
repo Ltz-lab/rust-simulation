@@ -27,6 +27,8 @@ compact gzip'd JSON file:
   item_effects       item id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
                      (any equippable item: on-use 0 and on-equip 1 effects, plus chance-on-hit 2
                      effects of non-trinkets such as rings, necks and weapons)
+  bonus_effects      item bonus id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
+                     (effects a bonus adds to its item, e.g. embellishments; templated spells only)
   item_sets          item id -> item set id, for sets with bonuses
   set_bonuses        item set id -> [[pieces, spec_id (0 = any), spell_id], ...]
   spells             spell id -> {"duration", "school", "rppm", "rppm_mods", "icd", "chance",
@@ -248,6 +250,13 @@ def main():
                 [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
     for v in item_effects.values():
         v.sort()
+    # Effects an item bonus adds (ItemBonus type 23: embellishments such as the Bandolier), templated ones only.
+    bonus_effects = {}
+    for r in rows(cache, B, "ItemBonus"):
+        e = ie.get(int(r["Value_0"])) if r["Type"] == "23" else None
+        if e and int(e["SpellID"]) in templated:
+            bonus_effects.setdefault(int(r["ParentItemBonusListID"]), []).append(
+                [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
     set_bonuses = {}
     for r in rows(cache, B, "ItemSetSpell"):
         set_bonuses.setdefault(int(r["ItemSetID"]), []).append([int(r["Threshold"]), int(r["ChrSpecID"]), int(r["SpellID"])])
@@ -276,6 +285,7 @@ def main():
         "combat_ratings": ratings,
         "rand_prop_damage": rnd(rpd),
         "item_effects": dict(sorted(item_effects.items())),
+        "bonus_effects": dict(sorted(bonus_effects.items())),
         "item_sets": dict(sorted(item_sets.items())),
         "set_bonuses": dict(sorted(set_bonuses.items())),
         "spells": dict(sorted(spells.items())),

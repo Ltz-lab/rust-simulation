@@ -35,6 +35,9 @@ struct GameData {
     combat_ratings: HashMap<String, HashMap<String, f64>>,
     rand_prop_damage: Vec<[f64; 2]>,
     item_effects: HashMap<String, Vec<[i64; 4]>>,
+    /// item bonus id -> effects it adds to its item (embellishments)
+    #[serde(default)]
+    bonus_effects: HashMap<String, Vec<[i64; 4]>>,
     item_sets: HashMap<String, i64>,
     set_bonuses: HashMap<String, Vec<[i64; 3]>>,
     spells: HashMap<String, SpellRec>,
@@ -63,6 +66,11 @@ struct EffectTpl {
     none: bool,
     #[serde(default)]
     text: String,
+    /// Only with a socketed gem of this colour somewhere in the gear
+    /// ("garnet", "peridot", "amethyst" or "lapis"); several entries may share
+    /// a spell, each adding its fragment when its colour is present.
+    #[serde(default)]
+    gem: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -259,6 +267,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
     let mut equipped = Vec::new();
     let mut totals: HashMap<&'static str, i64> = HashMap::new();
     let mut weapon_dps = 0.0;
+    let mut gems_worn: Vec<i64> = Vec::new();
 
     for (slot, rhs) in item_lines {
         let mut id: Option<i64> = None;
@@ -398,6 +407,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
             Some((name, val))
         };
 
+        gems_worn.extend(gem_ids.iter().copied());
         for gid in gem_ids {
             if gid > 0
                 && let Some(effects) = gd.gems.get(&gid.to_string())
@@ -433,7 +443,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
             };
         }
 
-        equipped.push(Equipped { slot: slot.to_string(), id: item_id, ilvl, inv_type });
+        equipped.push(Equipped { slot: slot.to_string(), id: item_id, ilvl, inv_type, bonus_ids: bonus_ids.clone() });
         items_out.push(json!({
             "slot": slot,
             "id": item_id,
@@ -551,7 +561,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
         mastery_coeff: cfg.mastery_coeff,
         power_pct_per_primary: cfg.primary_mult * power_per_primary / total_power * 100.0,
     };
-    Ok(Computed { report, player_pairs, kit: kit_out, equipped, ctx })
+    Ok(Computed { report, player_pairs, kit: kit_out, equipped, gems: gems_worn, ctx })
 }
 
 struct Computed {
@@ -559,6 +569,8 @@ struct Computed {
     player_pairs: Vec<(&'static str, f64)>,
     kit: Option<KitOut>,
     equipped: Vec<Equipped>,
+    /// every socketed gem id
+    gems: Vec<i64>,
     ctx: StatCtx,
 }
 
@@ -572,7 +584,25 @@ struct Equipped {
     id: i64,
     ilvl: usize,
     inv_type: i64,
+    bonus_ids: Vec<i64>,
 }
+
+/// Bit set of the gem colours (see `GEM_COLORS`) among gem ids.
+fn gem_colors(gems: &[i64]) -> u8 {
+    let gd = gamedata();
+    gems.iter()
+        .filter_map(|g| gd.gems.get(&g.to_string()))
+        .filter_map(|e| e.first())
+        .filter_map(|e| GEM_COLORS.iter().position(|c| c.1 == e.0))
+        .fold(0u8, |m, i| m | 1 << i)
+}
+
+/// Gem colours by the stat their gem carries first (SimC's gem colours:
+/// Garnet crit, Peridot haste, Amethyst mastery, Lapis versatility).
+/// The embellishment that doubles every other embellishment's values.
+const BANDOLIER: i64 = 1251905;
+
+const GEM_COLORS: [(&str, i64); 4] = [("garnet", 32), ("peridot", 36), ("amethyst", 49), ("lapis", 40)];
 
 /// What a buff's gear `stats` are worth on this character, at the margin.
 struct StatCtx {
@@ -620,14 +650,18 @@ struct Active {
     ilvl: usize,
     inv_type: i64,
     spec: i64,
+    /// gem colours worn anywhere in the gear (bit per `GEM_COLORS`)
+    colors: u8,
+    /// an embellishment that doubles the others is worn (Bandolier, 1251905)
+    bandolier: bool,
     /// "trinket1", or "set 2062 (4)"
     from: String,
 }
 
 /// The effects the equipped gear carries: (in play, report rows).
-fn active_effects(eq: &[Equipped], cfg: &GearSpec) -> (Vec<Active>, Vec<Value>) {
+fn active_effects(eq: &[Equipped], gems: &[i64], cfg: &GearSpec) -> (Vec<Active>, Vec<Value>) {
     let gd = gamedata();
-    active_effects_with(eq, cfg, |id| gd.item_effects.get(&id.to_string()).map(|v| v.as_slice()).unwrap_or(&[]))
+    active_effects_with(eq, gem_colors(gems), cfg, |id| gd.item_effects.get(&id.to_string()).map(|v| v.as_slice()).unwrap_or(&[]))
 }
 
 /// DB2 `ItemEffect` trigger type as the report names it.
@@ -644,18 +678,28 @@ fn trigger_name(t: i64) -> &'static str {
 /// (trinkets, rings, necks, weapons...) carry effects the same way.
 fn active_effects_with<'a>(
     eq: &[Equipped],
+    colors: u8,
     cfg: &GearSpec,
     effects_of: impl Fn(i64) -> &'a [[i64; 4]],
 ) -> (Vec<Active>, Vec<Value>) {
     let gd = gamedata();
     let mut act = Vec::new();
     let mut rows = Vec::new();
+    // an item's own effects, then those its bonuses add
+    let of = |it: &Equipped| -> Vec<[i64; 4]> {
+        let mut v = effects_of(it.id).to_vec();
+        for b in &it.bonus_ids {
+            v.extend(gd.bonus_effects.get(&b.to_string()).into_iter().flatten().copied());
+        }
+        v
+    };
+    let bandolier = eq.iter().any(|it| of(it).iter().any(|e| e[1] == BANDOLIER));
     let status = |f: f64| if f > 0.0 { Value::Null } else { json!("off") };
     for it in eq {
-        for &[trigger, spell, _, _] in effects_of(it.id) {
+        for [trigger, spell, _, _] in of(it) {
             rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": trigger_name(trigger), "status": status(cfg.trinket_effects)}));
             if cfg.trinket_effects > 0.0 {
-                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, from: it.slot.clone() });
+                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, colors, bandolier, from: it.slot.clone() });
             }
         }
     }
@@ -674,7 +718,7 @@ fn active_effects_with<'a>(
                 let from = format!("set {set} ({pieces})");
                 rows.push(json!({"from": from, "set": set, "pieces": pieces, "spell": spell, "status": status(cfg.set_bonuses)}));
                 if cfg.set_bonuses > 0.0 {
-                    act.push(Active { spell, ilvl, inv_type, spec: cfg.spec_id, from });
+                    act.push(Active { spell, ilvl, inv_type, spec: cfg.spec_id, colors, bandolier, from });
                 }
             }
         }
@@ -691,13 +735,19 @@ fn library() -> &'static [EffectTpl] {
 /// spell defaults to the template's own and `field` is `eN` (effect N, from 1:
 /// its coefficient times the item-level budget of its scaling class, else its
 /// base points), `rppm`, `rppm_haste`, `duration`, `icd`, `cooldown` (seconds),
-/// `stacks`, `chance` or `ilvl`.
+/// `stacks`, `chance` or `ilvl`. Modifiers (chainable): `pct` (/100), `ap`/`sp`
+/// (the coefficient instead), `lvl` (scale at the character's level, for spells
+/// without the item-level flag), `band` (x2 with the Bandolier embellishment)
+/// and `per_option` (divided by one plus the gem colours worn).
 fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
     let gd = gamedata();
-    let (body, modifier) = match expr.split_once(':') {
-        Some((b, m)) => (b, Some(m)),
-        None => (expr, None),
+    let (body, mods) = match expr.split_once(':') {
+        Some((b, m)) => (b, m.split(':').collect::<Vec<_>>()),
+        None => (expr, vec![]),
     };
+    let has = |m: &str| mods.contains(&m);
+    // the one modifier that picks the form of the value (`ap`, `sp`, `lvl`) and the ones that scale it
+    let modifier = mods.iter().copied().find(|m| ["ap", "sp", "lvl"].contains(m));
     let (spell, field) = match body.split_once('.') {
         Some((s, f)) => (s.parse::<i64>().map_err(|_| format!("bad spell id in ${{{expr}}}"))?, f),
         None => (a.spell, body),
@@ -733,17 +783,34 @@ fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
             match modifier {
                 Some("ap") => ap,
                 Some("sp") => spc,
+                // spells without the 'scales with the casting item's level' flag are scaled at the character's level
+                Some("lvl") if coeff != 0.0 => {
+                    let lvl = gd.spell_scaling_item.len() - 1;
+                    // rating effects also take the trinket combat-rating multiplier (SimC: SCALE7)
+                    let crm = if class == -7 { gd.combat_rating_mult[lvl][2] } else { 1.0 };
+                    coeff * gd.spell_scaling_item[lvl] * crm
+                }
                 _ if coeff != 0.0 => coeff * budget(class, a.ilvl, a.inv_type)?,
                 _ => bp,
             }
         }
         _ => return Err(format!("unknown field in ${{{expr}}}")),
     };
-    Ok(match modifier {
-        Some("pct") => (v / 100.0).to_string(),
-        Some("ap" | "sp") | None => v.to_string(),
-        Some(m) => return Err(format!("unknown modifier ':{m}' in ${{{expr}}}")),
-    })
+    if let Some(m) = mods.iter().find(|m| !["ap", "sp", "lvl", "pct", "per_option", "band"].contains(m)) {
+        return Err(format!("unknown modifier ':{m}' in ${{{expr}}}"));
+    }
+    let mut v = v;
+    if has("pct") {
+        v /= 100.0;
+    }
+    if has("band") && a.bandolier {
+        v *= 2.0;
+    }
+    // one of the always-available option and one per gem colour worn
+    if has("per_option") {
+        v /= (1 + a.colors.count_ones()) as f64;
+    }
+    Ok(v.to_string())
 }
 
 /// Item-level budget an effect coefficient multiplies, by scaling class (SimC's
@@ -783,23 +850,36 @@ fn fill(text: &str, a: &Active) -> Result<String, String> {
 
 /// Add the fragments for the gear's effects to the spec document. Returns
 /// the report rows, each marked with its status.
-fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], cfg: &GearSpec) -> Result<Vec<Value>, String> {
-    let (act, mut rows) = active_effects(eq, cfg);
+fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &GearSpec) -> Result<Vec<Value>, String> {
+    let (act, mut rows) = active_effects(eq, gems, cfg);
     let own = |spell: i64| cfg.effects.iter().any(|t| t.spell == spell);
-    let tpl = |spell: i64| cfg.effects.iter().chain(library()).find(|t| t.spell == spell);
+    // the spec's own templates for a spell win over the library's; a template
+    // with a `gem` colour counts only where that colour is worn
+    let tpls = |spell: i64, colors: u8| -> Vec<&EffectTpl> {
+        let pick = |list: &'static [EffectTpl]| -> Vec<&EffectTpl> {
+            list.iter()
+                .filter(|t| t.spell == spell)
+                .filter(|t| t.gem.as_deref().is_none_or(|g| GEM_COLORS.iter().position(|c| c.0 == g).is_some_and(|i| colors >> i & 1 == 1)))
+                .collect()
+        };
+        let own: Vec<&EffectTpl> = cfg.effects.iter().filter(|t| t.spell == spell).collect();
+        if own.is_empty() { pick(library()) } else { own }
+    };
     let mut patches = Vec::new();
     let mut rotation = Vec::new();
     for a in &act {
         let row = rows.iter_mut().find(|r| r["spell"] == a.spell && r["from"] == a.from.as_str()).unwrap();
-        let Some(t) = tpl(a.spell) else {
+        let ts = tpls(a.spell, a.colors);
+        if ts.is_empty() {
             row["status"] = json!("unmodelled");
             continue;
-        };
-        row["status"] = json!(if t.none { "covered" } else { "modelled" });
+        }
+        row["status"] = json!(if ts.iter().all(|t| t.none) { "covered" } else { "modelled" });
+        let ctx = |e: String| format!("effect {} ({}): {e}", a.spell, a.from);
+        for t in ts {
         if t.none {
             continue;
         }
-        let ctx = |e: String| format!("effect {} ({}): {e}", a.spell, a.from);
         let text = fill(&t.text, a).map_err(ctx)?;
         let frag: toml::Table = toml::from_str(&text).map_err(|e| ctx(e.to_string()))?;
         let root = doc.as_table_mut().ok_or("spec is not a table")?;
@@ -841,6 +921,7 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], cfg: &GearSpec) -> Resu
                 "patch" => patches.extend(items),
                 _ => return Err(ctx(format!("unknown fragment list '{k}'"))),
             }
+        }
         }
     }
     let root = doc.as_table_mut().ok_or("spec is not a table")?;
@@ -950,8 +1031,8 @@ pub fn apply_text(mut doc: toml::Value, profile: &str) -> Result<(toml::Value, V
         "spec has no [gear] table".to_string()
     })?;
     let cfg: GearSpec = gear_tbl.try_into().map_err(|e| format!("[gear]: {e}"))?;
-    let Computed { mut report, player_pairs, kit, equipped, ctx } = compute(profile, &cfg)?;
-    let effects = apply_effects(&mut doc, &equipped, &cfg)?;
+    let Computed { mut report, player_pairs, kit, equipped, gems, ctx } = compute(profile, &cfg)?;
+    let effects = apply_effects(&mut doc, &equipped, &gems, &cfg)?;
     apply_buff_stats(&mut doc, &ctx)?;
     report["unmodelled"] = json!(effects.iter().filter(|r| r["status"] == "unmodelled").map(|r| r["from"].clone()).collect::<Vec<_>>());
     report["effects"] = json!(effects);
@@ -1105,6 +1186,8 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             .map(|r| (r["from"].as_str().unwrap().to_string(), r["status"].as_str().unwrap().to_string()))
             .collect();
         let want = [
+            ("wrists", "covered"), // Bandolier
+            ("finger2", "modelled"), // Loa Worshiper's Band
             ("trinket1", "modelled"),
             ("trinket2", "modelled"),
             ("trinket2", "covered"),
@@ -1114,6 +1197,15 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         ];
         assert_eq!(status, want.map(|(a, b)| (a.to_string(), b.to_string())));
         assert_eq!(rep["unmodelled"], json!([]));
+
+        // Loa Worshiper's Band (item level 331), Peridot gems and the Bandolier: two options
+        // (Capybara, Akil'zon) share the 2 PPM, and values are doubled
+        let rate = |n: &str| sp.procs.iter().find(|p| p.ability == n).unwrap_or_else(|| panic!("no {n}")).per_minute;
+        assert_eq!((rate("loa_capybara"), rate("loa_akilzon")), (1.0, 1.0));
+        assert!(sp.procs.iter().all(|p| p.ability != "loa_halazzi" && p.ability != "loa_nalorakk"));
+        let (cap, akil) = (sp.buffs.iter().find(|b| b.name == "loa_capybara").unwrap(), sp.buffs.iter().find(|b| b.name == "loa_akilzon").unwrap());
+        assert_eq!((cap.duration, akil.duration), (15.0, 15.0));
+        assert!(cap.power_pct > 0.0 && akil.haste_pct > 0.0);
 
         let ability = |n: &str| sp.abilities.iter().find(|a| a.name == n).unwrap_or_else(|| panic!("no {n}"));
         let buff = |n: &str| sp.buffs.iter().find(|b| b.name == n).unwrap();
@@ -1177,7 +1269,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         // a ring with an on-equip effect, a weapon proc and a trinket; the
         // lookup stands in for ItemEffect (which the committed data only has
         // for trinkets until tools/gamedata.py is rerun)
-        let eq = |slot: &str, id: i64, inv_type: i64| Equipped { slot: slot.into(), id, ilvl: 344, inv_type };
+        let eq = |slot: &str, id: i64, inv_type: i64| Equipped { slot: slot.into(), id, ilvl: 344, inv_type, bonus_ids: vec![] };
         let items = [eq("finger1", 1, 11), eq("main_hand", 2, 13), eq("trinket1", 3, 12)];
         let table: HashMap<i64, Vec<[i64; 4]>> = HashMap::from([
             (1, vec![[1, 1297760, 0, 0]]),
@@ -1185,7 +1277,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             (3, vec![[0, 1297761, 90000, 0]]),
         ]);
         let cfg: GearSpec = toml::from_str(RET_GEAR_TOML).unwrap();
-        let (act, rows) = active_effects_with(&items, &cfg, |id| table.get(&id).map(|v| v.as_slice()).unwrap_or(&[]));
+        let (act, rows) = active_effects_with(&items, 0, &cfg, |id| table.get(&id).map(|v| v.as_slice()).unwrap_or(&[]));
         let from: Vec<&str> = act.iter().map(|a| a.from.as_str()).collect();
         assert_eq!(from, ["finger1", "main_hand", "trinket1"]);
         let trig: Vec<&str> = rows.iter().map(|r| r["trigger"].as_str().unwrap()).collect();
