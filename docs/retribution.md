@@ -254,7 +254,9 @@ it until the other trinket is used: 1.8 uses a fight against 2.0).
 
 ### What's left
 
-- The character's `omnium_talents` (+3.6%) aren't passed through.
+- The character's `omnium_talents` (+3.6%) are parsed and reported, but not
+  yet applied: the per-trait values still have to be added under
+  `[gear.omnium]` (see [gear.md](gear.md#omnium-traits)).
 - **Non-trinket item effects count by their stats alone.** On this character
   Loa Worshiper's Band (finger2, a scripted proc that picks a loa by the
   socketed gem colours) is worth about 3,000 DPS in SimC; azsim keeps its
