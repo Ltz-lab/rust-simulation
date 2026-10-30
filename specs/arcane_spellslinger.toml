@@ -14,6 +14,7 @@ versatility = 0.12753 # [obs] .12277778 + average 25.66 versatility rating / 540
 crit_multiplier = 2.12 # [simc] Force of Will / class crit damage; residual offsets calibrated
 
 [gear]
+spec_id = 62           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "intellect"
 base_primary = 611 # [obs] level-90 Void Elf base intellect
 primary_mult = 1.1025 # [obs] Inspired Intellect and Arcane Intellect, x1.05 each

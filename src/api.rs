@@ -688,6 +688,18 @@ mod tests {
     }
 
     #[test]
+    fn gear_specs_name_their_specialization() {
+        // Without gear.spec_id, class set bonuses (keyed by specialization) never match: the
+        // tier set a swap breaks goes unreported, and Top Gear on azsim ranks it as free.
+        for name in spec_names() {
+            let v: toml::Value = toml::from_str(builtin(name).unwrap().1).unwrap();
+            if let Some(g) = v.get("gear") {
+                assert!(g.get("spec_id").and_then(|x| x.as_integer()).unwrap_or(0) > 0, "{name}: [gear] needs spec_id");
+            }
+        }
+    }
+
+    #[test]
     fn destruction_wither_stacks_collapse() {
         let b = builtin("destruction_hellcaller").unwrap();
         let mut s: spec::Spec = toml::from_str(b.1).unwrap();

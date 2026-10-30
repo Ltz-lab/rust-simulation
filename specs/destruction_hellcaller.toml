@@ -35,6 +35,7 @@ mastery = 0.8240         # 0.7357 + 0.0883: Chaotic Energies, up to this much da
 crit_multiplier = 2.466  # [obs] Incinerate crit/non-crit (Ruin +15% crit damage [db2 387103])
 
 [gear]
+spec_id = 267           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "intellect"
 base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3030 from gear = 2411 items + 619)
 primary_mult = 1.113945       # [obs] x1.05 x1.03 passives (unbuffed 3276) x1.03 Arcane Intellect (buffed 3375; +200 int probe 3598)

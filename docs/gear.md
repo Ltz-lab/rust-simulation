@@ -113,6 +113,10 @@ neither modelled nor listed as `unmodelled`. Enchants that work through a
 spell aura, and embellishments (crafting-bonus spells, not `ItemEffect`) are
 not read yet.
 
+A spec with a `[gear]` table must set `spec_id` (its ChrSpecialization): class set bonuses are keyed by it, and without it
+they never match, so a swap that breaks the tier set is not reported as `unmodelled` (Fire, Arcane, Destruction and
+Subtlety lacked it until now; a test checks every spec).
+
 `--gear-stats` (and the Python `gear_stats`) lists every effect with its
 status: `modelled`, `covered` (its values are read by another entry),
 `unmodelled` (no template: the item counts by its stats alone) or `off`.
