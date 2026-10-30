@@ -221,6 +221,37 @@ pub struct VariantResult {
     pub delta_error_95: f64,
 }
 
+/// One damage source of the base profile, averaged over its iterations.
+#[derive(Debug, Clone, Serialize)]
+pub struct SourceStat {
+    /// The spec's id for the row (`blade_of_justice`, pets' `<pet>_<ability>`).
+    pub id: String,
+    /// Display name (`Blade of Justice`), without the pet's prefix.
+    pub name: String,
+    /// Display name of the pet that deals it, if any.
+    pub pet: Option<String>,
+    pub spell_id: Option<u32>,
+    /// Per iteration: damage, casts, hits and crits.
+    pub damage: f64,
+    pub casts: f64,
+    pub hits: f64,
+    pub crits: f64,
+    /// Damage per second of fight, and crits per hit (0-1).
+    pub dps: f64,
+    pub crit_pct: f64,
+}
+
+/// One buff of the base profile: fraction of the fight it was up, and
+/// applications (down to up) per iteration.
+#[derive(Debug, Clone, Serialize)]
+pub struct BuffStat {
+    pub id: String,
+    pub name: String,
+    pub spell_id: Option<u32>,
+    pub uptime: f64,
+    pub count: f64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Response {
     pub spec: String,
@@ -228,6 +259,99 @@ pub struct Response {
     pub seconds: f64,
     pub base: Stat,
     pub variants: Vec<VariantResult>,
+    /// Mean fight length of the base profile's iterations, in seconds.
+    pub fight_length: f64,
+    /// The base profile's damage sources that dealt damage, most damage first.
+    pub sources: Vec<SourceStat>,
+    /// The base profile's buffs that were ever up, highest uptime first.
+    pub buffs: Vec<BuffStat>,
+}
+
+/// `blade_of_justice` -> `Blade of Justice`.
+pub fn display_name(id: &str) -> String {
+    const SMALL: &[&str] = &["of", "the", "and", "a", "an", "in", "on", "to", "for", "with", "from"];
+    id.split('_')
+        .filter(|w| !w.is_empty())
+        .enumerate()
+        .map(|(k, w)| {
+            if k > 0 && SMALL.contains(&w) {
+                return w.to_string();
+            }
+            let mut c = w.chars();
+            c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Running sums of the base profile's per-iteration results.
+struct Totals {
+    length: f64,
+    damage: Vec<f64>,
+    casts: Vec<u64>,
+    hits: Vec<u64>,
+    crits: Vec<u64>,
+    uptime: Vec<f64>,
+    count: Vec<u64>,
+}
+
+impl Totals {
+    fn new(c: &sim::Compiled) -> Self {
+        let (n, b) = (c.source_names().len(), c.buff_names().len());
+        Totals { length: 0.0, damage: vec![0.0; n], casts: vec![0; n], hits: vec![0; n], crits: vec![0; n], uptime: vec![0.0; b], count: vec![0; b] }
+    }
+
+    fn add(&mut self, r: &sim::IterResult) {
+        self.length += r.length;
+        let add_f = |a: &mut [f64], b: &[f64]| a.iter_mut().zip(b).for_each(|(x, y)| *x += y);
+        let add_u = |a: &mut [u64], b: &[u64]| a.iter_mut().zip(b).for_each(|(x, y)| *x += y);
+        add_f(&mut self.damage, &r.damage);
+        add_u(&mut self.casts, &r.casts);
+        add_u(&mut self.hits, &r.hits);
+        add_u(&mut self.crits, &r.crits);
+        add_f(&mut self.uptime, &r.buff_uptime);
+        add_u(&mut self.count, &r.buff_count);
+    }
+
+    fn report(&self, c: &sim::Compiled, n: u64) -> (f64, Vec<SourceStat>, Vec<BuffStat>) {
+        let n = n.max(1) as f64;
+        let ids = c.source_names();
+        let mut sources: Vec<SourceStat> = (0..ids.len())
+            .filter(|&i| self.damage[i] > 0.0)
+            .map(|i| {
+                let pet = c.source_pets()[i].as_deref();
+                let local = pet.and_then(|p| ids[i].strip_prefix(&format!("{p}_"))).unwrap_or(&ids[i]);
+                SourceStat {
+                    id: ids[i].clone(),
+                    name: display_name(local),
+                    pet: pet.map(display_name),
+                    spell_id: c.source_spell_ids()[i],
+                    damage: self.damage[i] / n,
+                    casts: self.casts[i] as f64 / n,
+                    hits: self.hits[i] as f64 / n,
+                    crits: self.crits[i] as f64 / n,
+                    dps: self.damage[i] / self.length,
+                    crit_pct: if self.hits[i] > 0 { self.crits[i] as f64 / self.hits[i] as f64 } else { 0.0 },
+                }
+            })
+            .collect();
+        sources.sort_by(|a, b| b.damage.total_cmp(&a.damage));
+        // a buff shares its ability's name in most specs: borrow its spell id
+        let spell_of = |name: &str| ids.iter().position(|x| x == name).and_then(|i| c.source_spell_ids()[i])
+            .or_else(|| c.spec.abilities.iter().find(|a| a.name == name).and_then(|a| a.spell_id));
+        let mut buffs: Vec<BuffStat> = c.buff_names().into_iter().enumerate()
+            .filter(|&(b, _)| c.buff_tracked(b) && self.count[b] > 0)
+            .map(|(b, name)| BuffStat {
+                id: name.to_string(),
+                name: display_name(name),
+                spell_id: spell_of(name),
+                uptime: (self.uptime[b] / self.length).min(1.0),
+                count: self.count[b] as f64 / n,
+            })
+            .collect();
+        buffs.sort_by(|a, b| b.uptime.total_cmp(&a.uptime));
+        (self.length / n, sources, buffs)
+    }
 }
 
 fn slot_of(line: &str) -> &str {
@@ -282,8 +406,11 @@ fn build(
     sim::Compiled::new(sp)
 }
 
-fn iter_dps(c: &sim::Compiled, seed: u64, i: u64) -> f64 {
-    let r = sim::run_iteration(c, seed.wrapping_mul(1_000_003).wrapping_add(i), false);
+fn iter_run(c: &sim::Compiled, seed: u64, i: u64) -> sim::IterResult {
+    sim::run_iteration(c, seed.wrapping_mul(1_000_003).wrapping_add(i), false)
+}
+
+fn dps_of(r: &sim::IterResult) -> f64 {
     r.damage.iter().sum::<f64>() / r.length
 }
 
@@ -329,11 +456,24 @@ pub fn run(req: &Request) -> Result<Response, String> {
         None => (req.iterations.max(2), req.iterations.max(2)),
     };
     let mut done = 0u64;
+    let mut totals = Totals::new(&models[0]);
+    let seed = req.seed;
     loop {
         let n = step.min(total - done);
-        for (m, out) in models.iter().zip(dps.iter_mut()) {
-            let seed = req.seed;
-            let chunk: Vec<f64> = (done..done + n).into_par_iter().map(|i| iter_dps(m, seed, i)).collect();
+        // the base keeps its full results for the breakdown, a slice at a time
+        // and summed in iteration order, so the report is deterministic
+        let mut lo = done;
+        while lo < done + n {
+            let hi = (lo + 1024).min(done + n);
+            let rs: Vec<sim::IterResult> = (lo..hi).into_par_iter().map(|i| iter_run(&models[0], seed, i)).collect();
+            for r in &rs {
+                dps[0].push(dps_of(r));
+                totals.add(r);
+            }
+            lo = hi;
+        }
+        for (m, out) in models.iter().zip(dps.iter_mut()).skip(1) {
+            let chunk: Vec<f64> = (done..done + n).into_par_iter().map(|i| dps_of(&iter_run(m, seed, i))).collect();
             out.extend(chunk);
         }
         done += n;
@@ -355,12 +495,16 @@ pub fn run(req: &Request) -> Result<Response, String> {
             VariantResult { name: names[k].clone(), dps: m, dps_error_95: e, delta: d, delta_error_95: de }
         })
         .collect();
+    let (fight_length, sources, buffs) = totals.report(&models[0], done);
     Ok(Response {
         spec: models[0].spec.name.clone(),
         iterations: done,
         seconds: t0.elapsed().as_secs_f64(),
         base: Stat { dps: bm, dps_error_95: be },
         variants,
+        fight_length,
+        sources,
+        buffs,
     })
 }
 
@@ -390,6 +534,54 @@ mod tests {
 
     fn gear_lines() -> Vec<String> {
         PROFILE.lines().filter(|l| l.contains(",id=")).map(String::from).collect()
+    }
+
+    #[test]
+    fn display_names() {
+        assert_eq!(display_name("blade_of_justice"), "Blade of Justice");
+        assert_eq!(display_name("the_hunt"), "The Hunt");
+        assert_eq!(display_name("auto_attack_off_hand"), "Auto Attack Off Hand");
+    }
+
+    #[test]
+    fn breakdown_sources_and_buffs() {
+        let req = Request {
+            spec: "retribution_herald".into(), calib: None, base_gear: gear_lines(), variants: vec![],
+            set: Default::default(), iterations: 300, target_error: None, target_error_pct: None,
+            max_iterations: 0, seed: 5,
+        };
+        let r = run(&req).unwrap();
+        assert!((r.fight_length - 300.0).abs() < 30.0, "{}", r.fight_length);
+        // the rows add up to the total, most damage first
+        let sum: f64 = r.sources.iter().map(|s| s.dps).sum();
+        assert!((sum / r.base.dps - 1.0).abs() < 0.01, "{sum} vs {}", r.base.dps);
+        assert!(r.sources.windows(2).all(|w| w[0].damage >= w[1].damage));
+        let fv = r.sources.iter().find(|s| s.id == "final_verdict").unwrap();
+        assert_eq!(fv.name, "Final Verdict");
+        assert!(fv.casts > 20.0 && fv.hits >= fv.casts && (0.0..1.0).contains(&fv.crit_pct), "{fv:?}");
+        // Avenging Wrath: a 60s cooldown, up part of the fight, with its spell id
+        let aw = r.buffs.iter().find(|b| b.id == "avenging_wrath").unwrap();
+        assert_eq!((aw.name.as_str(), aw.spell_id), ("Avenging Wrath", Some(31884)));
+        assert!((0.1..0.9).contains(&aw.uptime) && (3.0..8.0).contains(&aw.count), "{aw:?}");
+        assert!(r.buffs.windows(2).all(|w| w[0].uptime >= w[1].uptime));
+        assert!(r.buffs.iter().all(|b| (0.0..=1.0).contains(&b.uptime) && b.count > 0.0));
+        // the same seeds give the same report
+        let again = run(&req).unwrap();
+        assert_eq!(serde_json::to_string(&r.sources).unwrap(), serde_json::to_string(&again.sources).unwrap());
+    }
+
+    #[test]
+    fn breakdown_names_pets() {
+        let r = run_json(r#"{"spec":"demonology_diabolist","iterations":100}"#).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&r).unwrap();
+        let pets: Vec<&serde_json::Value> = v["sources"].as_array().unwrap().iter().filter(|s| !s["pet"].is_null()).collect();
+        assert!(!pets.is_empty());
+        for s in pets {
+            // a pet's row is named without its pet's prefix
+            let pet = s["pet"].as_str().unwrap().to_lowercase().replace(' ', "_");
+            assert!(s["id"].as_str().unwrap().starts_with(&format!("{pet}_")), "{s}");
+            assert!(!s["name"].as_str().unwrap().to_lowercase().starts_with(&format!("{} ", s["pet"].as_str().unwrap().to_lowercase())), "{s}");
+        }
     }
 
     #[test]

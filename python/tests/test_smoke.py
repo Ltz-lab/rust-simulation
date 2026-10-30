@@ -48,3 +48,15 @@ def test_gear_stats():
     rep = azsim.gear_stats("retribution_herald", GEAR)
     assert {i["slot"] for i in rep["items"]} >= {"head", "main_hand"}
     assert rep["gear"]["crit_rating"] > 0
+
+
+def test_breakdown():
+    r = azsim.sim_batch("retribution_herald", GEAR, [], iterations=300, seed=3)
+    src = r["sources"]
+    assert src[0]["damage"] >= src[-1]["damage"] > 0
+    assert abs(sum(s["dps"] for s in src) / r["base"]["dps"] - 1) < 0.01
+    fv = next(s for s in src if s["id"] == "final_verdict")
+    assert fv["name"] == "Final Verdict" and fv["casts"] > 0 and 0 < fv["crit_pct"] < 1
+    aw = next(b for b in r["buffs"] if b["id"] == "avenging_wrath")
+    assert aw["spell_id"] == 31884 and 0 < aw["uptime"] < 1 and aw["count"] > 0
+    assert 250 < r["fight_length"] < 350

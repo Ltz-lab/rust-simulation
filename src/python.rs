@@ -17,7 +17,7 @@ fn exec(py: Python<'_>, req: Request) -> PyResult<Py<PyAny>> {
 }
 
 /// sim(spec, calib=None, gear_lines=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000)
-/// -> {"spec", "iterations", "seconds", "dps", "dps_error_95"}
+/// -> {"spec", "iterations", "seconds", "dps", "dps_error_95", "fight_length", "sources", "buffs"}
 #[pyfunction]
 #[pyo3(signature = (spec, calib=None, gear_lines=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000))]
 #[allow(clippy::too_many_arguments)]
@@ -50,7 +50,9 @@ fn sim(
 /// sim_batch(spec, base_gear, variants, calib=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000)
 /// `variants`: list of {"name": str, "gear": [slot lines replacing the base's], "set": {path: value}}.
 /// -> {"spec", "iterations", "seconds", "base": {dps, dps_error_95},
-///     "variants": [{name, dps, dps_error_95, delta, delta_error_95}]}
+///     "variants": [{name, dps, dps_error_95, delta, delta_error_95}],
+///     "fight_length", "sources": [{id, name, pet, spell_id, damage, casts, hits, crits, dps, crit_pct}],
+///     "buffs": [{id, name, spell_id, uptime, count}]}  (the base's breakdown, per iteration)
 #[pyfunction]
 #[pyo3(signature = (spec, base_gear, variants, calib=None, iterations=10000, target_error=None, target_error_pct=None, seed=1, set=None, max_iterations=200000))]
 #[allow(clippy::too_many_arguments)]

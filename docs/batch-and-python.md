@@ -40,7 +40,7 @@ pytest python/tests                # smoke test
 import azsim
 
 azsim.sim("retribution_herald", gear_lines=lines, iterations=10_000, seed=1)
-# {"spec", "iterations", "seconds", "dps", "dps_error_95"}
+# {"spec", "iterations", "seconds", "dps", "dps_error_95", "fight_length", "sources", "buffs"}
 
 azsim.sim_batch("retribution_herald", base_gear=lines,
                 variants=[{"name": "ring_350", "gear": ["finger1=...,ilevel=350"]}],
@@ -50,6 +50,14 @@ azsim.sim_batch("retribution_herald", base_gear=lines,
 azsim.spec_names(); azsim.supports_gear("fire_mage")
 azsim.gear_stats("retribution_herald", lines)   # per-item ilvl + stats, totals
 ```
+
+Both also return the base profile's breakdown, averaged per iteration:
+`fight_length` (seconds), `sources` (every row that dealt damage, most first:
+`id` as the spec names it, display `name`, owning `pet`, `spell_id`,
+`damage`, `casts`, `hits`, `crits`, `dps`, `crit_pct` as 0-1) and `buffs`
+(every buff that was ever up, highest uptime first: `id`, `name`, `spell_id`
+borrowed from the same-named ability, `uptime` as 0-1, `count` of times it
+went from down to up). Buffs tied to target health aren't tracked.
 
 Results are plain dicts, the GIL is released while simulating, and errors raise
 `ValueError`. Specs and calibrations are embedded in the module. The Rust side

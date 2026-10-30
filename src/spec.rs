@@ -230,7 +230,6 @@ pub struct AbilityDef {
     pub snapshot_channel: bool,
     /// Game spell id (documentation / data-pipeline cross reference).
     #[serde(default)]
-    #[allow(dead_code)]
     pub spell_id: Option<u32>,
     #[serde(default = "default_gcd")]
     pub gcd: f64,

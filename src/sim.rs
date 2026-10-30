@@ -286,6 +286,8 @@ pub struct Compiled {
     /// Per buff: (ability, fraction per stack) recharge speed-ups it gives.
     rate_users: Vec<Vec<(usize, f64)>>,
     names: Vec<String>,
+    src_pet: Vec<Option<String>>,
+    src_spell: Vec<Option<u32>>,
     /// Key of every random stream, in the layout of the `*_stream` methods.
     stream_keys: Vec<u64>,
 }
@@ -586,6 +588,21 @@ impl Compiled {
             && spec.auto_attack.as_ref().is_none_or(|a| a.off_hand_replace_with.is_none());
         if oh_plain {
             src_names.push("auto_attack_off_hand".into());
+        }
+        // Per result row: the owning pet and a game spell id, for reports.
+        let mut src_pet: Vec<Option<String>> = vec![None; src_names.len()];
+        let mut src_spell: Vec<Option<u32>> = vec![None; src_names.len()];
+        for (ai, (a, pi)) in all.iter().enumerate() {
+            let rows = std::iter::once(ab_src[ai])
+                .chain(a.dot.as_ref().and_then(|d| src_names.iter().position(|x| *x == d.name)));
+            for r in rows {
+                if src_pet[r].is_none() {
+                    src_pet[r] = pi.map(|i| spec.pets[i].name.clone());
+                }
+                if src_spell[r].is_none() {
+                    src_spell[r] = a.spell_id;
+                }
+            }
         }
 
         let mut abilities = Vec::new();
@@ -1019,6 +1036,8 @@ impl Compiled {
             on_expire,
             rate_users,
             names: src_names,
+            src_pet,
+            src_spell,
             stream_keys,
             spec,
         })
@@ -1027,6 +1046,18 @@ impl Compiled {
     /// Damage sources in result order: abilities, then dots, then auto attack
     /// (and the plain off-hand auto attack, if there is one).
     pub fn source_names(&self) -> &[String] { &self.names }
+
+    /// Per result row: the pet that deals it, if any.
+    pub fn source_pets(&self) -> &[Option<String>] { &self.src_pet }
+
+    /// Per result row: the game spell id of its ability, where the spec gives one.
+    pub fn source_spell_ids(&self) -> &[Option<u32>] { &self.src_spell }
+
+    /// Buff names, in the order of `IterResult::buff_uptime`.
+    pub fn buff_names(&self) -> Vec<&str> { self.buffs.iter().map(|b| b.name.as_str()).collect() }
+
+    /// False for buffs whose uptime isn't tracked (the ones tied to target health).
+    pub fn buff_tracked(&self, b: usize) -> bool { !matches!(self.buff_kind[b], BuffKind::Health(..)) }
 
 
     // Stream layout: fight length, crit per source, damage range per source,
@@ -1112,6 +1143,9 @@ pub struct IterResult {
     /// Resource gained per source (all resources summed), and the part lost to the cap.
     pub res_gain: Vec<f64>,
     pub res_waste: Vec<f64>,
+    /// Per buff: seconds it was up, and how many times it went from down to up.
+    pub buff_uptime: Vec<f64>,
+    pub buff_count: Vec<u64>,
 }
 
 struct State<'a> {
@@ -1129,6 +1163,8 @@ struct State<'a> {
     cd_len: Vec<f64>,
     buff_exp: Vec<f64>,
     buff_stk: Vec<u32>,
+    /// Per buff: the time its uptime has been booked up to.
+    buff_t: Vec<f64>,
     /// Per-stack expiry times for `overlap` buffs.
     ov_exp: Vec<Vec<f64>>,
     stored: Vec<f64>,
@@ -1273,6 +1309,7 @@ impl<'a> State<'a> {
             cd_len: vec![0.0; na],
             buff_exp: vec![-1.0; c.buffs.len()],
             buff_stk: vec![0; c.buffs.len()],
+            buff_t: vec![0.0; c.buffs.len()],
             ov_exp: vec![Vec::new(); c.buffs.len()],
             stored: vec![0.0; c.buffs.len()],
             dot_exp: vec![-1.0; c.dots.len()],
@@ -1312,6 +1349,8 @@ impl<'a> State<'a> {
                 noncrit_damage: vec![0.0; n_src],
                 res_gain: vec![0.0; n_src],
                 res_waste: vec![0.0; n_src],
+                buff_uptime: vec![0.0; c.buffs.len()],
+                buff_count: vec![0; c.buffs.len()],
             },
             cur: Vec::new(),
             log,
@@ -1619,6 +1658,21 @@ impl<'a> State<'a> {
         chance >= 1.0 || self.rng.f64(self.c.roll_stream(rid)) < chance
     }
 
+    /// Book buff `b`'s uptime up to `t`. Its expiry only changes where this
+    /// is called first, so between calls it is up until a known time.
+    fn track_buff(&mut self, b: usize, t: f64) {
+        let exp = match self.c.buff_kind[b] {
+            BuffKind::Shared => self.buff_exp[b],
+            BuffKind::Overlap => self.ov_exp[b].iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            BuffKind::Health(..) => return,
+        };
+        let t0 = self.buff_t[b];
+        if t > t0 {
+            self.out.buff_uptime[b] += (exp.min(t) - t0).max(0.0);
+            self.buff_t[b] = t;
+        }
+    }
+
     /// Schedule the natural-expiry check for a buff with `on_expire` effects.
     fn watch_expiry(&mut self, buff: usize) {
         if !self.c.on_expire[buff].is_empty() || !self.c.rate_users[buff].is_empty() || self.c.as_buff[buff] {
@@ -1663,6 +1717,10 @@ impl<'a> State<'a> {
                 if set == Some(0) {
                     self.apply(&CEffect::Consume { buff, all: true });
                     return;
+                }
+                self.track_buff(buff, self.now);
+                if !self.buff_up(buff) {
+                    self.out.buff_count[buff] += 1;
                 }
                 let k0 = self.mod_stacks(buff);
                 let def = &self.c.buffs[buff];
@@ -1715,6 +1773,7 @@ impl<'a> State<'a> {
                     return;
                 }
                 self.settle();
+                self.track_buff(buff, self.now);
                 let as0 = if self.c.as_buff[buff] { self.attack_speed_mult() } else { 1.0 };
                 let k0 = self.mod_stacks(buff);
                 if self.c.buff_kind[buff] == BuffKind::Overlap {
@@ -1815,6 +1874,7 @@ impl<'a> State<'a> {
                     return;
                 }
                 self.settle();
+                self.track_buff(buff, self.now);
                 match self.c.buff_kind[buff] {
                     BuffKind::Overlap => self.ov_exp[buff].iter_mut().for_each(|t| *t += secs),
                     BuffKind::Shared => {
@@ -2566,6 +2626,9 @@ impl<'a> State<'a> {
     fn run(mut self) -> IterResult {
         self.start();
         while self.step() {}
+        for b in 0..self.c.buffs.len() {
+            self.track_buff(b, self.end);
+        }
         self.out
     }
 
@@ -2984,6 +3047,52 @@ action = "wait"
 "#;
 
     fn compile(text: &str) -> Compiled { Compiled::new(toml::from_str(text).unwrap()).unwrap() }
+
+    #[test]
+    fn buff_uptime_and_applications() {
+        let c = compile(r#"
+name = "uptime test"
+[player]
+spell_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 100
+variance = 0
+
+[[buffs]]
+name = "wings"
+duration = 15
+
+[[buffs]]
+name = "never"
+duration = 5
+
+[[abilities]]
+name = "wings"
+gcd = 0
+cooldown = 30
+on_cast = [{ type = "buff", buff = "wings" }]
+
+[[abilities]]
+name = "bolt"
+gcd = 1.5
+damage = { sp_coeff = 1.0, school = "fire" }
+
+[[rotation]]
+action = "wings"
+
+[[rotation]]
+action = "bolt"
+"#);
+        let r = run_iteration(&c, 1, false);
+        let b = |n: &str| c.buff_names().iter().position(|x| *x == n).unwrap();
+        // up at 0, 30, 60 and 90 for 15s each; the last is cut by the fight's end
+        assert!((r.buff_uptime[b("wings")] - 55.0).abs() < 1e-6, "{}", r.buff_uptime[b("wings")]);
+        assert_eq!(r.buff_count[b("wings")], 4);
+        assert_eq!((r.buff_uptime[b("never")], r.buff_count[b("never")]), (0.0, 0));
+    }
 
     fn ab(c: &Compiled, n: &str) -> usize { c.abilities.iter().position(|a| a.def.name == n).unwrap() }
     fn src(c: &Compiled, n: &str) -> usize { c.names.iter().position(|a| a == n).unwrap() }
