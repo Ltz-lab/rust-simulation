@@ -16,18 +16,18 @@ iterations. azsim: 10,000 iterations.
 | | DPS |
 |---|---:|
 | reference | 159,675 |
-| azsim | 158,729 (±74) |
-| difference | **-0.59%** |
+| azsim | 158,613 (±74) |
+| difference | **-0.66%** |
 
 Stat probes (+500 rating / +200 agility, same calibration):
 
 | probe | reference | azsim | diff |
 |---|---:|---:|---:|
-| crit | +10.40% | +8.18% | -2.21 |
-| haste | +7.72% | +4.66% | -3.06 |
+| crit | +10.40% | +10.13% | -0.27 |
+| haste | +7.72% | +7.13% | -0.59 |
 | mastery | +9.70% | +10.42% | +0.72 |
 | versatility | +8.42% | +8.50% | +0.08 |
-| agility | +6.40% | +6.33% | -0.08 |
+| agility | +6.40% | +6.32% | -0.08 |
 
 ## Gear
 
@@ -116,10 +116,13 @@ different highest/lowest stats would need its own buff.
   tick cadence, which costs about one tick per application.
 - **Essence Break's echo** procs 21.0 times against 22.9 (its 1s internal
   cooldown is right; the hits inside the 4s window land a little further apart).
-- **Critical Chaos's crit-scaled fury refund** is not modelled (the refund is a
-  flat 50%, crit only moves damage), so crit rating is worth ~2 points less than
-  in the reference and haste ~3 (fewer refunds also means fewer casts per point
-  of haste).
+- **Critical Chaos's refund** is modelled as `chance_expr = "0.10+crit"` (the
+  new `crit` expression variable): the 10% / 1.0 slope is a fit to the crit probe,
+  not read from SimC, and the mean refund rate is unchanged (~0.5).
+- **Chaos Theory's crit** applies to Chaos Strike/Annihilation only
+  (`ability_crit_pct`). As a global buff it also lifted the Death Sweep hits in
+  flight, and haste made Annihilations eat the buff before the 4th hit, which
+  cost haste ~2.5 points of probe response.
 - Immolation Aura's Undying Embers re-proc (25% on expiry) is not modelled.
 - Relentless Onslaught uses the Annihilation or Chaos Strike values of whichever
   form the player was in when the off-hand hit landed, but not its own 300ms

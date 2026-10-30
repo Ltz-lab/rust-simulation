@@ -4,146 +4,146 @@
 
 [sources."abyssal_gaze_empowered_tick"]
 derived = 1.605195
-mult = 1.770253
-crit_bonus = +0.031781
+mult = 1.774670
+crit_bonus = +0.026391
 
 [sources."abyssal_gaze_tick"]
 derived = 1.605195
-mult = 1.915768
-crit_bonus = +0.038378
+mult = 1.910440
+crit_bonus = +0.152110
 
 [sources."annihilation_damage_1"]
 derived = 1.605195
-mult = 1.352887
-crit_bonus = +0.022563
+mult = 1.353101
+crit_bonus = +0.022557
 
 [sources."annihilation_damage_2"]
 derived = 1.605195
-mult = 0.658445
-crit_bonus = +0.148547
+mult = 0.658582
+crit_bonus = +0.146482
 
 [sources."annihilation_onslaught_damage_1"]
 derived = 1.605195
-mult = 1.344415
-crit_bonus = +0.091248
+mult = 1.345115
+crit_bonus = +0.088033
 
 [sources."annihilation_onslaught_damage_2"]
 derived = 1.605195
-mult = 0.652816
-crit_bonus = +0.080465
+mult = 0.653178
+crit_bonus = +0.086349
 
 [sources."auto_attack_mh"]
-mult = 0.915704
-crit_bonus = +0.065701
+mult = 0.916369
+crit_bonus = +0.179649
 
 [sources."auto_attack_oh"]
 derived = 1.000000
-mult = 0.893749
-crit_bonus = +0.076578
+mult = 0.893822
+crit_bonus = +0.183496
 
 [sources."blade_dance_first_blood"]
 derived = 1.459268
-mult = 3.559381
-crit_bonus = -0.026919
+mult = 3.558921
+crit_bonus = +0.071695
 
 [sources."blade_dance_first_blood_2"]
 derived = 1.459268
-mult = 3.562823
-crit_bonus = -0.328949
+mult = 3.561617
+crit_bonus = +0.065611
 
 [sources."blade_dance_first_blood_3"]
 derived = 1.459268
-mult = 3.559642
-crit_bonus = -0.324327
+mult = 3.559940
+crit_bonus = +0.074845
 
 [sources."blade_dance_first_blood_4"]
 derived = 2.188902
-mult = 4.276384
-crit_bonus = -0.329830
+mult = 4.277024
+crit_bonus = +0.073432
 
 [sources."burning_blades"]
 derived = 1.416765
-mult = 1.161449
+mult = 1.163446
 crit_bonus = +0.000000
 
 [sources."chaos_strike_damage_1"]
 derived = 1.605195
-mult = 1.755382
-crit_bonus = +0.038915
+mult = 1.755269
+crit_bonus = +0.035529
 
 [sources."chaos_strike_damage_2"]
 derived = 1.605195
-mult = 0.856406
-crit_bonus = +0.112071
+mult = 0.856413
+crit_bonus = +0.112382
 
 [sources."chaos_strike_onslaught_damage_1"]
 derived = 1.605195
-mult = 1.753570
-crit_bonus = +0.062975
+mult = 1.752151
+crit_bonus = +0.063046
 
 [sources."chaos_strike_onslaught_damage_2"]
 derived = 1.605195
-mult = 0.856364
-crit_bonus = +0.062654
+mult = 0.856292
+crit_bonus = +0.066939
 
 [sources."death_sweep_first_blood"]
 derived = 1.459268
-mult = 2.879406
-crit_bonus = +0.019175
+mult = 2.883443
+crit_bonus = +0.098205
 
 [sources."death_sweep_first_blood_2"]
 derived = 1.459268
-mult = 2.870926
-crit_bonus = -0.298972
+mult = 2.872475
+crit_bonus = +0.101909
 
 [sources."death_sweep_first_blood_3"]
 derived = 1.459268
-mult = 2.866707
-crit_bonus = -0.302079
+mult = 2.867547
+crit_bonus = +0.097586
 
 [sources."death_sweep_first_blood_4"]
 derived = 2.188902
-mult = 3.383797
-crit_bonus = -0.311508
+mult = 3.385290
+crit_bonus = +0.090885
 
 [sources."demon_blades"]
 derived = 1.349300
-mult = 1.036351
-crit_bonus = -0.022087
+mult = 1.036833
+crit_bonus = +0.087290
 
 [sources."demonsurge"]
 derived = 1.416765
-mult = 2.067782
-crit_bonus = -0.019953
+mult = 2.068393
+crit_bonus = +0.127425
 
 [sources."essence_break"]
 derived = 1.416765
-mult = 1.294162
-crit_bonus = -0.020481
+mult = 1.293891
+crit_bonus = +0.112350
 
 [sources."essence_break_proc_damage"]
 derived = 1.416765
-mult = 1.251163
-crit_bonus = -0.064366
+mult = 1.252884
+crit_bonus = +0.076030
 
 [sources."eye_beam_empowered_tick"]
 derived = 1.605195
-mult = 2.124318
-crit_bonus = +0.154901
+mult = 2.124143
+crit_bonus = +0.158793
 
 [sources."eye_beam_tick"]
 derived = 1.605195
-mult = 2.111213
-crit_bonus = +0.176435
+mult = 2.111194
+crit_bonus = +0.180989
 
 [sources."felblade_damage"]
 derived = 1.459268
-mult = 1.185802
-crit_bonus = -0.068150
+mult = 1.183519
+crit_bonus = +0.088410
 
 [sources."immolation_aura_initial"]
 derived = 1.459268
-mult = 1.237810
+mult = 1.237251
 crit_bonus = +0.000000
 
 [sources."immolation_aura_tick"]
@@ -153,43 +153,43 @@ crit_bonus = +0.000000
 
 [sources."metamorphosis_impact"]
 derived = 1.416765
-mult = 1.096923
-crit_bonus = -0.276749
+mult = 1.096962
+crit_bonus = +0.124538
 
 [sources."rune_of_unleashed_fire"]
 derived = 1.000000
-mult = 0.664840
+mult = 0.665023
 crit_bonus = +0.000000
 
 [sources."rune_of_unleashed_fire_lingering"]
 derived = 1.000000
-mult = 0.674229
+mult = 0.674265
 crit_bonus = +0.000000
 
 [sources."the_hunt_damage"]
 derived = 1.770956
-mult = 1.528682
-crit_bonus = +0.055473
+mult = 1.531459
+crit_bonus = +0.104235
 
 [sources."the_hunt_dot"]
 derived = 1.770956
-mult = 1.611729
-crit_bonus = -0.055442
+mult = 1.595908
+crit_bonus = +0.106350
 
 [sources."vengeful_retreat_damage"]
 derived = 1.310000
-mult = 1.086773
-crit_bonus = -0.004698
+mult = 1.086059
+crit_bonus = +0.084732
 
 [sources."venomfang"]
 derived = 1.000000
-mult = 0.698085
-crit_bonus = -0.011058
+mult = 0.698299
+crit_bonus = +0.093053
 
 [sources."venomfang_burst"]
 derived = 1.000000
-mult = 0.679954
-crit_bonus = -0.016241
+mult = 0.680277
+crit_bonus = +0.091635
 
 [buffs."empowered_eye_beam".ability_pct]
 "abyssal_gaze_empowered_tick" = 100.0000

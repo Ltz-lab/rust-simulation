@@ -262,7 +262,7 @@ their base cap, starting value and regeneration by `1 + coefficient * player.mas
 Buffs can multiply regeneration with `resource_regen_pct = { mana = 100 }`.
 An ability can replace fixed costs with `cost_expr = { mana = "mana.max*0.02" }`;
 negative expression results are clamped to zero. Expressions also expose
-`resource.max`, `resource.pct`, `mastery`, `haste`, `gcd.remains`,
+`resource.max`, `resource.pct`, `mastery`, `haste`, `crit` (current crit chance), `gcd.remains`,
 `prev_gcd.<ability>` and `cooldown.X.full_recharge_time` (time until every
 charge is back, 0 at full charges). A `gain` with `amount_expr` may subtract resource.
 A trigger may use `count = "<expression>"` and `interval` to schedule repeated
