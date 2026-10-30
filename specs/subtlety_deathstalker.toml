@@ -46,6 +46,7 @@ weapon = { min = 0, max = 0, speed = 1.8 }
 off_hand = { min = 0, max = 0, speed = 1.8 }
 
 [gear]
+spec_id = 261           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "agility"
 base_primary = 618            # [obs] level-90 dwarf rogue base agility (SimC: 2326 unbuffed = 1708 from gear + 618)
 primary_mult = 1.08126        # [obs] buffed 2515 / unbuffed 2326 (+200 agility probe: +216 buffed)
@@ -65,6 +66,22 @@ crit = 0.0435
 haste = -0.0049
 mastery = 0.0435
 versatility = 0.0192
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 179,280 with all, 174,126 with
+# none, +2.96%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136816", "136817", "136818", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01539 },   # [simc] leave-one-out 1.02990
+  { id = "136816", name = "Rune of Void-Tainted Shell", global_mult = 0.99996 },   # [simc] leave-one-out 0.99993
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00102 },   # [simc] leave-one-out 1.00197
+  { id = "136818", name = "Rune of Masterful Cunning", global_mult = 1.01167 },   # [simc] leave-one-out 1.02262
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00132 },   # [simc] leave-one-out 1.00255
+]
 
 # Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
 # turns it off): SimC's default level-90 Rogue consumables plus Bloodlust,

@@ -14,6 +14,7 @@ versatility = 0.12753 # [obs] .12277778 + average 25.66 versatility rating / 540
 crit_multiplier = 2.12 # [simc] Force of Will / class crit damage; residual offsets calibrated
 
 [gear]
+spec_id = 62           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "intellect"
 base_primary = 611 # [obs] level-90 Void Elf base intellect
 primary_mult = 1.1025 # [obs] Inspired Intellect and Arcane Intellect, x1.05 each
@@ -30,6 +31,21 @@ crit = 0.00686 # [obs] time-averaged gear procs, also included in player above
 haste = 0.05656 # [obs]
 mastery = 0.06358 # [obs]
 versatility = 0.00475 # [obs]
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 133,322 with all, 129,215 with
+# none, +3.18%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136817", "136821", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01725 },   # [simc] leave-one-out 1.03258
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00115 },   # [simc] leave-one-out 1.00216
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01093 },   # [simc] leave-one-out 1.02058
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00217 },   # [simc] leave-one-out 1.00407
+]
 
 [gear.kit]
 enabled = 1 # [simc] full raid kit when gear is supplied

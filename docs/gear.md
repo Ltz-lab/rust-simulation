@@ -113,6 +113,10 @@ neither modelled nor listed as `unmodelled`. Enchants that work through a
 spell aura, and embellishments (crafting-bonus spells, not `ItemEffect`) are
 not read yet.
 
+A spec with a `[gear]` table must set `spec_id` (its ChrSpecialization): class set bonuses are keyed by it, and without it
+they never match, so a swap that breaks the tier set is not reported as `unmodelled` (Fire, Arcane, Destruction and
+Subtlety lacked it until now; a test checks every spec).
+
 `--gear-stats` (and the Python `gear_stats`) lists every effect with its
 status: `modelled`, `covered` (its values are read by another entry),
 `unmodelled` (no template: the item counts by its stats alone) or `off`.
@@ -157,13 +161,47 @@ proc. Self-Mending, Void-Tainted Shell and Lynxlike Reflexes have no SimC
 implementation. So a per-trait value cannot be read from a table; it is
 measured with `tools/omnium.py ablate` (SimC with each trait removed).
 
-Only Retribution is filled in so far, as the combined worth on the driver
-(Unleashed Fire), because the modifiers do nothing without it and no per-trait
-SimC runs were available: see [retribution.md](retribution.md). The other specs
-with an `omnium_talents` line still need an `ablate` run each. Traits that are
+Every spec with a `[gear]` table and an `omnium_talents` profile now carries
+a per-trait table (Ret: [retribution.md](retribution.md)). Traits that are
 not a flat damage multiplier would need a spec fragment like the item effects';
 the flat value is exact for the full set and for none, and approximate in between
-(and across gear: the worth is 3.6% at core kit, 3.1% with the full kit).
+(and across gear: the worth is 3.6% at core kit, 3.1% with the full kit). Not
+filled: Frost DK, Marksmanship, Survival, Windwalker and Outlaw have no `[gear]`
+table yet, and Blood and Protection have no `ablate` run. A trait id has to be
+spelled as the profile spells it (`136822` or `rune_of_unleashed_fire`).
+
+**Per-trait values for every spec with `[gear]`.** Filled from `tools/omnium.py
+ablate` at 20,000 iterations (SimC core kit, each trait removed in turn); the
+`traits` entries are the leave-one-out ratios rescaled so their product is
+exactly all/none. Full-character DPS, each profile in `profiles/` as is
+("omnium on", the reference's own traits: unchanged by construction) and with
+its `omnium_talents` line removed ("none"). azsim 10,000 iterations seed 1,
+SimC 10,000 iterations. The absolute gaps are the pieces azsim does not model
+yet (trinket effects, tier sets, other item effects); the point is that "none"
+moves from azsim-too-high relative to SimC to the same gap as "on".
+
+| spec | on: azsim (before = after) | on: SimC | on: diff | none: azsim before | none: azsim now | none: SimC | diff before | diff now |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Death Knight Unholy | 218,394 | 239,918 | -9.0% | 218,394 | 210,960 | 233,817 | -6.6% | -9.8% |
+| Demon Hunter Devourer | 216,649 | 253,967 | -14.7% | 216,649 | 210,659 | 247,763 | -12.6% | -15.0% |
+| Demon Hunter Havoc | 225,732 | 260,979 | -13.5% | 225,732 | 217,464 | 253,628 | -11.0% | -14.3% |
+| Druid Balance | 189,629 | 232,400 | -18.4% | 189,629 | 183,950 | 226,295 | -16.2% | -18.7% |
+| Druid Feral | 235,739 | 251,565 | -6.3% | 235,739 | 228,094 | 244,133 | -3.4% | -6.6% |
+| Hunter Beast Mastery | 246,094 | 262,831 | -6.4% | 246,094 | 238,932 | 255,771 | -3.8% | -6.6% |
+| Mage Arcane | 179,300 | 203,552 | -11.9% | 179,300 | 173,777 | 197,973 | -9.4% | -12.2% |
+| Mage Fire | 205,290 | 234,194 | -12.3% | 205,290 | 198,751 | 227,787 | -9.9% | -12.7% |
+| Mage Frost | 208,444 | 227,580 | -8.4% | 208,444 | 200,770 | 221,507 | -5.9% | -9.4% |
+| Paladin Retribution | 231,338 | 225,732 | +2.5% | 223,295 | 223,338 | 218,803 | +2.1% | +2.1% |
+| Priest Shadow | 182,524 | 218,873 | -16.6% | 182,524 | 175,919 | 211,927 | -13.9% | -17.0% |
+| Rogue Assassination | 212,557 | 237,490 | -10.5% | 212,557 | 205,708 | 230,943 | -8.0% | -10.9% |
+| Rogue Subtlety | 254,245 | 282,888 | -10.1% | 254,245 | 246,935 | 275,824 | -7.8% | -10.5% |
+| Shaman Elemental | 208,556 | 250,415 | -16.7% | 208,556 | 201,943 | 243,205 | -14.2% | -17.0% |
+| Shaman Enhancement | 204,977 | 247,988 | -17.3% | 204,977 | 197,511 | 239,645 | -14.5% | -17.6% |
+| Warlock Affliction | 227,754 | 236,925 | -3.9% | 227,754 | 219,853 | 229,764 | -0.9% | -4.3% |
+| Warlock Demonology | 213,769 | 236,119 | -9.5% | 213,769 | 207,144 | 229,861 | -7.0% | -9.9% |
+| Warlock Destruction | 203,963 | 231,589 | -11.9% | 203,963 | 197,480 | 225,468 | -9.5% | -12.4% |
+| Warrior Arms | 226,242 | 240,922 | -6.1% | 226,242 | 217,882 | 233,448 | -3.1% | -6.7% |
+| Warrior Fury | 227,964 | 257,228 | -11.4% | 227,964 | 220,651 | 250,176 | -8.9% | -11.8% |
 
 
 ## Casters

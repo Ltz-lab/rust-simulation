@@ -63,6 +63,22 @@ haste = 0.0              # [player] haste is the snapshot without a proc average
 mastery = 0.0200
 versatility = 0.0039
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 143,495 with all, 138,303 with
+# none, +3.75%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["rune_of_unleashed_fire", "rune_of_selfmending", "rune_of_lingering", "rune_of_critical_power", "rune_of_overload"]
+traits = [
+  { id = "rune_of_unleashed_fire", name = "Rune of Unleashed Fire", global_mult = 1.01950 },   # [simc] leave-one-out 1.03740
+  { id = "rune_of_selfmending", name = "Rune of Self-Mending", global_mult = 1.00002 },   # [simc] leave-one-out 1.00004
+  { id = "rune_of_lingering", name = "Rune of Lingering", global_mult = 1.00126 },   # [simc] leave-one-out 1.00239
+  { id = "rune_of_critical_power", name = "Rune of Critical Power", global_mult = 1.01436 },   # [simc] leave-one-out 1.02748
+  { id = "rune_of_overload", name = "Rune of Overload", global_mult = 1.00201 },   # [simc] leave-one-out 1.00383
+]
+
 [gear.kit] # [simc] raid-night kit, applied only with gear lines
 enabled = 1
 precombat = ["full_kit"] # [simc]

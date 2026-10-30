@@ -254,13 +254,15 @@ it until the other trinket is used: 1.8 uses a fight against 2.0).
 
 ### What's left
 
-- **`omnium_talents` are applied as one lump.** The five traits of the
-  reference are worth +3.60% in SimC at core kit (127,156 → 131,738) and +3.12%
-  with the full kit (218,843 → 225,641). `[gear.omnium]` takes that 3.60% back
-  out for a character without them (all of it on Rune of Unleashed Fire, the
-  driver the other four modify). Per piece it is exact for the full set and for
-  none; the kit-dependence (0.5 points) and a split between traits are not
-  modelled (`tools/omnium.py ablate`).
+- **`omnium_talents` are flat per-trait multipliers.** The five traits of the
+  reference are worth +3.58% in SimC at core kit (127,168 → 131,721, 20,000
+  iterations) and +3.12% with the full kit (218,843 → 225,641). `[gear.omnium]`
+  holds one value per trait from `tools/omnium.py ablate` (Unleashed Fire
+  1.019, Burning Haste 1.013, Overload 1.002, Lingering 1.001, Void-Tainted
+  Shell 0.9999), so a character with some of them gets those. They are exact
+  for the full set and for none; the kit-dependence (0.5 points) and
+  interactions between traits (the modifiers only act through Unleashed Fire)
+  are not modelled.
 
   The app's character without `omnium_talents`, azsim against SimC with the line
   removed (seed 1, 20,000 iterations):

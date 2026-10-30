@@ -55,6 +55,22 @@ versatility_bonus = 0.03      # [obs] Mark of the Wild
 weapon_ap_per_dps = 7.0556    # [obs] weapon attack power 830 at 117.64 main-hand DPS
 spec_id = 263                 # [db2] ChrSpecialization Enhancement
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 148,528 with all, 143,119 with
+# none, +3.78%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136823", "136817", "136821", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01982 },   # [simc] leave-one-out 1.03775
+  { id = "136823", name = "Rune of Lynxlike Reflexes", global_mult = 0.99996 },   # [simc] leave-one-out 0.99992
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00089 },   # [simc] leave-one-out 1.00168
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01502 },   # [simc] leave-one-out 1.02855
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00172 },   # [simc] leave-one-out 1.00325
+]
+
 # Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
 # turns it off): SimC's default level-90 consumables for the sample profile
 # plus Bloodlust, measured on its buffed stats. [simc]

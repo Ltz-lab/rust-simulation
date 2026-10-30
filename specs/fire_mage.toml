@@ -34,6 +34,7 @@ mastery = 0.1964         # 0.1750 + 0.0214: Mastery: Ignite banks this share of 
 crit_multiplier = 2.19   # [obs] same-base meteorite crit/non-crit pairs: 2.192 at 0 Fevered Incantation stacks
 
 [gear]
+spec_id = 63           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "intellect"
 base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3031 from gear = 2412 items + 619)
 primary_mult = 1.1025         # [obs] x1.05 passive (unbuffed 3182) x1.05 Arcane Intellect (buffed 3341; +200 int probe 3562)
@@ -43,6 +44,22 @@ haste_mult = 1.02             # [obs] 29.91% at 1204 rating (27.36%): x1.02, mul
 mastery_points = 13           # [obs] incl. 2 Skyfury, in mastery points (17.50% at 23.24 points from rating)
 mastery_coeff = 0.483         # [obs] +500 mastery probe: +5.05% over +10.46 points after diminishing returns
 versatility_bonus = 0.03      # [obs] Mark of the Wild
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 147,405 with all, 142,711 with
+# none, +3.29%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136816", "136817", "136820", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01761 },   # [simc] leave-one-out 1.03260
+  { id = "136816", name = "Rune of Void-Tainted Shell", global_mult = 1.00002 },   # [simc] leave-one-out 1.00003
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00114 },   # [simc] leave-one-out 1.00210
+  { id = "136820", name = "Rune of the Versatile Warrior", global_mult = 1.01126 },   # [simc] leave-one-out 1.02079
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00256 },   # [simc] leave-one-out 1.00472
+]
+
 # Raid-night kit, applied only with gear lines (the core-kit calibration never
 # sees it; `--set gear.kit.enabled=0` turns it off). Same consumables as every
 # other caster spec: SimC's defaults at 300s Patchwerk with Bloodlust. [simc]

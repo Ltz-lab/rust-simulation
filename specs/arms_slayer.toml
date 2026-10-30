@@ -69,6 +69,22 @@ crit = 0.0707
 mastery = 0.0035
 versatility = 0.0057
 
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 164,372 with all, 158,299 with
+# none, +3.84%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136823", "136817", "136821", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01970 },   # [simc] leave-one-out 1.03876
+  { id = "136823", name = "Rune of Lynxlike Reflexes", global_mult = 1.00017 },   # [simc] leave-one-out 1.00034
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00115 },   # [simc] leave-one-out 1.00225
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01524 },   # [simc] leave-one-out 1.02992
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00170 },   # [simc] leave-one-out 1.00331
+]
+
 # Raid-night kit with gear lines (see Ret): SimC's default level-90 Arms
 # consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
 [gear.kit]
