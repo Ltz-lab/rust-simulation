@@ -66,6 +66,18 @@ haste = -0.0049
 mastery = 0.0435
 versatility = 0.0192
 
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 Rogue consumables plus Bloodlust,
+# measured on the sample profile. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, crit_rating = 197, haste_rating = 32 }
+#   primary 75.1   food 50 + Void-Touched augment rune 25.1
+#   crit 165       Flask of the Shattered Sun (rank 2) [simc apl/rogue.cpp]
+#   crit/haste 32  Thalassian Phoenix Oil (rank 2) on both daggers
+primary_buffs = { lights_potential = 695 }   # [db2 1236616] rank-2 Light's Potential
+
 [fight]
 duration = 300
 variance = 0.2
@@ -105,6 +117,21 @@ ability = "hasty_ritual_proc"      # 18.5% uptime, 16s [obs]
 per_minute = 0.767
 
 # ---------------------------------------------------------------- buffs
+
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"   # potion: +695 agility for 30s [db2 1236616]
+duration = 30
+power_pct = 16.6            # as a share of attack power; [gear.kit] recomputes it from the gear
 
 [[buffs]]
 name = "stealth"            # out of combat [db2 1784]; broken by the opener
@@ -244,6 +271,20 @@ name = "momentum_of_despair"   # Shuriken Storm crit [db2 457115: 8s]
 duration = 8
 
 # ---------------------------------------------------------------- stealth
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
 
 [[abilities]]
 name = "stealth_open"
@@ -833,6 +874,11 @@ refresh = "extend"
 # Shadowstrike needs stealth: Stealth, Vanish, or Shadow Dance's stance.
 # stealth = buff.shadow_dance.up|buff.stealth.up|buff.vanish.up
 # dance_condition = !stealth&energy>=30&buff.slice_and_dice.up&(combo_points<=2|combo_points>=6)
+
+# Potion with Shadow Blades [simc APL: potion,if=buff.shadow_blades.up|fight_remains<30]
+[[rotation]]
+action = "potion"
+if = "buff.shadow_blades.up|fight_remains<30"
 
 [[rotation]]
 action = "goremaws_bite"

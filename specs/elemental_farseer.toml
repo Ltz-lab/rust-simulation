@@ -29,7 +29,7 @@ use_after = "potion"  # [simc]
 [gear.kit]
 enabled = 1  # [simc]
 precombat = ["full_kit"]  # [simc]
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }  # [db2/simc]
+stats = { primary = 75.1, mastery_rating = 165 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Magisters (mastery 165); a staff, so no weapon oil
 primary_buffs = { lights_potential = 695 }  # [db2]
 
 [gear.procs]

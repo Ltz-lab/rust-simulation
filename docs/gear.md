@@ -126,6 +126,64 @@ Fire 148,405 vs 148,397 (+0.01%; SimC 147,351), Destruction 155,828 vs
 155,835 (-0.00%; SimC 157,039).
 
 
+## Raid-night kit against SimC (full gear, no trinkets)
+
+`[gear.kit]` is each spec's food, rune, flask, weapon oil, potion and
+Bloodlust. The flask is not the same for every spec (SimC picks it per spec in
+`engine/class_modules/apl/*.cpp`) and some specs have a rating multiplier
+(`[gear] rating_mult`, aura 405: Frost Mage's Winter's Blessing is +5% haste
+rating), so a kit copied from another spec puts the wrong 165 rating on the
+character. Measured on each sample profile (trinkets and tier set removed,
+omnium traits kept) with SimC's default consumables, the kits are now:
+
+| spec | flask (165) | oil | other |
+|---|---|---|---|
+| Fire | versatility | 16 crit/haste | |
+| Frost Mage | crit | 16 crit/haste | `rating_mult` haste 1.05, mastery coefficient 1.6 (was 1.0), primary x1.1025 (was 1.071) |
+| Arcane | haste | 16 crit/haste | |
+| Affliction, Demonology | crit | 16 crit/haste | potion is Liquid Luster (versatility stacks), not Light's Potential |
+| Destruction | mastery | 16 crit/haste | Potion of Recklessness (+1725 mastery, -232 versatility) |
+| Elemental | mastery | none (staff) | |
+| Fury | mastery | 32 crit/haste (two weapons) | |
+| Devourer | mastery | 32 crit/haste | Blooming Feast +65 mastery, no food primary |
+| Subtlety | crit | 32 crit/haste | |
+
+Fire, Destruction and Subtlety had no kit at all, so a real character read
+13-14% low (Fire, Destruction) and 11% low (Subtlety) before anything else.
+Shadow and Frost Mage had the potion buff but no rotation entry that used it.
+After the change every spec's crit, haste, mastery and versatility percent
+and its spell or attack power match SimC's buffed stats on its sample
+profile. DPS on the same profiles (no trinkets, set bonuses off, 300s
+Patchwerk, SimC 60,000 iterations at 0.15% error, azsim 10,000):
+
+| spec | SimC | azsim before | azsim after |
+|---|---:|---:|---:|
+| affliction_hellcaller | 183,142 | 185,168 (+1.1%) | 183,503 (+0.2%) |
+| arcane_spellslinger | 151,973 | 151,754 (-0.1%) | 151,670 (-0.2%) |
+| arms_slayer | 186,694 | 186,297 (-0.2%) | 186,297 (-0.2%) |
+| balance_elunes_chosen | 174,911 | 171,444 (-2.0%) | 171,444 (-2.0%) |
+| demonology_diabolist | 183,934 | 180,221 (-2.0%) | 178,893 (-2.7%) |
+| destruction_hellcaller | 178,279 | 155,815 (-12.6%) | 178,414 (+0.1%) |
+| devourer_voidscarred | 192,825 | 189,258 (-1.8%) | 189,885 (-1.5%) |
+| elemental_farseer | 185,688 | 189,222 (+1.9%) | 188,124 (+1.3%) |
+| feral_wildstalker | 193,526 | 189,519 (-2.1%) | 189,519 (-2.1%) |
+| fire_mage | 172,909 | 148,456 (-14.1%) | 178,818 (+3.4%) |
+| frost_mage_spellslinger | 172,161 | 137,961 (-19.9%) | 172,978 (+0.5%) |
+| fury_slayer | 190,804 | 185,656 (-2.7%) | 186,934 (-2.0%) |
+| havoc_fel_scarred | 185,105 | 177,807 (-3.9%) | 177,807 (-3.9%) |
+| retribution_herald | 152,451 | 153,200 (+0.5%) | 153,200 (+0.5%) |
+| shadow_voidweaver | 165,558 | 157,638 (-4.8%) | 163,897 (-1.0%) |
+| subtlety_deathstalker | 202,849 | 181,258 (-10.6%) | 210,013 (+3.5%) |
+
+What is left is the spec-level residue (Havoc -3.9%, Demonology -2.7%, Balance
+and Feral about -2%) and Fire and Subtlety reading 3.5% high, because their
+`[gear.procs]` still add the sample gear's time-averaged trinket procs to a
+character that has none. Trinket and set effects are modelled separately.
+A ring swap that only moves ratings is mapped exactly (`--gear-stats` deltas
+equal SimC's to 0.01 points), so the remaining swap error is the engine's
+response to the stats (Fire's haste over-response, below) and item effects the
+ring carries (issue #19).
+
 ## Agility
 
 Subtlety Rogue's `[gear]` works like Ret's: `attack_power_mult` (Battle

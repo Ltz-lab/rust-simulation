@@ -256,6 +256,14 @@ triggered_only = true
 on_cast = [{ type = "buff", buff = "shadowform" }, { type = "buff", buff = "cast_lag" }]
 
 [[abilities]]
+name = "potion"
+spell_id = 1236616       # [db2]
+gcd = 0
+cooldown = 300           # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
+[[abilities]]
 name = "power_infusion"
 spell_id = 10060
 gcd = 0                  # [simc] used off the GCD
@@ -969,6 +977,10 @@ damage = { sp_coeff = 0.6436, school = "shadow", mastery = true, mastery_scale =
 [[rotation]]
 action = "power_infusion"
 if = "buff.voidform.up&!buff.power_infusion.up"
+# Potion in Voidform with Power Infusion, under Bloodlust [simc cds APL]
+[[rotation]]
+action = "potion"
+if = "buff.voidform.up&buff.power_infusion.up&buff.bloodlust.up|fight_remains<=30"
 [[rotation]]
 action = "voidform"
 if = "dot.vampiric_touch.ticking&dot.shadow_word_pain.ticking&!buff.voidform.up&!buff.void_volley.up&!buff.crushing_void.up"

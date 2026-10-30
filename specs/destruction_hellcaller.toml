@@ -59,6 +59,17 @@ haste = 0.0239
 mastery = 0.0883
 versatility = 0.0039
 
+# Raid-night kit, applied only with gear lines (the core-kit calibration never
+# sees it; `--set gear.kit.enabled=0` turns it off): SimC's default level-90
+# Destruction consumables plus Bloodlust, measured on the sample profile. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
+#   primary 75.1   Silvermoon-era food 50 + Void-Touched augment rune 25.1 [obs: +83 spell power]
+#   mastery 165    Flask of the Magisters (rank 2) [simc apl/warlock.cpp]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand
+
 [fight]
 duration = 300
 variance = 0.2
@@ -81,6 +92,21 @@ ability = "devil_fruit"            # RPPM 1 on Wither ticks [db2 1266805]; 1.37/
 per_minute = 1.37
 
 # ---------------------------------------------------------------- buffs
+
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { mastery_rating = 1725, versatility_rating = -232 }   # [obs] as Havoc's: mastery is this gear's highest, versatility its lowest
 
 [[buffs]]
 name = "backdraft"          # Conflagrate: next Incinerate/Chaos Bolt/Soul Fire casts 30% faster [db2 117828: 10s, 2 charges 196406]
@@ -133,6 +159,20 @@ name = "infernal"           # the Infernal is out [db2 111685: 30s] +0-0.82s [si
 duration = 30.41
 
 # ---------------------------------------------------------------- spenders
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
 
 [[abilities]]
 name = "chaos_bolt"
@@ -530,6 +570,11 @@ refresh = "extend"
 
 # ---------------------------------------------------------------- rotation
 # Paraphrase of SimC's default Destruction APL, single target, Hellcaller.
+
+# Potion with the Infernal [simc APL: potion,if=variable.infernal_active|!talent.summon_infernal]
+[[rotation]]
+action = "potion"
+if = "buff.infernal.up|fight_remains<32"
 
 [[rotation]]
 action = "soul_fire"

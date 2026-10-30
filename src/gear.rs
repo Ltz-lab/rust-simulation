@@ -94,6 +94,11 @@ struct GearSpec {
     versatility_bonus: f64,
     #[serde(default)]
     weapon_ap_per_dps: f64,
+    /// Passive "rating multiplier" auras (aura 405, e.g. Frost Mage's Winter's
+    /// Blessing: +5% haste rating), by "crit" / "haste" / "mastery" / "versatility".
+    /// Applied to the gear's rating before the kit's consumables are added.
+    #[serde(default)]
+    rating_mult: HashMap<String, f64>,
     #[serde(default)]
     kit: Option<Kit>,
     /// The spec's id (ChrSpecialization), to pick class set bonuses.
@@ -468,10 +473,15 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
         format!("no combat_ratings entry for level {level}")
     })?;
 
-    let crit_dr = dr_percent((crit_rating as f64 + kit_stat("crit_rating")) / cr["crit"]);
-    let haste_dr = dr_percent((haste_rating as f64 + kit_stat("haste_rating")) / cr["haste"]);
-    let mastery_dr = dr_percent((mastery_rating as f64 + kit_stat("mastery_rating")) / cr["mastery"]);
-    let vers_dr = dr_percent((versatility_rating as f64 + kit_stat("versatility_rating")) / cr["versatility"]);
+    let rating_mult = |k: &str| cfg.rating_mult.get(k).copied().unwrap_or(1.0);
+    let total_crit = crit_rating as f64 * rating_mult("crit") + kit_stat("crit_rating");
+    let total_haste = haste_rating as f64 * rating_mult("haste") + kit_stat("haste_rating");
+    let total_mastery = mastery_rating as f64 * rating_mult("mastery") + kit_stat("mastery_rating");
+    let total_vers = versatility_rating as f64 * rating_mult("versatility") + kit_stat("versatility_rating");
+    let crit_dr = dr_percent(total_crit / cr["crit"]);
+    let haste_dr = dr_percent(total_haste / cr["haste"]);
+    let mastery_dr = dr_percent(total_mastery / cr["mastery"]);
+    let vers_dr = dr_percent(total_vers / cr["versatility"]);
 
     let primary = ((cfg.base_primary + gear_primary + kit_stat("primary")) * cfg.primary_mult).floor();
     let crit = crit_dr / 100.0 + cfg.crit_bonus;
@@ -542,10 +552,10 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
     let kit_out = kit.map(|k| KitOut { precombat: k.precombat.clone(), power_buffs });
     let ctx = StatCtx {
         ratings: [
-            crit_rating as f64 + kit_stat("crit_rating"),
-            haste_rating as f64 + kit_stat("haste_rating"),
-            mastery_rating as f64 + kit_stat("mastery_rating"),
-            versatility_rating as f64 + kit_stat("versatility_rating"),
+            total_crit,
+            total_haste,
+            total_mastery,
+            total_vers,
         ],
         per_pct: [cr["crit"], cr["haste"], cr["mastery"], cr["versatility"]],
         mastery_coeff: cfg.mastery_coeff,
@@ -1154,7 +1164,8 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
     /// A caster spec's own `[gear]` table against its core-kit profile (no trinkets).
     fn caster(spec: &str, profile: &str) -> Value {
         let doc: toml::Value = toml::from_str(spec).unwrap();
-        let cfg: GearSpec = doc["gear"].clone().try_into().unwrap();
+        let mut cfg: GearSpec = doc["gear"].clone().try_into().unwrap();
+        cfg.kit = None; // core kit: these tests compare the reference's own snapshot
         let core: String = profile
             .lines()
             .filter(|l| !l.starts_with("trinket"))
@@ -1217,5 +1228,34 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         assert!((b["haste"].as_f64().unwrap() - 0.262452).abs() < 1e-5);
         assert!((b["mastery"].as_f64().unwrap() - 0.905967).abs() < 1e-5);
         assert!((b["versatility"].as_f64().unwrap() - 0.11).abs() < 1e-5);
+    }
+
+    /// With the raid-night kit on, the stats are SimC's buffed ones for the sample profile
+    /// (run with default consumables, no trinkets): the flask differs by spec.
+    fn with_kit(spec: &str, profile: &str) -> Value {
+        let doc: toml::Value = toml::from_str(spec).unwrap();
+        let cfg: GearSpec = doc["gear"].clone().try_into().unwrap();
+        let core: String = profile.lines().filter(|l| !l.starts_with("trinket")).map(|l| format!("{l}\n")).collect();
+        compute(&core, &cfg).unwrap().report
+    }
+
+    #[test]
+    fn kits_match_simc_buffed_stats() {
+        // (spec, profile, spell/attack power, crit, haste, mastery, versatility) from SimC's report
+        let cases: [(&str, &str, f64, f64, f64, f64, f64); 4] = [
+            (include_str!("../specs/fire_mage.toml"), include_str!("../profiles/MID2_Mage_Fire.simc"), 3424.0, 0.1104, 0.3028, 0.1750, 0.1707),
+            (include_str!("../specs/frost_mage_spellslinger.toml"), include_str!("../profiles/MID2_Mage_Frost.simc"), 3402.0, 0.3367, 0.2669, 0.5621, 0.0528),
+            (include_str!("../specs/demonology_diabolist.toml"), include_str!("../profiles/MID2_Warlock_Demonology.simc"), 3507.0, 0.3849, 0.1946, 0.4684, 0.0724),
+            (include_str!("../specs/destruction_hellcaller.toml"), include_str!("../profiles/MID2_Warlock_Destruction.simc"), 3458.0, 0.3633, 0.2024, 0.8074, 0.0528),
+        ];
+        for (spec, profile, power, crit, haste, mastery, vers) in cases {
+            let rep = with_kit(spec, profile);
+            let b = &rep["buffed"];
+            let name = spec.lines().next().unwrap();
+            assert!((b["spell_power"].as_f64().unwrap() - power).abs() <= 3.0, "{name} spell power");
+            for (k, want) in [("crit", crit), ("haste", haste), ("mastery", mastery), ("versatility", vers)] {
+                assert!((b[k].as_f64().unwrap() - want).abs() < 6e-4, "{name} {k}: {} vs {want}", b[k]);
+            }
+        }
     }
 }

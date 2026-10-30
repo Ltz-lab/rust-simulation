@@ -43,6 +43,15 @@ haste_mult = 1.02             # [obs] 29.91% at 1204 rating (27.36%): x1.02, mul
 mastery_points = 13           # [obs] incl. 2 Skyfury, in mastery points (17.50% at 23.24 points from rating)
 mastery_coeff = 0.483         # [obs] +500 mastery probe: +5.05% over +10.46 points after diminishing returns
 versatility_bonus = 0.03      # [obs] Mark of the Wild
+# Raid-night kit, applied only with gear lines (the core-kit calibration never
+# sees it; `--set gear.kit.enabled=0` turns it off). Same consumables as every
+# other caster spec: SimC's defaults at 300s Patchwerk with Bloodlust. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, versatility_rating = 165, crit_rating = 16, haste_rating = 16 }   # [simc] food, rune, Flask of Thalassian Resistance (vers 165), oil; measured on the sample profile
+primary_buffs = { lights_potential = 695 }   # [db2 1236616] rank-2 Light's Potential
+
 # Damage of the library's gear procs (data/item_effects.toml): the raid
 # debuffs the calibrated sources carry in their fitted multipliers, Mystic
 # Touch (+5% physical), Chaos Brand (+3% magic) and Hunter's Mark (+3%). [simc]
@@ -71,6 +80,18 @@ ability = "acidbrood_scourge"
 per_minute = 4.58
 
 # ---------------------------------------------------------------- buffs
+
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+[[buffs]]
+name = "bloodlust"
+duration = 40               # [db2 2825]
+haste_pct = 30              # [db2]
+[[buffs]]
+name = "lights_potential"
+duration = 30               # [db2 1236616]
+power_pct = 20              # [obs] replaced from gear
 
 [[buffs]]
 name = "heating_up"         # one direct crit [db2 48107: 10s]
@@ -248,6 +269,19 @@ on_cast = [
   { type = "consume", buff = "spellfire_sphere", all = true },   # Codex of the Sunstriders: the phoenix eats them [db2 449382]
   { type = "summon", pet = "arcane_phoenix" },
 ]
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+[[abilities]]
+name = "potion"
+spell_id = 1236616          # [db2]
+gcd = 0
+cooldown = 300              # [db2]
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
 
 [[abilities]]
 name = "fireball"
@@ -510,6 +544,11 @@ damage = { sp_coeff = 2.7, school = "nature" }   # gear; scale from calibration
 
 # Fire Blast is off the GCD (castable mid-cast in game; here between casts): complete a
 # Heating Up into Hot Streak, or avoid capping charges.
+# Potion on the pull (Firestarter + spheres delay it 8s), or with Combustion. [simc]
+[[rotation]]
+action = "potion"
+if = "time>=8|buff.combustion.remains>6|fight_remains<35"
+
 [[rotation]]
 action = "fire_blast"
 if = "buff.heating_up.up&!buff.hot_streak.up"
