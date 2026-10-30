@@ -176,6 +176,27 @@ share of ability damage (702 at 117.6 DPS, fitted to the agility probe). All
 14 items, every rating and the buffed stats match SimC without trinkets; see
 [subtlety-rogue.md](subtlety-rogue.md#gear).
 
+Assassination Rogue, Beast Mastery Hunter, Enhancement Shaman (agility) and
+Unholy Death Knight (strength) have `[gear]` tables on the same pattern. Against
+SimC's MID2 sample profiles without trinkets (`tools/check_gear.py`), every
+rating and the final attack power, crit, haste, mastery and versatility match
+(Enhancement is 1 rating point short on crit and haste; Beast Mastery's SimC
+character has 27 more crit rating than its items and gems sum to, folded into
+`crit_bonus`). Mastery coefficients are SimC's spell data (Potent Assassin 1.7,
+Master of Beasts 1.9, Enhanced Elements 2.0, Dreadblade 1.8). Unholy's flat
+1000 base attack power rides in `weapon_ap_per_dps`. DPS, 5,000 iterations:
+
+| spec | SimC, no trinkets | azsim `--gear` | full profile (trinkets, no consumables) |
+|---|---:|---:|---:|
+| Assassination | 148,298 | +0.10% | -0.32% |
+| Beast Mastery | 181,945 | -1.78% | -2.59% |
+| Enhancement | 148,587 | -4.23% | -4.37% |
+| Unholy | 148,581 | +0.95% | +1.49% |
+
+The gaps are the specs' own (see their docs), not gear conversion: `--gear`
+is within 0.2% of the same specs with hand-entered stats. None has a
+`[gear.kit]` yet, so consumables are not modelled.
+
 
 ## Known gaps
 

@@ -34,6 +34,10 @@ SPEC_BY_PROFILE = {
     "arms": "arms_slayer",
     "shadow": "shadow_voidweaver",
     "devourer": "devourer_voidscarred",
+    "assassination": "assassination_deathstalker",
+    "beast_mastery": "beast_mastery_pack_leader",
+    "enhancement": "enhancement_stormbringer",
+    "unholy": "unholy_rider",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"

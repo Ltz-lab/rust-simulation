@@ -664,7 +664,7 @@ mod tests {
     #[test]
     fn unknown_spec_and_gearless_spec() {
         assert!(run_json(r#"{"spec":"nope"}"#).is_err());
-        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller", "subtlety_deathstalker", "arms_slayer"] {
+        for name in ["retribution_herald", "fire_mage", "destruction_hellcaller", "subtlety_deathstalker", "arms_slayer", "assassination_deathstalker", "beast_mastery_pack_leader", "enhancement_stormbringer", "unholy_rider"] {
             assert!(supports_gear(name), "{name}");
         }
         // A spec without a [gear] table can't take gear lines

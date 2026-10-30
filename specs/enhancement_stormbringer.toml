@@ -42,6 +42,19 @@ global_mult = 1.25
 weapon = { min = 0, max = 0, speed = 2.6 }   # [obs] swings every 2.6s hasted
 off_hand = { min = 0, max = 0, speed = 2.6 }
 
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 troll shaman base agility (SimC: 2526 buffed = (618 + 1709 from gear) x 1.0855)
+primary_mult = 1.0857         # [obs] buffed 2526 / unbuffed 2327
+attack_power_mult = 1.05      # [obs] Battle Shout: 2526 agility -> 2652 attack power
+crit_bonus = 0.10             # [obs] 31.98% at 1011 rating
+haste_mult = 1.0              # [obs] 19.27% at 848 rating: no multiplier
+mastery_points = 13           # [obs] 72% / Enhanced Elements 2.0 [simc spell 77223] = 36 points, 23 from rating
+mastery_coeff = 2.0           # [simc] Enhanced Elements, % per mastery point
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 7.0556    # [obs] weapon attack power 830 at 117.64 main-hand DPS
+spec_id = 263                 # [db2] ChrSpecialization Enhancement
+
 [fight]
 duration = 300
 variance = 0.2
