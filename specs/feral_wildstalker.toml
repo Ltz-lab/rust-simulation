@@ -181,7 +181,7 @@ haste_pct = 30
 [[buffs]]
 name = "liquid_luster"     # potion: Lustrous Gleam stacks (3 average over the 30s) [db2 1295147]
 duration = 30
-versatility_pct = 12.27    # [db2 1295132] 220.82 rating a stack x 3 stacks / 54 rating a point
+versatility_pct = 23.34    # [simc log] 420 rating a stack (not the 220.82 an unscaled DB2 read gives) x 3 stacks / 54 rating a point
 
 # ---------------------------------------------------------------- builders
 
