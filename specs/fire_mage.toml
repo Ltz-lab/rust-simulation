@@ -34,6 +34,7 @@ mastery = 0.1964         # 0.1750 + 0.0214: Mastery: Ignite banks this share of 
 crit_multiplier = 2.19   # [obs] same-base meteorite crit/non-crit pairs: 2.192 at 0 Fevered Incantation stacks
 
 [gear]
+spec_id = 63           # [db2] ChrSpecialization: picks the class set bonuses
 primary = "intellect"
 base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3031 from gear = 2412 items + 619)
 primary_mult = 1.1025         # [obs] x1.05 passive (unbuffed 3182) x1.05 Arcane Intellect (buffed 3341; +200 int probe 3562)
