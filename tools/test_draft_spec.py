@@ -50,8 +50,43 @@ class Translate(unittest.TestCase):
         self.assertEqual(ds.translate("variable.v|full_recharge_time<gcd", cx),
                          "buff.a.up&rage>50|cooldown.hammer.full_recharge_time<gcd")
 
+    def test_patchwerk_folds(self):
+        # no raid events on a single target: nothing exists, the next one never comes
+        self.assertEqual(tr("!raid_event.adds.exists|raid_event.adds.in>10|raid_event.adds.up"), "")
+        with self.assertRaises(ds.NeverFires):
+            tr("raid_event.adds.up")
+        self.assertEqual(tr("expected_combat_length%%60=0&buff.a.up", fight_length=300), "buff.a.up")
+        with self.assertRaises(ds.NeverFires):
+            tr("expected_combat_length%%60>0", fight_length=300)
+        # bare: no trinkets or equipped items
+        self.assertEqual(tr("!equipped.x|trinket.1.cooldown.remains>5&buff.a.up", bare=True), "")
+        with self.assertRaises(ds.Untranslatable):
+            tr("equipped.x")
+
+    def test_reset_variable_is_its_default(self):
+        lists = ds.parse_apl("actions.precombat=variable,name=v,op=reset,default=0\n"
+                             "actions=judgment,if=variable.v=1|buff.a.up\n")
+        rows, _, _ = ds.build_rotation(lists, lambda a: ds.Ctx(action=a))
+        self.assertEqual([(r["action"], r["if"], r["status"]) for r in rows], [("judgment", "buff.a.up", "ok")])
+        # set somewhere else too: not a plain value any more
+        lists = ds.parse_apl("actions.precombat=variable,name=v,op=reset,default=0\n"
+                             "actions=variable,name=v,op=max,value=2\nactions+=/judgment,if=variable.v=1\n")
+        rows, _, _ = ds.build_rotation(lists, lambda a: ds.Ctx(action=a))
+        self.assertEqual(rows[0]["status"], "todo")
+
+    def test_overrides_and_untaken_talents(self):
+        rows = [{"action": "templars_verdict", "status": "ok"}, {"action": "templar_strike", "status": "ok"},
+                {"action": "judgment", "status": "ok"}]
+        known = lambda n: {"final_verdict": True, "templar_strike": False}.get(n)
+        skipped = {}
+        out = ds.adjust_rows(rows, skipped, known)
+        self.assertEqual([r["action"] for r in out], ["final_verdict", "judgment"])
+        self.assertEqual(skipped, {"(talent not taken)": 1})
+        out = ds.adjust_rows(rows[:1], {}, lambda n: None)          # talent unknown: keep the APL's name
+        self.assertEqual(out[0]["action"], "templars_verdict")
+
     def test_unsupported_is_flagged_not_guessed(self):
-        for c in ("trinket.1.has_use_buff", "a%%2=0", "x>?3", "debuff.x.up", "equipped.foo", "@buff.a.stack>1"):
+        for c in ("trinket.1.has_use_buff", "a%%2=0", "buff.a.stack%%2=0", "x>?3", "debuff.x.up", "equipped.foo", "@buff.a.stack>1"):
             with self.assertRaises(ds.Untranslatable, msg=c):
                 tr(c)
 
@@ -117,19 +152,24 @@ def write_fixture(d):
             csv.writer(f).writerows(rows)
     for t in COLS:
         w(t, [])
-    w("SpellName", [(1, "Big Hit"), (2, "Big Hit Buff"), (3, "Charged Shot")])
+    w("SpellName", [(1, "Big Hit"), (2, "Big Hit Buff"), (3, "Charged Shot"), (4, "Slow Strike"),
+                    (5, "Twin"), (6, "Twin"), (7, "Twin"), (8, "Twin")])
 
     def e(sid, i, eff, aura, base, ap, sp, m0=0):
         return (sid, i, 0, eff, aura, base, ap, sp, m0, 0, 0, 0, 0, 0, 0, 0)
-    w("SpellEffect", [e(1, 0, 2, 0, 0, 2.5, 0), e(1, 1, 30, 0, 1, 0, 0, 9), e(2, 0, 6, 108, 20, 0, 0), e(3, 0, 2, 0, 0, 0, 1.2)])
-    w("SpellMisc", [(1, 0, 0, 0, 2, 0), (2, 7, 0, 0, 1, 0), (3, 0, 5, 0, 4, 0)])
-    w("SpellCooldowns", [(1, 0, 6000, 1500), (3, 0, 0, 1500)])
+    w("SpellEffect", [e(1, 0, 2, 0, 0, 2.5, 0), e(1, 1, 30, 0, 1, 0, 0, 9), e(2, 0, 6, 108, 20, 0, 0), e(3, 0, 2, 0, 0, 0, 1.2),
+                      e(4, 0, 2, 0, 0, 1.0, 0), e(4, 1, 30, 0, 0, 0, 0, 9),
+                      e(5, 0, 2, 0, 0, 1.0, 0), e(6, 0, 2, 0, 0, 1.0, 0), e(7, 0, 2, 0, 0, 1.0, 0), e(8, 0, 2, 0, 0, 1.0, 0)])
+    # 4: holy+fire; 5 is passive (0x40), 6 and 7 castable, 8 castable and a cooldown-less
+    w("SpellMisc", [(1, 0, 0, 0, 2, 0), (2, 7, 0, 0, 1, 0), (3, 0, 5, 0, 4, 0), (4, 0, 0, 0, 6, 0),
+                    (5, 0, 0, 0x40, 2, 0), (6, 0, 0, 0, 2, 0), (7, 0, 0, 0, 2, 0), (8, 0, 0, 0, 2, 0)])
+    w("SpellCooldowns", [(1, 0, 6000, 1500), (3, 0, 0, 1500), (4, 500, 0, 1500), (6, 1000, 0, 1500), (7, 1000, 0, 1500)])
     w("SpellPower", [(1, 3, 9), (3, 200, 1)])
     w("SpellAuraOptions", [(2, 3)])
     w("SpellDuration", [(7, 12000)])
     w("SpellCastTimes", [(5, 2500)])
-    w("SpellCategories", [(3, 4)])
-    w("SpellCategory", [(4, 2, 8000)])
+    w("SpellCategories", [(3, 4), (4, 9)])
+    w("SpellCategory", [(4, 2, 8000), (9, 1, 12000)])
     w("SpecializationSpells", [(70, 1), (70, 3)])
 
 
@@ -148,6 +188,15 @@ class Db2Layer(unittest.TestCase):
             self.assertEqual(g["cost"], {"rage": 20.0})        # rage is stored in tenths
             self.assertEqual(g["damage"], {"school": "fire", "sp_coeff": 1.2})
             self.assertEqual(db.pick("big_hit_buff", aura=True)[0], 2)
+            # a one-charge spell on a charge category keeps its cooldown (RecoveryTime is only the lockout);
+            # a zero energize is not a gain; a holy+fire mask is the school SimC calls holyfire
+            sf, _ = db.ability(4)
+            self.assertEqual((sf["cooldown"], "charges" in sf, "gain" in sf), (12.0, False, False))
+            self.assertEqual(sf["damage"]["school"], "holyfire")
+            # same name, four spells: passive loses, then the loadout's talent, then the oldest id
+            self.assertEqual(db.pick("twin")[0], 6)
+            db.talent_spells = {7}
+            self.assertEqual(db.pick("twin")[0], 7)
             b = db.buff(2)
             self.assertEqual((b["duration"], b["max_stacks"]), (12.0, 3))
 
