@@ -640,3 +640,102 @@ gcd = 0
 requires_buff = "gebbo_totem"
 on_cast = [{ type = "consume", buff = "gebbo_totem" }]
 '''
+
+# Wavecaller's Seastone (1295058): real-PPM 6 spell casts add a stack of
+# Tidal Insight (e1 of the primary stat per stack, up to 6, no expiry); at 6
+# the next casts take stacks off again, one per proc, and at 0 the cycle
+# restarts. The chain 1,2,..,6,5,..,1,0 is a triangle wave whose mean is 3
+# stacks, and every proc takes the same mean time, so the buff is modelled as
+# 3 stacks held from the pull (the first ramp up from 0 averages 3 too).
+# [simc wavecallers_seastone; Tidal Insight 1295057]
+[[effect]]
+spell = 1295058
+text = '''
+precombat = ["tidal_insight"]
+
+[[buffs]]
+name = "tidal_insight"
+duration = 1e9
+stats = { primary = ${e1:mul3} }
+
+[[abilities]]
+name = "tidal_insight"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "tidal_insight" }]
+'''
+
+# Locus-Walker's Ribbon (249809, driver 1259314): real-PPM 2.5 spell casts
+# grant Riftwalker's Temptation, e1 of the primary stat for 10s (a repeat
+# refreshes it), and each proc adds a stack of Deepening Temptation (up to
+# 10, permanent in combat) worth +e2% of the buff's value. The buff takes the
+# stacks the Deepening Temptation held before this proc (SimC triggers the
+# stat buff first). Modelled as a stat buff of 20 + k stacks of e1/20.
+# [simc locuswalkers_ribbon; 1259317 buff, 1268058 stack buff]
+[[effect]]
+spell = 1259314
+text = '''
+[[procs]]
+ability = "ribbon_proc"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "ribbon_proc"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "riftwalkers_temptation", set = "20+buff.deepening_temptation.stack" },
+  { type = "buff", buff = "deepening_temptation" },
+]
+
+[[buffs]]
+name = "riftwalkers_temptation"
+duration = ${1259317.duration}
+max_stacks = 30
+stats = { primary = ${e1:div20} }
+
+[[buffs]]
+name = "deepening_temptation"
+duration = 1e9
+max_stacks = 10
+'''
+
+# Ring enchant Eyes of the Eagle (7966 rank 1: 1236700, 7967 rank 2: 1236701):
+# the crit damage multiplier x1.02 per ring wearing it (SimC parses the aura
+# onto the player once per ring: A_MOD_CRIT_DAMAGE_MULTIPLIER, e1 = 2 percent).
+# Two rings are applied as one buff, `:copies` strong. [simc eyes_of_the_eagle]
+[[effect]]
+spell = 1236701
+text = '''
+precombat = ["eyes_of_the_eagle"]
+
+[[buffs]]
+name = "eyes_of_the_eagle"
+duration = 1e9
+crit_damage_mult_pct = ${e1:copies}
+
+[[abilities]]
+name = "eyes_of_the_eagle"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "eyes_of_the_eagle" }]
+'''
+
+[[effect]]
+spell = 1236700
+text = '''
+precombat = ["eyes_of_the_eagle"]
+
+[[buffs]]
+name = "eyes_of_the_eagle"
+duration = 1e9
+crit_damage_mult_pct = ${e1:copies}
+
+[[abilities]]
+name = "eyes_of_the_eagle"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "eyes_of_the_eagle" }]
+'''

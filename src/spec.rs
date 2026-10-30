@@ -701,6 +701,10 @@ pub struct BuffDef {
     /// Added to the crit damage multiplier (percent of normal damage; 10 = +0.1).
     #[serde(default)]
     pub crit_damage_pct: f64,
+    /// Multiplies the whole crit damage multiplier (percent: 2 = x1.02), e.g. the
+    /// ring enchant Eyes of the Eagle.
+    #[serde(default)]
+    pub crit_damage_mult_pct: f64,
     /// Flat mastery points (percent: 2 = +0.02 mastery).
     #[serde(default)]
     pub mastery_pct: f64,

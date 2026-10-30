@@ -278,6 +278,7 @@ pub struct Compiled {
     crit_buffs: Vec<(usize, f64)>,
     store_buffs: Vec<(usize, f64)>,
     crit_dmg_buffs: Vec<(usize, f64)>,
+    crit_dmg_mult_buffs: Vec<(usize, f64)>,
     mastery_buffs: Vec<(usize, f64)>,
     power_buffs: Vec<(usize, f64)>,
     vers_buffs: Vec<(usize, f64)>,
@@ -1030,6 +1031,7 @@ impl Compiled {
             crit_buffs,
             store_buffs,
             crit_dmg_buffs: per_buff(&spec.buffs, |b| b.crit_damage_pct),
+            crit_dmg_mult_buffs: per_buff(&spec.buffs, |b| b.crit_damage_mult_pct),
             mastery_buffs: per_buff(&spec.buffs, |b| b.mastery_pct),
             power_buffs: per_buff(&spec.buffs, |b| b.power_pct),
             vers_buffs: per_buff(&spec.buffs, |b| b.versatility_pct),
@@ -2005,7 +2007,8 @@ impl<'a> State<'a> {
         }
         let cc = self.crit_chance(crit_bonus, crit_mods);
         let crit = self.rng.f64(self.c.crit_stream(src)) < cc * crit_mult;
-        let cm = p.crit_multiplier + crit_dmg + crit_dmg_per_crit * cc + self.buff_sum(&self.c.crit_dmg_buffs);
+        let cm = (p.crit_multiplier + crit_dmg + crit_dmg_per_crit * cc + self.buff_sum(&self.c.crit_dmg_buffs))
+            * (1.0 + self.buff_sum(&self.c.crit_dmg_mult_buffs));
         let dmg = base * m * if crit { cm } else { 1.0 };
         self.record(src, dmg, crit);
         if !self.c.echoes.is_empty() && !self.c.echo_row[src] {

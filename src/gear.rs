@@ -38,6 +38,12 @@ struct GameData {
     /// item bonus id -> effects it adds to its item (embellishments)
     #[serde(default)]
     bonus_effects: HashMap<String, Vec<[i64; 4]>>,
+    /// enchant id -> spells of its equip / on-hit effects that an effect template names
+    #[serde(default)]
+    enchant_spells: HashMap<String, Vec<i64>>,
+    /// SimC's `enchant=<name>_<rank>` profile names -> enchant id
+    #[serde(default)]
+    enchant_names: HashMap<String, i64>,
     item_sets: HashMap<String, i64>,
     set_bonuses: HashMap<String, Vec<[i64; 3]>>,
     spells: HashMap<String, SpellRec>,
@@ -362,6 +368,8 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
                 "bonus_id" => bonus_ids = parse_ids(v.trim()),
                 "gem_id" => gem_ids = parse_ids(v.trim()),
                 "enchant_id" => enchant_id = v.trim().parse().ok(),
+                // SimC's own name for the enchant (`enchant_ring__eyes_of_the_eagle_2`), as the /simc addon exports bag items
+                "enchant" => enchant_id = enchant_id.or_else(|| v.trim().parse().ok().or_else(|| gd.enchant_names.get(v.trim()).copied())),
                 "redirected_base_stats" => redirected = v.trim().parse().ok(),
                 "crafted_stats" => crafted_stats = parse_ids(v.trim()),
                 "ilevel" => ilevel_override = v.trim().parse().ok(),
@@ -520,7 +528,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
             };
         }
 
-        equipped.push(Equipped { slot: slot.to_string(), id: item_id, ilvl, inv_type, bonus_ids: bonus_ids.clone() });
+        equipped.push(Equipped { slot: slot.to_string(), id: item_id, ilvl, inv_type, bonus_ids: bonus_ids.clone(), enchant_id });
         items_out.push(json!({
             "slot": slot,
             "id": item_id,
@@ -667,6 +675,7 @@ struct Equipped {
     ilvl: usize,
     inv_type: i64,
     bonus_ids: Vec<i64>,
+    enchant_id: Option<i64>,
 }
 
 /// Bit set of the gem colours (see `GEM_COLORS`) among gem ids.
@@ -738,6 +747,10 @@ struct Active {
     bandolier: bool,
     /// "trinket1", or "set 2062 (4)"
     from: String,
+    /// how many equipped enchants carry this effect (`:copies` in a template)
+    copies: f64,
+    /// the effect comes from an enchant (the same enchant on several items is one template, `copies` times)
+    enchant: bool,
 }
 
 /// The effects the equipped gear carries: (in play, report rows).
@@ -781,7 +794,16 @@ fn active_effects_with<'a>(
         for [trigger, spell, _, _] in of(it) {
             rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": trigger_name(trigger), "status": status(cfg.trinket_effects)}));
             if cfg.trinket_effects > 0.0 {
-                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, colors, bandolier, from: it.slot.clone() });
+                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, colors, bandolier, from: it.slot.clone(), copies: 1.0, enchant: false });
+            }
+        }
+    }
+    // enchants with an effect template (equip / on-hit spells)
+    for it in eq {
+        for &spell in it.enchant_id.and_then(|e| gd.enchant_spells.get(&e.to_string())).into_iter().flatten() {
+            rows.push(json!({"from": it.slot, "item": it.id, "spell": spell, "trigger": "enchant", "status": status(cfg.trinket_effects)}));
+            if cfg.trinket_effects > 0.0 {
+                act.push(Active { spell, ilvl: it.ilvl, inv_type: it.inv_type, spec: cfg.spec_id, colors, bandolier, from: it.slot.clone(), copies: 1.0, enchant: true });
             }
         }
     }
@@ -800,7 +822,7 @@ fn active_effects_with<'a>(
                 let from = format!("set {set} ({pieces})");
                 rows.push(json!({"from": from, "set": set, "pieces": pieces, "spell": spell, "status": status(cfg.set_bonuses)}));
                 if cfg.set_bonuses > 0.0 {
-                    act.push(Active { spell, ilvl, inv_type, spec: cfg.spec_id, colors, bandolier, from });
+                    act.push(Active { spell, ilvl, inv_type, spec: cfg.spec_id, colors, bandolier, from, copies: 1.0, enchant: false });
                 }
             }
         }
@@ -887,7 +909,8 @@ fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
         _ => return Err(format!("unknown field in ${{{expr}}}")),
     };
     let div = |m: &str| m.strip_prefix("div").and_then(|n| n.parse::<f64>().ok()).filter(|n| *n != 0.0);
-    if let Some(m) = mods.iter().find(|m| !["ap", "sp", "lvl", "pct", "per_option", "band"].contains(m) && div(m).is_none()) {
+    let mul = |m: &str| m.strip_prefix("mul").and_then(|n| n.parse::<f64>().ok());
+    if let Some(m) = mods.iter().find(|m| !["ap", "sp", "lvl", "pct", "per_option", "band", "copies"].contains(m) && div(m).is_none() && mul(m).is_none()) {
         return Err(format!("unknown modifier ':{m}' in ${{{expr}}}"));
     }
     let mut v = v;
@@ -898,9 +921,15 @@ fn placeholder(expr: &str, a: &Active) -> Result<String, String> {
         if let Some(n) = div(m) {
             v /= n;
         }
+        if let Some(n) = mul(m) {
+            v *= n;
+        }
     }
     if has("band") && a.bandolier {
         v *= 2.0;
+    }
+    if has("copies") {
+        v *= a.copies;
     }
     // one of the always-available option and one per gem colour worn
     if has("per_option") {
@@ -948,6 +977,22 @@ fn fill(text: &str, a: &Active) -> Result<String, String> {
 /// the report rows, each marked with its status.
 fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &GearSpec) -> Result<Vec<Value>, String> {
     let (act, mut rows) = active_effects(eq, gems, cfg);
+    // the same enchant on several items is one template applied once, `copies` strong
+    let act: Vec<Active> = {
+        let mut out: Vec<Active> = Vec::new();
+        for a in act {
+            match out.iter_mut().find(|o| o.enchant && a.enchant && o.spell == a.spell) {
+                Some(o) => {
+                    o.copies += 1.0;
+                    if let Some(r) = rows.iter_mut().find(|r| r["spell"] == a.spell && r["from"] == a.from.as_str()) {
+                        r["status"] = json!("covered");
+                    }
+                }
+                None => out.push(a),
+            }
+        }
+        out
+    };
     let own = |spell: i64| cfg.effects.iter().any(|t| t.spell == spell);
     // the spec's own templates for a spell win over the library's; a template
     // with a `gem` colour counts only where that colour is worn
@@ -1427,7 +1472,7 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         // a ring with an on-equip effect, a weapon proc and a trinket; the
         // lookup stands in for ItemEffect (which the committed data only has
         // for trinkets until tools/gamedata.py is rerun)
-        let eq = |slot: &str, id: i64, inv_type: i64| Equipped { slot: slot.into(), id, ilvl: 344, inv_type, bonus_ids: vec![] };
+        let eq = |slot: &str, id: i64, inv_type: i64| Equipped { slot: slot.into(), id, ilvl: 344, inv_type, bonus_ids: vec![], enchant_id: None };
         let items = [eq("finger1", 1, 11), eq("main_hand", 2, 13), eq("trinket1", 3, 12)];
         let table: HashMap<i64, Vec<[i64; 4]>> = HashMap::from([
             (1, vec![[1, 1297760, 0, 0]]),

@@ -35,6 +35,10 @@ crit_multiplier = 2.19   # [obs] same-base meteorite crit/non-crit pairs: 2.192 
 
 [gear]
 spec_id = 63           # [db2] ChrSpecialization: picks the class set bonuses
+# On-use trinkets (SimC's Fire APL): stat buffs (Vile Vial, Stormbound Emblem) go into Combustion,
+# the others (Font of Venomous Rage, Vexhul's) outside it. [simc]
+use_after = "potion"
+use_items = { buff = "buff.combustion.remains>6|fight_remains<20", other = "cooldown.combustion.remains>20&!buff.combustion.up" }
 primary = "intellect"
 base_primary = 619            # [obs] level-90 dwarf base intellect (SimC report: 3031 from gear = 2412 items + 619)
 primary_mult = 1.1025         # [obs] x1.05 passive (unbuffed 3182) x1.05 Arcane Intellect (buffed 3341; +200 int probe 3562)
@@ -602,3 +606,28 @@ if = "buff.combustion.up|target.health.pct<30"
 
 [[rotation]]
 action = "fireball"
+
+# ================================================================== class set (Mage Fire 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296583): Pyroclasm makes the Pyroblast it empowers always crit
+# (SimC hardcodes +100% crit chance on it: the spell's own value is a dummy).
+[[gear.effects]]
+spell = 1296583
+text = '''
+[[patch]]
+buff = "pyroclasm"
+set = { ability_crit_pct = { pyroblast_hardcast = 100 } }
+'''
+
+# 4pc (1296584): Pyroclasm's damage bonus +25 points (e2; 230 + 20 Sunfury
+# Execution + 25 = 275) and its Pyroblast casts 20% faster (e1: the aura's
+# cast time modifier, 0 without the set).
+[[gear.effects]]
+spell = 1296584
+text = '''
+[[patch]]
+buff = "pyroclasm"
+set = { ability_pct = { pyroblast_hardcast = 275 }, cast_time_pct = { pyroblast_hardcast = 20 } }
+'''

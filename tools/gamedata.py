@@ -29,6 +29,11 @@ compact gzip'd JSON file:
                      effects of non-trinkets such as rings, necks and weapons)
   bonus_effects      item bonus id -> [[trigger_type, spell_id, cooldown_ms, category_cooldown_ms], ...]
                      (effects a bonus adds to its item, e.g. embellishments; templated spells only)
+  enchant_spells     enchant id -> [spell id, ..]: the equip-spell (and on-hit spell) effects of an enchant that
+                     an effect template names (e.g. Eyes of the Eagle); other enchant spells carry no entry
+  enchant_names      SimC's profile name -> enchant id, for `enchant=enchant_ring__eyes_of_the_eagle_2` lines
+                     (read from SimC's engine/dbc/generated/permanent_enchant.inc, see --simc; the rank is the
+                     name's suffix)
   item_sets          item id -> item set id, for sets with bonuses
   set_bonuses        item set id -> [[pieces, spec_id (0 = any), spell_id], ...]
   spells             spell id -> {"duration", "school", "rppm", "rppm_mods", "icd", "chance",
@@ -163,6 +168,8 @@ def main():
     ap.add_argument("--cache", default=os.path.join(HERE, "..", "target", "gamedata-cache"))
     ap.add_argument("--out", default=os.path.join(HERE, "..", "data", "gamedata.json.gz"))
     ap.add_argument("--level", type=int, default=90)
+    ap.add_argument("--simc", default=os.environ.get("SIMC_DIR", "/Users/mothership/Dev/wow-sims/simc"),
+                    help="SimC checkout, for the enchant names of `enchant=` profile lines")
     a = ap.parse_args()
     cache = os.path.join(a.cache, a.build)
     os.makedirs(cache, exist_ok=True)
@@ -257,6 +264,24 @@ def main():
         if e and int(e["SpellID"]) in templated:
             bonus_effects.setdefault(int(r["ParentItemBonusListID"]), []).append(
                 [int(e["TriggerType"]), int(e["SpellID"]), int(e["CoolDownMSec"]), int(e["CategoryCoolDownMSec"])])
+    # Enchant equip / on-hit spells with a template.
+    enchant_spells = {}
+    for eid, e in ench_rows.items():
+        sp = [int(e[f"EffectArg_{i}"]) for i in range(3) if e[f"Effect_{i}"] in ("1", "3") and int(e[f"EffectArg_{i}"]) in templated]
+        if sp:
+            enchant_spells[eid] = sp
+    # SimC's names for profile `enchant=` lines: name, plus _<rank> when it has ranks.
+    enchant_names = {}
+    perm = os.path.join(a.simc, "engine", "dbc", "generated", "permanent_enchant.inc")
+    if os.path.exists(perm):
+        for line in open(perm, encoding="utf-8"):
+            m = re.match(r'\s*\{\s*(\d+),\s*(\d+),\s*\d+,\s*0x[0-9a-f]+,\s*0x[0-9a-f]+,\s*"([^"]+)"', line)
+            if m and int(m.group(1)) in ench_rows and (int(m.group(1)) in enchants or int(m.group(1)) in enchant_spells):
+                rank = int(m.group(2))
+                key = f"{m.group(3)}_{rank}" if rank else m.group(3)
+                enchant_names[key] = max(int(m.group(1)), enchant_names.get(key, 0))   # the newest id of a name
+    else:
+        print(f"warning: {perm} not found, enchant_names left empty")
     set_bonuses = {}
     for r in rows(cache, B, "ItemSetSpell"):
         set_bonuses.setdefault(int(r["ItemSetID"]), []).append([int(r["Threshold"]), int(r["ChrSpecID"]), int(r["SpellID"])])
@@ -286,6 +311,8 @@ def main():
         "rand_prop_damage": rnd(rpd),
         "item_effects": dict(sorted(item_effects.items())),
         "bonus_effects": dict(sorted(bonus_effects.items())),
+        "enchant_spells": dict(sorted(enchant_spells.items())),
+        "enchant_names": dict(sorted(enchant_names.items())),
         "item_sets": dict(sorted(item_sets.items())),
         "set_bonuses": dict(sorted(set_bonuses.items())),
         "spells": dict(sorted(spells.items())),
