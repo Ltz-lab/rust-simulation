@@ -52,6 +52,7 @@ profiles (core kit, 300s Patchwerk):
 | [Outlaw Rogue (Trickster)](docs/outlaw-rogue.md) | 162,375 | 158,651 | -2.29% (known gap) | haste +1.45 pts | — |
 | [Beast Mastery Hunter (Pack Leader)](docs/beast-mastery.md) | 181,956 | 178,658 | -1.81% (known gap) | crit -1.52 pts | — |
 | [Protection Warrior (Colossus)](docs/protection-warrior.md) | 118,635 | 116,248 | -2.01% (known gap) | strength +1.79 pts | — |
+| [Blood Death Knight (Deathbringer)](docs/blood-deathknight.md) | 81,067 | 80,665 | -0.50% | mastery -1.16 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an

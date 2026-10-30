@@ -128,6 +128,11 @@ const SPECS: &[(&str, &str, &str)] = &[
         include_str!("../calibration/unholy_rider.toml"),
     ),
     (
+        "blood_deathbringer",
+        include_str!("../specs/blood_deathbringer.toml"),
+        include_str!("../calibration/blood_deathbringer.toml"),
+    ),
+    (
         "protection_colossus",
         include_str!("../specs/protection_colossus.toml"),
         include_str!("../calibration/protection_colossus.toml"),

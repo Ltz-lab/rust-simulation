@@ -97,3 +97,16 @@ spell dump) can replace it without touching the APL half.
 Profiles with no `actions=` lines: Balance, Arcane, Fire, Frost Mage, Ret,
 Shadow, Subtlety, Elemental, the three Warlocks and Arms. Their rotation has to
 come from SimC's `ActionPriorityLists/default/*.simc`.
+
+## First real-table run
+
+`tools/draft_spec.py --db2 target/db2` was run on real tables for the Blood
+(Deathbringer) and Protection (Colossus) profiles, the first uncovered ones; both
+specs are in `specs/` (`docs/blood-deathknight.md`, `docs/protection-warrior.md`).
+The real-table layer works: talents decode, the hero tree is picked, 21 and 14
+rotation entries come out, and costs, cooldowns and coefficients are right for
+unambiguous spells. What a person still had to do: pick the right spell among
+same-named ones (Protection's `execute` came back with Rogue-like energy cost, and
+`shield_slam` a different school), read class mechanics out of the APL's
+conditions (Bone Shield, Dancing Rune Weapon, Violent Outburst), set the resource
+tables and everything under `[player]`, model pets and procs, and calibrate.
