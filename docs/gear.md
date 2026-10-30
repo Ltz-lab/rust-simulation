@@ -133,12 +133,28 @@ error; a character trait without one is listed as `unmodelled`. Specs without
 `[gear.omnium]` and runs without gear lines (calibration, validation) are
 untouched bit for bit.
 
-**Not filled in yet.** No spec declares `[gear.omnium]`: each trait's value has
-to come from the game data (the trait ids' spells in DB2) and be checked
-against SimC with and without the traits (about +3.6% for Ret in total, see
-[retribution.md](retribution.md)), and neither was available when this landed.
-Traits that are not a flat damage multiplier (procs, rune effects) need a
-spec fragment like the item effects' and aren't supported by this mechanism yet.
+**Where it stands.** The trait ids are TraitNodeEntry ids; `python3
+tools/omnium.py traits` maps them to their definition spells in DB2 (136814
+Rune of Overload, 136815 Critical Power, 136816 Void-Tainted Shell, 136817
+Lingering, 136818 Masterful Cunning, 136819 Self-Mending, 136820 the Versatile
+Warrior, 136821 Burning Haste, 136822 Unleashed Fire, 136823 Lynxlike
+Reflexes). The spells carry no damage numbers of their own: every one is an
+aura-4 dummy or trigger, and SimC (`unique_gear_midnight.cpp`, namespace
+`omnium`) implements only the two core runes (Unleashed Fire, Void-Touched
+Orbs) as proc drivers. The others modify the driver: Overload multiplies its
+damage by 1 + 100%, Lingering adds a DoT to its hit, Burning Haste, Critical
+Power, Masterful Cunning and the Versatile Warrior add a rating buff on each
+proc. Self-Mending, Void-Tainted Shell and Lynxlike Reflexes have no SimC
+implementation. So a per-trait value cannot be read from a table; it is
+measured with `tools/omnium.py ablate` (SimC with each trait removed).
+
+Only Retribution is filled in so far, as the combined worth on the driver
+(Unleashed Fire), because the modifiers do nothing without it and no per-trait
+SimC runs were available: see [retribution.md](retribution.md). The other specs
+with an `omnium_talents` line still need an `ablate` run each. Traits that are
+not a flat damage multiplier would need a spec fragment like the item effects';
+the flat value is exact for the full set and for none, and approximate in between
+(and across gear: the worth is 3.6% at core kit, 3.1% with the full kit).
 
 
 ## Casters

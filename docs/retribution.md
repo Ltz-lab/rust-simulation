@@ -254,9 +254,23 @@ it until the other trinket is used: 1.8 uses a fight against 2.0).
 
 ### What's left
 
-- The character's `omnium_talents` (+3.6%) are parsed and reported, but not
-  yet applied: the per-trait values still have to be added under
-  `[gear.omnium]` (see [gear.md](gear.md#omnium-traits)).
+- **`omnium_talents` are applied as one lump.** The five traits of the
+  reference are worth +3.60% in SimC at core kit (127,156 → 131,738) and +3.12%
+  with the full kit (218,843 → 225,641). `[gear.omnium]` takes that 3.60% back
+  out for a character without them (all of it on Rune of Unleashed Fire, the
+  driver the other four modify). Per piece it is exact for the full set and for
+  none; the kit-dependence (0.5 points) and a split between traits are not
+  modelled (`tools/omnium.py ablate`).
+
+  The app's character without `omnium_talents`, azsim against SimC with the line
+  removed (seed 1, 20,000 iterations):
+
+  | | azsim before | azsim now | SimC | diff now |
+  |---|---:|---:|---:|---:|
+  | core kit, no omnium | 132,839 | 128,220 | 127,156 | +0.84% |
+  | core kit, omnium on | 132,839 | 132,839 | 131,738 | +0.84% |
+  | full character, no omnium | 227,081 | 219,186 | 218,843 | +0.16% |
+  | full character, omnium on | 227,081 | 227,081 | 225,641 | +0.64% |
 - **Non-trinket item effects count by their stats alone.** On this character
   Loa Worshiper's Band (finger2, a scripted proc that picks a loa by the
   socketed gem colours) is worth about 3,000 DPS in SimC; azsim keeps its

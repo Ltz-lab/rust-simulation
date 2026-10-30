@@ -1257,8 +1257,20 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         let (_, rep) = with(&format!("{RET_CORE_PROFILE}omnium_talents=9:1\n"));
         assert_eq!(rep["unmodelled"], json!(["9"]));
         // a spec without [gear.omnium] never moves
-        let (_, rep) = ret_with(&format!("{RET_CORE_PROFILE}omnium_talents=1:1\n"), &[]);
+        let mut doc: toml::Value = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
+        doc["gear"].as_table_mut().unwrap().remove("omnium");
+        let (_, rep) = apply_text(doc, &format!("{RET_CORE_PROFILE}omnium_talents=1:1\n")).unwrap();
         assert_eq!(rep["omnium"]["factor"], 1.0);
+        // the shipped Ret table: the sample profile's own five traits change nothing, none loses 3.6%
+        let ret = |extra: &str| {
+            let doc: toml::Value = toml::from_str(include_str!("../specs/retribution_herald.toml")).unwrap();
+            let (out, rep) = apply_text(doc, &format!("{RET_CORE_PROFILE}{extra}")).unwrap();
+            (out["player"].get("global_mult").and_then(|v| v.as_float()).unwrap_or(1.0), rep["omnium"].clone())
+        };
+        let (m_all, rep) = ret("omnium_talents=136822:1/136816:1/136817:1/136821:1/136814:1\n");
+        assert_eq!(rep["unmodelled"], json!([]));
+        let (m_none, _) = ret("");
+        assert!((m_none / m_all - 127_156.0 / 131_738.0).abs() < 1e-4, "{}", m_none / m_all);
     }
 
     #[test]

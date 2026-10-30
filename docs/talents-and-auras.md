@@ -46,7 +46,7 @@ artifact spell 205273), not the 3.2186 of the logged spell 255937. It now uses
 damage is the same either way (3.479 AP), so DPS and the stat probes didn't
 move.
 
-### Target debuffs, rank curves and dummies (code in, numbers pending)
+### Target debuffs, rank curves and dummies
 
 `tools/effects.py` also reads, when the DB2 tables are present:
 
@@ -71,9 +71,21 @@ move.
   the value derived from its spell next to the spec's, to decide whether to
   migrate it. Nothing is migrated automatically.
 
-`python3 tools/test_effects.py` checks these paths with synthetic spells. This
-was written without access to the DB2 tables (the build host was unreachable),
-so the Ret x1.38 and Fire x1.18 residuals above have not been re-measured.
+`python3 tools/test_effects.py` checks these paths with synthetic spells. Run
+against the real tables (build 12.1.5.70575) for Ret and Fire:
+
+- The derived multipliers equal the committed `derived/` files exactly, with
+  and without the rank-curve tables (neither spec has a talent whose curve
+  changes a damage modifier), so nothing regenerates. Damage-weighted residual
+  of the committed calibrations: Ret x1.367 (59% of damage beyond +-25%), Fire
+  x1.184 (10%).
+- Aura-271 debuffs: the only one found is Truth's Wake +30% on Ret's
+  `consecration_tick_blade_of_justice` (written as `debuff = 1.3`, not folded).
+  Judgment's +20% is not a data debuff: Judgment (315867) and Greater Judgment
+  (231663) are aura-4 dummies, so it stays in the residual. Fire has none.
+- Hand-set Fire buffs against their spells: Hyperthermia +15% pyroblast and
+  Fired Up +2% agree; Spellfire Sphere is +1% in data against +2% hand-set;
+  Combustion (190319) and Pyroclasm (269651) derive nothing (scripted).
 
 What stays in the residual, by source: scripted effects the data only names
 (aura 4 dummies: Blessing of Dawn's +30% spender bonus, Light Within), target
