@@ -34,7 +34,7 @@ versatility = 0.00475 # [obs]
 [gear.kit]
 enabled = 1 # [simc] full raid kit when gear is supplied
 precombat = ["full_kit"] # [simc] Bloodlust at pull
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil
+stats = { primary = 75.1, crit_rating = 16, haste_rating = 181 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Blood Knights (haste 165) + oil 16/16
 primary_buffs = { lights_potential = 695 } # [db2 1236616] rank 2 potion
 
 [fight]

@@ -43,8 +43,7 @@ versatility = 0.0056066
 enabled = 1 # [simc] raid consumables; applied only with gear, disable for core reference.
 precombat = ["full_kit"]
 # [db2/obs] Royal Roast 50 primary, augment rune 25.1, flask 165 mastery, oil 16 crit/haste.
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
-primary_buffs = { lights_potential = 695 } # [db2] rank-2 Light's Potential.
+stats = { primary = 75.1, crit_rating = 181, haste_rating = 16 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Shattered Sun (crit 165) + oil 16/16
 
 [fight]
 duration = 300 # [obs] reference setup
@@ -158,9 +157,9 @@ haste_pct = 30
 
 # [db2] spell durations/effects; [simc] warlock buff callbacks.
 [[buffs]]
-name = "lights_potential"
+name = "lights_potential"   # the warlock default potion is Liquid Luster [simc apl/warlock.cpp]: Lustrous Gleam stacks to 5 [db2 1295147]
 duration = 30
-power_pct = 20
+versatility_pct = 16.9      # [db2 1295132] 220.82 rating a stack / 54 rating a point x 4.13 stacks averaged over 30s [simc: 124 stack-seconds a use]
 
 # [simc] sc_warlock_pets.cpp: power inheritance, lifetime and action loop.
 [[pets]]

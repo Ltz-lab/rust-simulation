@@ -53,11 +53,7 @@ versatility_bonus = 0.03      # [obs] Mark of the Wild
 [gear.kit]
 enabled = 1
 precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 }
-#   primary 50     Blooming Feast [obs]
-#   primary 25.1   Void-Touched augment rune [db2 1264426]
-#   mastery 165    Flask of the Magisters (rank 2) [obs: SimC buffed stats]
-#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the main hand [obs]
+stats = { primary = 25.1, mastery_rating = 230, crit_rating = 32, haste_rating = 32 }   # [simc] default consumables, measured on the sample profile: Void-Touched rune 25.1 primary; Flask of the Magisters 165 + Blooming Feast 65 mastery; oil 16/16 on each glaive
 primary_buffs = { lights_potential = 695 }   # primary stat potion [db2 1236616, item-level scaled]
 
 # The time-averaged gear stat procs folded into [player] above, so --gear

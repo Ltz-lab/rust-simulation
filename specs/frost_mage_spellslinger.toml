@@ -24,12 +24,13 @@ crit_multiplier = 2.19 # [obs] average crit/noncrit ratio of Ray of Frost ticks
 [gear]
 primary = "intellect"
 base_primary = 619 # [obs] level-90 tauren base intellect
-primary_mult = 1.071 # [obs] Arcane Intellect x1.05, Inspired Intellect x1.02
+primary_mult = 1.1025 # [obs] x1.05 passive (unbuffed 3161 = 3012 x1.05) x1.05 Arcane Intellect (buffed 3402)
 spell_power_per_primary = 1.0 # [obs] spell power = buffed intellect
 crit_bonus = 0.07 # [obs] 5% base + raid crit
-haste_mult = 1.03 # [db2 417489] Winter's Blessing, 3% haste
+haste_mult = 1.0506 # [obs] 26.69% at 906 rating: x1.02 mage x1.03 Winter's Blessing [db2 417489 #0]
+rating_mult = { haste = 1.05 } # [db2 417489 #1] aura 405 (rating multiplier): +5% haste rating; SimC: 906 = (847 + 16 oil) x 1.05
 mastery_points = 13 # [obs] base + Skyfury
-mastery_coeff = 1.0 # [obs] 1018 rating -> 43.2% + 13 points = 56.2%
+mastery_coeff = 1.6 # [obs] 1018 rating -> (22.13 + 13 points) x 1.6 = 56.2%; the +500 mastery probe agrees (73.1%)
 versatility_bonus = 0.03 # [simc] Mark of the Wild
 effect_mult = { physical = 1.0815, magic = 1.0609 } # [simc] raid debuffs
 spec_id = 64 # [db2] mage frost
@@ -38,7 +39,7 @@ use_after = "potion" # [simc]
 [gear.kit]
 enabled = 1 # [simc] full raid kit when gear is supplied
 precombat = ["full_kit"] # [simc] Bloodlust at pull
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2] food, rune, flask, oil
+stats = { primary = 75.1, crit_rating = 181, haste_rating = 16 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Shattered Sun (crit 165) + oil 16/16
 primary_buffs = { lights_potential = 695 } # [db2 1236616] rank 2 potion
 
 # Time-averaged gear stat procs, folded into [player] so --gear lands on the
@@ -449,6 +450,11 @@ damage = { sp_coeff = 1.5, school = "shadow" } # [db2]
 # [simc] default single-target Spellslinger APL (MID2_Mage_Frost.simc), no tier.
 # The cds list opens with Ray of Frost when both charges are up (and at the
 # end of the fight); the rest is the spellslinger list.
+
+# Potion with the cooldowns: after a Frozen Orb [simc APL: ff/ss_trinket_timing, which key on prev_gcd.1.frozen_orb]
+[[rotation]]
+action = "potion"
+if = "prev_gcd.frozen_orb|fight_remains<35"
 
 [[rotation]]
 action = "flurry"

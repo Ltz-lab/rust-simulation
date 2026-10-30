@@ -32,8 +32,7 @@ use_items = { buff = "pet.darkglare.active|buff.malevolence.up|fight_remains<20"
 [gear.kit]
 enabled = 1 # [simc] consumables and Bloodlust when gear is supplied
 precombat = ["full_kit"] # [simc]
-stats = { primary = 75.1, mastery_rating = 165, crit_rating = 16, haste_rating = 16 } # [db2/obs] food, rune, flask, oil
-primary_buffs = { lights_potential = 695 } # [db2] potion
+stats = { primary = 75.1, crit_rating = 181, haste_rating = 16 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Shattered Sun (crit 165) + oil 16/16
 
 [gear.procs] # [obs] time-averaged sample-gear enchants/weapon/embellishments
 spell_power = 38
@@ -60,9 +59,9 @@ duration = 40 # [db2]
 haste_pct = 30 # [db2]
 
 [[buffs]]
-name = "lights_potential"
-duration = 30 # [db2]
-power_pct = 0 # [simc] computed from gear
+name = "lights_potential"   # the warlock default potion is Liquid Luster [simc apl/warlock.cpp]: Lustrous Gleam stacks to 5 [db2 1295147]
+duration = 30
+versatility_pct = 16.9      # [db2 1295132] 220.82 rating a stack / 54 rating a point x 4.13 stacks averaged over 30s [simc: 124 stack-seconds a use]
 
 [[buffs]]
 name = "cascading_calamity"

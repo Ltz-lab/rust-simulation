@@ -67,7 +67,7 @@ spec_id = 72                  # [db2] ChrSpecialization
 [gear.kit]
 enabled = 1
 precombat = ["full_kit"]      # Bloodlust at the pull; unlocks the potion
-stats = { primary = 75.1, haste_rating = 181, crit_rating = 16 }
+stats = { primary = 75.1, mastery_rating = 165, crit_rating = 32, haste_rating = 32 }   # [simc] SimC default consumables, measured on the sample profile: Flask of the Magisters (mastery 165) + oil 16/16 on each weapon
 #   primary 50     Harandar Celebration [obs: +57 AP]
 #   primary 25.1   Void-Touched augment rune [db2 1264426; obs +29 AP]
 #   haste 165      Flask of the Magisters (rank 2) [obs: SimC buffed stats]
