@@ -28,9 +28,15 @@ KEYS = {
 }
 
 
-def stats(obs, keys):
+def stats(obs, keys, mast_ap=0.0):
     s = obs["buffed_stats"]["stats"]
-    return {k: s[v] for k, v in keys.items()}
+    out = {k: s[v] for k, v in keys.items()}
+    if mast_ap:
+        # The reference's attack power already carries x(1 + c * mastery); the
+        # spec applies mastery per source instead, so strip it here.
+        out["attack_power"] = s["attack_power"] / (1 + mast_ap * s["mastery_value"])
+        out["mastery"] = mast_ap * s["mastery_value"]
+    return out
 
 
 def engine_dps(spec, calib, overrides, n=20000):
@@ -49,19 +55,22 @@ def main():
     spec, calib, base_path, probes = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
     md = "--md" in probes
     probes = [p for p in probes if p != "--md"]
-    player = tomllib.load(open(spec, "rb"))["player"]
+    full = tomllib.load(open(spec, "rb"))
+    player = full["player"]
+    # [gear] mastery_ap = c: attack power scales with (1 + c * mastery) (Protection Warrior)
+    mast_ap = full.get("gear", {}).get("mastery_ap", 0.0)
     keys = {k: v for k, v in KEYS.items() if k in player}
     if "spell_power" in keys:
         keys["crit"] = "spell_crit"
     base_spec = {k: player[k] for k in keys}
     base_obs = json.load(open(base_path))
-    b = stats(base_obs, keys)
+    b = stats(base_obs, keys, mast_ap)
     d0 = engine_dps(spec, calib, base_spec)
     rows = []
     for p in probes:
         label, path = p.split("=", 1)
         o = json.load(open(path))
-        ps = stats(o, keys)
+        ps = stats(o, keys, mast_ap)
         st = {k: base_spec[k] + (ps[k] - b[k]) for k in keys}
         d1 = engine_dps(spec, calib, st)
         ref = (o["dps"] / base_obs["dps"] - 1) * 100

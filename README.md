@@ -51,6 +51,7 @@ profiles (core kit, 300s Patchwerk):
 | [Fury Warrior (Slayer)](docs/fury-warrior.md) | 167,734 | 161,427 | -3.76% (known gap) | crit +1.19 pts | ~8× |
 | [Outlaw Rogue (Trickster)](docs/outlaw-rogue.md) | 162,375 | 158,651 | -2.29% (known gap) | haste +1.45 pts | — |
 | [Beast Mastery Hunter (Pack Leader)](docs/beast-mastery.md) | 181,956 | 178,658 | -1.81% (known gap) | crit -1.52 pts | — |
+| [Protection Warrior (Colossus)](docs/protection-warrior.md) | 118,635 | 116,248 | -2.01% (known gap) | strength +1.79 pts | — |
 
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
@@ -59,7 +60,7 @@ level: on the app's Ret character azsim gives 227,081 against SimC's
 like-for-like 225,566 (+0.67%,
 [full kit vs SimC](docs/retribution.md#full-kit-a-real-character-against-simc)).
 Not yet built: most gear effects beyond the library's, multi-target, movement,
-healers and tanks, Warcraft Logs ingestion. See the [roadmap](docs/roadmap.md).
+healers, tank survivability (Protection models damage only), Warcraft Logs ingestion. See the [roadmap](docs/roadmap.md).
 
 ## Quick start
 
