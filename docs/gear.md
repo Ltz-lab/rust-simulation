@@ -76,6 +76,8 @@ the app's Ret character and its bag:
 | Gaze of the Alnseer | real-PPM 2 Alnsight; meanwhile hits (0.75s ICD) stack primary stat | two on-hit procs, stacks with their own timers |
 | Twisted Horror's Tendril | real-PPM 20 stacks of crit rating, 3 at the pull | on-hit proc, stacks with their own timers |
 | Font of Venomous Rage | on use: 2s channel of nature damage | a 2s cast dealing the total |
+| The King's Unyielding Wind (Stormbound Emblem of Dazar) | on use: 2s channel, 5s of Haste per tick (20s) | a 2s cast, then a 20s Haste-rating buff |
+| Freightrunner's Flask | on use: crit rating for 15s, 90s cooldown | on-use stat buff |
 
 Buff stats (`stats = { primary = .., crit_rating = .. }` per stack) turn into
 the character's own percent bonuses at the margin: primary stat as a share of
@@ -158,10 +160,27 @@ share of ability damage (702 at 117.6 DPS, fitted to the agility probe). All
   embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
   340 vs 341). Trinket effects and set bonuses count only where the
-  effect library has an entry (six trinket effects and two sets so far,
+  effect library has an entry (eight trinket effects and two sets so far,
   see above); others are reported as `unmodelled`. Library procs are rolled
   on direct hits as real PPM, but which hits may trigger them isn't read from
   the proc flags. On-use items share no category cooldown, and Font of
   Venomous Rage is used on cooldown where SimC's APL waits for the other
   trinket. Item data is the full equippable item set of build 12.1.5.70575
   (871 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.
+
+## Checking a trinket against SimC
+
+`tools/validate_effects.py --simc <simc> --case profile.txt:<azsim spec>:trinket2`
+runs a profile with no trinkets and with only the one under test, on SimC and on
+azsim (effect modelled, and `gear.trinket_effects=0` for stats only), and prints
+the DPS the item adds on each. Results (20,000 iterations, same raid buffs):
+
+| item, spec | SimC gain | azsim gain, modelled | azsim gain, stats only |
+|---|---:|---:|---:|
+| King's Unyielding Wind, Fire Mage | +9.66% | +9.32% | +6.29% |
+| King's Unyielding Wind, Demonology | +10.31% | +10.26% | +5.42% |
+| Freightrunner's Flask, Shadow | +9.33% | +8.55% | +5.71% |
+
+The trinket-free baselines differ from SimC by -23% (Fire), -6% (Demonology)
+and -12% (Shadow): the specs' `[player]` stats carry the sample gear's trinket
+procs, which the profile here removes. That gap is not the effect's.
