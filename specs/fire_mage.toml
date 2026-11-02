@@ -145,6 +145,7 @@ ability_pct = { pyroblast = 15 }
 name = "pyroclasm"          # next hardcast Pyroblast +230% [db2 269651: 20s, 2 stacks] +20% Sunfury Execution [db2 449349]
 duration = 20
 max_stacks = 2
+flat = true                 # two stacks are two charges, not 2x the bonus: the value applies once [simc sc_mage.cpp hot_streak_spell_t::composite_da_multiplier: 1 + pyroclasm->check_value(); execute() decrements one stack]
 ability_pct = { pyroblast_hardcast = 250 }
 
 [[buffs]]

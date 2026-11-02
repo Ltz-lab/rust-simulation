@@ -27,7 +27,7 @@ profiles (core kit, 300s Patchwerk):
 | spec | reference DPS | azsim DPS | diff | worst stat probe | speed vs SimC |
 |---|---:|---:|---:|---|---:|
 | [Retribution Paladin (Herald)](docs/retribution.md) | 131,766 | 132,884 | +0.85% | haste +0.86 pts | ~16× |
-| [Fire Mage (Sunfury)](docs/fire-mage.md) | 147,374 | 148,454 | +0.73% | haste +2.19 pts | ~15× |
+| [Fire Mage (Sunfury)](docs/fire-mage.md) | 147,374 | 148,457 | +0.74% | haste +2.11 pts | ~15× |
 | [Destruction Warlock (Hellcaller)](docs/destruction-warlock.md) | 157,019 | 155,825 | -0.76% | mastery +0.48 pts | ~7× |
 | [Arcane Mage (Spellslinger)](docs/arcane-mage.md) | 133,260 | 133,980 | +0.54% | mastery +0.51 pts | — |
 | [Affliction Warlock (Hellcaller)](docs/affliction-warlock.md) | 157,898 | 157,573 | -0.21% | haste -0.60 pts | — |
