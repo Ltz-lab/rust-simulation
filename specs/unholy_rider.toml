@@ -973,3 +973,61 @@ if = "buff.festering_scythe.up"
 [[rotation]]
 action = "festering_strike"
 if = "buff.lesser_ghoul_ready.stack=0"
+
+# ================================================================== class set (Death Knight Unholy 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296654): Magus of the Dead and Lord of the Dead cast Necrotic Bolt
+# instead of Frostbolt, and the Magus Withering Grasp instead of Shadow Bolt
+# [simc magus_pet_t::init_action_list]. The new spells take their casts from the
+# ones they replace (SimC: 44.6 Magus casts of either bolt, 216 Lord casts,
+# 105-106 Shadow Bolts / Withering Grasps a fight with and without the set).
+# Damage = the spell's AP coefficient [db2] x the same fold this spec's coefficient
+# for the replaced spell has over its own [db2] one (pet damage multipliers, level
+# scaling), less the talent labels the new spell lacks:
+#   Magus Necrotic Bolt (1297055, 1.71594): Frostbolt 317792 is 0.980671 and the
+#     spec's 1.831113 -> x1.8672; Lord of the Dead's +25% (label 5664) covers both.
+#     = 3.204010
+#   Lord Necrotic Bolt (1297086, 1.51406): Frostbolt 1292107 is 0.865297, with
+#     Lord of the Dead's +25% (label 5664), against the spec's 2.299522 -> x2.1260
+#     for the spell itself; 1297086 lacks the label. = 3.218885
+# SimC's per-hit damage agrees: Necrotic Bolt / Frostbolt 1.758 (Magus) and 1.397
+# (Lord) against 1.750 and 1.400 here.
+# Withering Grasp (1297091) is a DoT: 0.384306 a 1s tick, refreshed by each cast
+# (rolling), and SimC lands 220 ticks on 105.3 casts (2.089 a cast; the DoT
+# outlives its Magus). It is dealt as one hit per cast: 2.089 x 0.384306 x the
+# Magus fold 1.8672 = 1.499. [obs: TickCount and Count in SimC's report]
+[[gear.effects]]
+spell = 1296654
+text = '''
+[[patch]]
+pet = "magus"
+abilities = [
+  { name = "necrotic_bolt", cast_time = 2.0, gcd = 0, cooldown = 15, damage = { crit_damage_bonus = 1.28, ap_coeff = 3.204010, school = "shadow", mastery = true } },
+  { name = "withering_grasp", cast_time = 2.0, gcd = 0, damage = { crit_damage_bonus = 1.28, ap_coeff = 1.499, school = "shadow", mastery = true } },
+]
+set = { rotation = [{ action = "necrotic_bolt" }, { action = "withering_grasp" }] }
+
+[[patch]]
+pet = "lord_of_the_dead"
+abilities = [
+  { name = "necrotic_bolt", cast_time = 2.3, gcd = 0, damage = { crit_damage_bonus = 1.28, ap_coeff = 3.218885, school = "shadow", mastery = true } },
+]
+set = { rotation = [{ action = "necrotic_bolt" }] }
+'''
+
+# 4pc (1296655): Necrotic Bolt +130% (effect 1) and Withering Grasp +130%
+# (effect 2) against enemies at or below 35% health (effect 3) [simc
+# magi_necrotic_bolt_t / withering_grasp_t]. The two pets cast nothing else once
+# the 2pc is on, and both effects are 130, so it is one per-pet bonus while the
+# target's health (falling linearly over the fight) is within 35%.
+[[gear.effects]]
+spell = 1296655
+text = '''
+[[buffs]]
+name = "set_unholy_4pc"
+duration = 0
+below_health = ${e3}
+pet_pct = { magus = ${e1}, lord_of_the_dead = ${e1} }
+'''

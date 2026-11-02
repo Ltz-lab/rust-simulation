@@ -207,5 +207,32 @@ before `rating_mult`. DPS (azsim 10,000 iterations seed 1 / 5,000 seed 42 in che
 | core kit (no consumables, Bloodlust) | 163,086 | 162,593 (-0.30%) |
 | full kit (consumables, Bloodlust, potion) | 191,744 | 189,426 (-1.21%) |
 
-Not modelled for this profile: the tier set (set 2055, 2pc and 4pc). The two trinkets
+The tier set (set 2055) is modelled, see below. The two trinkets
 (Voracious Heart of Ula'tek, Zul'jin's Guillotine Technique) and the Bite of Zul'jan 2pc are in the effect library.
+
+## Tier set (Midnight season 2, set 2055)
+
+`[[gear.effects]]` in the spec, applied with gear lines; `--set gear.set_bonuses=0` turns it off. Tier gain is the
+sample profile with the set against the same profile without it (SimC: `set_bonus=midnight_season_2_{2,4}pc=0`;
+SimC about 400 iterations to 0.3% error, azsim 20,000 iterations, seed 1):
+
+| bonus | what it does | modelled as | SimC | azsim |
+|---|---|---|---:|---:|
+| 2pc (1296652) | each Remorseless Winter tick: a stack of Freezing Tempest (5s, +1% auto-attack speed and +2% Icy Death Torrent a stack); a new Remorseless Winter cast removes it | buff with `attack_speed_pct` and `ability_pct`; a stack on every tick of the Remorseless Winter DoT (new `dot =` patch), consumed first in the cast (new `prepend =` patch) | +5.31% | +4.49% |
+| 4pc (1296653) | Remorseless Winter ticks 20% sooner (1s to 0.8s); Freezing Tempest lasts 5s longer | `tick_rate_pct` of 25 on the DoT, buff duration 10s | +2.75% (on the 2pc) | +3.41% |
+| both | | | **+8.21%** | **+8.06%** |
+
+Full profile: SimC 260,861, azsim 257,531 (-1.28%); set off: SimC 241,074, azsim 238,328 (-1.14%). Per fight with the
+set (SimC / azsim): 347 / 292 main-hand swings and 108 / 107 Icy Death Torrents against 289 / 243 and 91 / 89 without
+it; Remorseless Winter ticks 261 / 252 against 208 / 200. The swing counts differ by the same 16% with the set off,
+which is the gear-profile gap and not the set's. The two bonuses split differently (azsim gets less from the 2pc,
+more from the 4pc; I did not find why) and sum to within 0.15 points.
+
+The removal of Freezing Tempest by the next Remorseless Winter cast matters. SimC's log has a first window of 49
+ticks (38s) whose buff is removed at the next cast, 7.6s after the window instead of after the full 10s tail.
+Without that removal azsim carried the stacks into the next window (42.5 stacks per window over 40 seeds' logs, SimC
+about 37) and gave +9.25%; with it, 39.8 stacks and +8.06%.
+
+Not modelled: nothing of the bonuses themselves. Freezing Tempest's stacks are one timer (SimC's too), and the first tick
+of each window comes at the cast, as in SimC's log.
+
