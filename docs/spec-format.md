@@ -49,6 +49,13 @@ restrict contributions with `crit_only = true`, an `if` expression, and a
 `mastery_power` applies independent copies of the mastery factor for
 multischool damage (default 1).
 
+`while_dot = "<dot name>"` makes a buff up exactly while that DoT is ticking on the target,
+without being applied (Assassination's tier 4pc: +10% to the bleeds "while the target has
+Deadly Poison"); its bonuses count one stack, and it can't be `overlap` or have health limits.
+An `echo` with `stacks_of = "<buff>"` copies `pct` per stack of that other buff instead of its
+own (the echo buff is then a marker kept up; the copy needs both up), so a second echo can share
+one stack count at another rate (Subtlety's tier 4pc on Lingering Shadow).
+
 A DoT with `overlap = true` keeps an independent expiration for each
 application, up to `max_stacks`, replacing the oldest at the cap. Its ticks
 share a cadence and, with `per_stack`, deal damage proportional to the number

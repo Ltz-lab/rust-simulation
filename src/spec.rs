@@ -770,6 +770,10 @@ pub struct BuffDef {
     pub below_health: Option<f64>,
     #[serde(default)]
     pub above_health: Option<f64>,
+    /// Up whenever the named DoT is ticking on the target, without being applied
+    /// (a set bonus that works "while the target has Deadly Poison").
+    #[serde(default)]
+    pub while_dot: Option<String>,
     /// Effects when the buff runs out on its own (not when consumed).
     #[serde(default)]
     pub on_expire: Vec<Effect>,
@@ -800,6 +804,10 @@ pub struct EchoDef {
     /// Copy the damage before armor (default) or after.
     #[serde(default = "yes")]
     pub pre_armor: bool,
+    /// Scale `pct` by this buff's stacks instead of the echo buff's own (the echo buff is then
+    /// a marker that is always up; the copy needs both buffs up).
+    #[serde(default)]
+    pub stacks_of: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
