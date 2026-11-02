@@ -103,7 +103,7 @@ Tier gain on `profiles/MID2_Rogue_Subtlety.simc`, Patchwerk 300s, target error 0
 | 2pc alone | +5.11% | +4.20% |
 | 4pc on top of the 2pc | +7.35% | +7.19% |
 | full tier gain | +12.83% | +11.69% |
-| full-profile DPS | 282,730 | 275,799 (-2.45%) |
+| full-profile DPS | 283,020 | 283,977 (+0.34%) |
 
 The rotation is unchanged: SimC's APL only reads the 2pc as `variable.targets<=2-set_bonus.midnight_season_2_2pc`,
 which is true at one target either way. The 2pc gap (0.9 points) is the base again: Backstab is

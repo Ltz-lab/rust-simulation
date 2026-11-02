@@ -94,7 +94,7 @@ Tier gain on `profiles/MID2_Rogue_Outlaw.simc`, Patchwerk 300s, target error 0.3
 | 2pc alone | +2.08% | +1.48% |
 | 4pc on top of the 2pc | +10.22% | +9.19% |
 | full tier gain | +12.51% | +10.80% |
-| full-profile DPS | 256,799 | 242,368 (-5.62%) |
+| full-profile DPS | 256,818 | 248,760 (-3.14%) |
 
 **azsim is 1.7 points under SimC's gain**, outside the 1.5-point target (SimC at 0.1% error:
 +12.54%). The mechanics match: 20.3 Fang Strike applications a fight against SimC's 19.8

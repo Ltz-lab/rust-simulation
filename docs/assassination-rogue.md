@@ -122,10 +122,10 @@ Tier gain on `profiles/MID2_Rogue_Assassination.simc`, Patchwerk 300s, target er
 | 2pc alone | +4.10% | +4.30% |
 | 4pc on top of the 2pc | +6.86% | +6.91% |
 | full tier gain | +11.24% | +11.51% |
-| full-profile DPS | 237,425 | 229,234 (-3.45%) |
+| full-profile DPS | 237,515 | 236,988 (-0.22%) |
 
 The rotation is unchanged: SimC's APL has no set-bonus condition for Assassination. The
-full-profile gap is the spec's own: with the set off azsim is -3.68% (205,577 against 213,433).
+full-profile gap is the spec's own: with the set off azsim is -0.11% (212,557 against 212,792).
 
 ## Known gaps
 
