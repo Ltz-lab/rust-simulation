@@ -36,6 +36,7 @@ SPEC_BY_PROFILE = {
     "devourer": "devourer_voidscarred",
     "assassination": "assassination_deathstalker",
     "beast_mastery": "beast_mastery_pack_leader",
+    "marksmanship": "marksmanship_sentinel",
     "enhancement": "enhancement_stormbringer",
     "unholy": "unholy_rider",
     "protection": "protection_colossus",
