@@ -39,6 +39,7 @@ SPEC_BY_PROFILE = {
     "marksmanship": "marksmanship_sentinel",
     "enhancement": "enhancement_stormbringer",
     "unholy": "unholy_rider",
+    "outlaw": "outlaw_trickster",
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
     "survival": "survival_sentinel",
