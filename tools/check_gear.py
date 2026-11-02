@@ -41,6 +41,7 @@ SPEC_BY_PROFILE = {
     "unholy": "unholy_rider",
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
+    "survival": "survival_sentinel",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
