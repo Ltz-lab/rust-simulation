@@ -35,6 +35,51 @@ mastery = 0.3182             # [obs] Mastery: Spirit Bond, you and the pet [db2 
 crit_multiplier = 2.121      # [obs] crit/non-crit of auto attacks
 weapon = { min = 8100, max = 8900, speed = 3.6 }   # [db2] two-hander; the roll is fitted [obs]
 
+# Gear -> stats (docs/gear.md). Constants measured on SimC's buffed stats for
+# profiles/MID2_Hunter_Survival.simc (trinkets and tier set removed).
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 dwarf hunter base agility (SimC: 2345 = 618 + 1727 from gear)
+primary_mult = 1.1139         # [obs] SimC: 2612 agility on 2345 (also with optimal_raid=0, so it is a passive, not a raid buff)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2612 agility -> 2742 attack power
+rating_mult = { crit = 1.04, mastery = 1.05 }   # [obs] SimC's totals are 4% (crit) and 5% (mastery) above the items' and gems' sum: 831/799 and 1023/974 without gems, 875 and 1124 with them; consumables are scaled too
+crit_bonus = 0.1401           # [obs] 33.02% at 875 rating (19.01% from 874.6)
+haste_mult = 1.02             # [obs] 25.69% at 1022 rating (23.23%): x1.02, multiplicative with rating haste
+mastery_points = 7.396        # [obs] Mastery: Spirit Bond reads 31.82% buffed = 24.42% from 1124 rating + 7.40 (coefficient 1; the spec's own 1.766x is applied in the engine)
+mastery_coeff = 1.0           # [obs] % per point as SimC reports it
+versatility_bonus = 0.03      # [obs] Mark of the Wild (4.98% = 1.98% from 107 rating + 3%)
+# No weapon_ap_per_dps: SimC's attack power is agility x 1.05 alone (2742), and
+# [player] splits that same 2742 into attack_power 2000 + weapon_attack_power 742
+# for ability damage, which the engine sums. Gear mode puts all of it in attack_power.
+spec_id = 255                 # [db2] ChrSpecialization Survival
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 163,203 with all, 158,102 with
+# none, +3.23%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136821", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01703 },   # [simc] leave-one-out 1.03254
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 0.99985 },   # [simc] leave-one-out 0.99972
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00084 },   # [simc] leave-one-out 1.00159
+  { id = "136821", name = "Rune of Burning Haste", global_mult = 1.01269 },   # [simc] leave-one-out 1.02419
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00157 },   # [simc] leave-one-out 1.00297
+]
+
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 consumables for the sample profile
+# plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, crit_rating = 188, haste_rating = 16 }
+#   primary 75.1   food 50 + Void-Touched augment rune 25.1 [obs: +87 attack power, +83 agility]
+#   crit 188       Flask of the Shattered Sun (rank 2) 165 + Thalassian Phoenix Oil 16, both x1.04 [obs: 875 -> 1063]
+#   haste 16       Thalassian Phoenix Oil (rank 2) on the two-hander [obs: 1022 -> 1038]
+
 [fight]
 duration = 300
 
@@ -143,6 +188,37 @@ duration = 15
 name = "raptor_swipe"        # [db2 1273155] Raptor Strike becomes Raptor Swipe [simc raptor_strike_t::execute]
 duration = 1e9
 flat = true
+
+# ---------------------------------------------------------------- raid-night kit
+# (see [gear.kit]); only with gear lines
+
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { mastery_rating = 1725, versatility_rating = -232 }   # [simc] mastery is this gear's highest rating with the flask (1124 vs crit 1063), versatility its lowest (107)
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
 
 # ---------------------------------------------------------------- helpers
 
@@ -523,6 +599,11 @@ school = "physical"
 
 # ---------------------------------------------------------------- the rotation
 # SimC's single-target Sentinel list (actions.sentst)
+
+# Potion [simc APL actions.cds: potion,if=target.time_to_die<25|cooldown.takedown.ready]
+[[rotation]]
+action = "potion"
+if = "cooldown.takedown.ready|fight_remains<25"
 
 [[rotation]]
 action = "summon_pet"
