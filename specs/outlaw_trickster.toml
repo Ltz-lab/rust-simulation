@@ -44,6 +44,56 @@ weapon = { min = 214.1, max = 397.6, speed = 2.6 }
 # weapon for off-hand-replacement abilities too).
 off_hand = { min = 0, max = 0, speed = 1.8 }
 
+[gear]
+spec_id = 260                 # [db2] ChrSpecialization Outlaw: picks the class set bonuses
+primary = "agility"
+base_primary = 618            # [obs] level-90 dwarf rogue base agility (same as the other rogues)
+primary_mult = 1.0815         # [obs] buffed 2470 / (618 + 1666 from gear); with the kit's 75.1 it gives 2551 (SimC: AP 2678)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2470 agility -> 2593 attack power
+crit_bonus = 0.10             # [obs] 27.391% at 800 rating = 17.391% from rating + 10%
+haste_mult = 1.03             # [obs] 33.90% at 1320 rating (30.0%): x1.03, multiplicative with rating haste
+mastery_points = 10           # [obs] 8 base + 2 Skyfury, in mastery points (14.26% at 4.26 points from rating)
+mastery_coeff = 1.0           # [obs] Main Gauche, % per mastery point (Skyfury's 2 points move it 12.26% -> 14.26%)
+versatility_bonus = 0.06      # [obs] 19.02% at 703 rating (13.02%): Mark of the Wild 3% + 3% base
+weapon_ap_per_dps = 6.2994    # [obs] ability attack power adds 741 at the 117.64 DPS main hand (as Assassination's)
+
+# The time-averaged gear stat procs folded into [player] above, so --gear
+# lands on the same final stats (Venomcursed crit and haste, Arcanoweave
+# and Might of the Void attack power). attack_power is what is left of
+# [player]'s 3577 after the 2593 snapshot and the 741 weapon share.
+[gear.procs]
+attack_power = 243
+crit = 0.0621
+haste = 0.013
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 162,090 with all, 157,662 with
+# none, +2.81%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136823", "136817", "136820", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01540 },   # [simc] leave-one-out 1.02856
+  { id = "136823", name = "Rune of Lynxlike Reflexes", global_mult = 0.99976 },   # [simc] leave-one-out 0.99955
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00091 },   # [simc] leave-one-out 1.00167
+  { id = "136820", name = "Rune of the Versatile Warrior", global_mult = 1.01052 },   # [simc] leave-one-out 1.01947
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00128 },   # [simc] leave-one-out 1.00237
+]
+
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 Rogue consumables for the sample
+# profile plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, crit_rating = 197, haste_rating = 32 }
+#   primary 75.1   food 50 + Void-Touched augment rune 25.1 [obs: +57 and +28 attack power]
+#   crit 165       Flask of the Shattered Sun (rank 2) [simc apl/rogue]
+#   crit/haste 32  Thalassian Phoenix Oil (rank 2) on both weapons
+primary_buffs = { lights_potential = 695 }   # [db2 1236616] rank-2 Light's Potential
+
 [fight]
 duration = 300
 variance = 0.2
@@ -729,6 +779,37 @@ school = "cosmic"
 crit_bonus = -2.0
 refresh = "reset"
 
+# ---------------------------------------------------------------- raid-night kit
+# Only with gear lines (see [gear.kit]).
+
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "lights_potential"   # potion: +695 agility for 30s [db2 1236616]
+duration = 30
+power_pct = 16.6            # as a share of attack power; [gear.kit] recomputes it from the gear
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236616
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "lights_potential" }]
+
 # ---------------------------------------------------------------- rotation
 # Paraphrase of SimC's default Outlaw APL, single target, Trickster build.
 # Blade Rush is in SimC's APL but never becomes usable in the reference sim,
@@ -754,6 +835,11 @@ if = "buff.rtb3.up|buff.rtb4.up"
 [[rotation]]
 action = "roll_the_bones"
 if = "!buff.roll_the_bones.up|(buff.rtb2.up&buff.loaded_dice.up)|(buff.rtb1.up&!buff.loaded_dice.up)"
+
+# Potion [simc APL cds: potion,if=buff.bloodlust.react|fight_remains<30|buff.adrenaline_rush.up]
+[[rotation]]
+action = "potion"
+if = "buff.bloodlust.up|fight_remains<30|buff.adrenaline_rush.up"
 
 # finish_condition = combo_points >= cp_max_spend - 1 = 6 [simc]
 [[rotation]]

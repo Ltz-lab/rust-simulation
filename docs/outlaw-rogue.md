@@ -88,5 +88,59 @@ Held out from calibration (`tools/validate_stats.py`, same calibration):
 - Blade Rush is in SimC's APL but never usable in the reference sim, so it is
   not used here either; Vanish/Ambush need Hidden Opportunity, which this
   build does not take.
-- No `[gear]`/`[gear.kit]` yet: `[player]` stats are the reference's in-fight
-  averages.
+
+## Gear
+
+`[gear]`, `[gear.kit]` and `[gear.omnium]` are measured on SimC's MID2 sample
+profile with the trinkets removed (`python3 tools/check_gear.py <simc>
+profiles/MID2_Rogue_Outlaw.simc --dps --no-trinkets`; the tier set is switched
+off on both sides). Every item level and rating matches, and so do the final
+stats:
+
+| stat | azsim | SimC |
+|---|---:|---:|
+| crit rating | 800 | 800 |
+| haste rating | 1,320 | 1,320 |
+| mastery rating | 196 | 196 |
+| versatility rating | 703 | 703 |
+| attack power | 2,593 | 2,593 |
+| crit | 27.39% | 27.39% |
+| haste | 33.90% | 33.90% |
+| mastery | 14.26% | 14.26% |
+| versatility | 19.02% | 19.02% |
+
+With the kit on (flask, food, augment rune, oil: +75.1 agility, +197 crit and
++32 haste rating), azsim's attack power (2,678), crit rating (997), haste
+rating (1,352), crit (31.67%) and haste (34.57%) match SimC's buffed stats.
+
+The constants: base agility 618, buffed agility 2,470 = (618 + 1,666 from gear)
+x 1.0815, Battle Shout 1.05, crit bonus 10%, haste x1.03, mastery 10 base
+points at 1.0% a point (Main Gauche), versatility bonus 6%, weapon attack
+power 6.2994 a DPS (741 at the main hand's 117.64). `[gear.procs]` puts the
+reference's time-averaged procs back (attack power +243, crit +6.21 points,
+haste +1.3 points) so `[player]`'s fight values are the same with and without
+gear lines.
+
+DPS, Patchwerk 300s, trinkets and tier set removed (azsim `--gear`, seed 1):
+
+| run | SimC | azsim | diff |
+|---|---:|---:|---:|
+| core kit (no consumables, no Bloodlust), 5,000 iterations | 162,002 | 158,587 | -2.11% |
+| full kit, SimC 20,000 / azsim 10,000 iterations | 186,182 | 183,134 | -1.64% |
+
+The core-kit gap is the spec's own (see Known gaps), not gear: `--gear` is
++0.00% against the hand-entered stats. Without gear lines nothing moved:
+158,960 at `--calib -n 2000 --seed 1`, before and after.
+
+The potion follows the APL (`potion,if=buff.bloodlust.react|fight_remains<30|
+buff.adrenaline_rush.up`), so it goes out at the pull with Bloodlust.
+
+Omnium (tools/omnium.py ablate, 20,000 iterations, core kit): 162,090 with all
+five traits, 157,662 with none (+2.81%). In azsim a character without the line
+reads 154,319 against 158,653 with it (-2.73%). Unleashed Fire is 1.0154,
+Versatile Warrior 1.0105, Overload 1.0013, Lingering 1.0009 and Lynxlike
+Reflexes 0.9998.
+
+Unmodelled on this profile: the Midnight season 2 tier set (set 2064, 2pc and
+4pc). Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine
+Technique) and the Bite of Zul'jan set are modelled.

@@ -38,6 +38,7 @@ SPEC_BY_PROFILE = {
     "beast_mastery": "beast_mastery_pack_leader",
     "enhancement": "enhancement_stormbringer",
     "unholy": "unholy_rider",
+    "outlaw": "outlaw_trickster",
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
 }
