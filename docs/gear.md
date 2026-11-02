@@ -382,7 +382,7 @@ is within 0.2% of the same specs with hand-entered stats. None has a
   embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
   340 vs 341). Trinket effects and set bonuses count only where the
-  effect library has an entry (eleven trinket effects, the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs,
+  effect library has an entry (twelve trinket effects, the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs,
   and the season 2 class sets of every other DPS spec, see above, [Fallbacks closed](#fallbacks-closed) and
   [Midnight season 2 class sets](#midnight-season-2-class-sets)); others are reported as `unmodelled`
   (Blood's set 2055 and Ret's MID1 4pc). Library procs are rolled
@@ -402,6 +402,9 @@ the profile's own gear, kit on, other trinkets and the tier set removed;
 `tools/validate_effects.py` for trinkets, set bonuses by SimC's
 `set_bonus=midnight_season_N_{2,4}pc=0`). Contribution is the DPS the effect adds
 over the same character without it, so the trinket rows include the item's own stats.
+The Seastone row is the effect alone: both engines with the trinket's own stats
+removed (its haste allocation zeroed), since the proc and the stats can't
+otherwise be separated.
 
 | effect | where | SimC | azsim |
 |---|---|---:|---:|
@@ -430,6 +433,7 @@ over the same character without it, so the trinket rows include the item's own s
 | Destruction 2pc (1296571) | Destruction | +4.20% | +4.21% |
 | Destruction 4pc (1296572) | Destruction | +5.7% (10.11%) | +5.7% (10.18%) |
 | Retribution MID1 2pc (set 1985, 1264848) | Retribution | +0.51% | +0.49% |
+| Wavecaller's Seastone (1295058, effect only) | Shadow | +5.69% | +5.80% |
 
 The 4pc rows give the 4pc's own gain over the 2pc, and the total in brackets.
 
@@ -443,6 +447,10 @@ How they are modelled (`data/item_effects.toml`, class sets in the specs'
 - **Gebbo's**: real PPM 3, each proc one of six artifacts at random: Salmon, Gralstone
   and Voidfin as flat buffs, the Scroll (12 mastery stacks that decay), the Seashell (crit
   stacks that build) and the Totem (versatility stacks spent by hits, 0.75s apart).
+- **Wavecaller's Seastone**: real PPM 6 on direct hits. Each proc adds a stack of
+  intellect (effect 1 of 1295058, 6 max, lasting the fight); the proc that reaches 6
+  turns it around, and procs remove a stack until none are left, then it climbs
+  again. Over a fight it averages about 3.0 stacks against SimC's 2.96.
 - **Shadow 4pc** gives Tentacle Slam a free Void Volley stack (Crushing Void raised to
   its 4 stacks), **Affliction 4pc** +2% damage per active Unstable Affliction (checked every
   0.5s), **Demonology 4pc** a 20% chance for an expiring Wild Imp to Implode at 350%, and
@@ -457,15 +465,16 @@ on cooldown rather than inside Combustion as SimC's APL does (the +6.8%);
 the Shadow 4pc is about 0.9 points light (the rotation spends the volleys slightly
 differently); Retribution's MID1 4pc (set 1985) stays `unmodelled`: Final Verdict
 re-applies Expurgation with its own base multiplier, which makes the DoT's ticks 3.8x
-stronger in SimC (+6.9%). Wavecaller's Seastone (1295058, Shadow's other trinket)
-is still `unmodelled`.
+stronger in SimC (+6.9%).
 
 ## Midnight season 2 class sets
 
 The season 2 class set (2pc and 4pc) is modelled for twenty specs, each in its
 spec's `[[gear.effects]]`; `--gear-stats` lists them `modelled` and every
-profile's `unmodelled` list is empty apart from Blood (set 2055) and Shadow's
-Wavecaller's Seastone. Tier gain is the full sample profile against the same
+profile's `unmodelled` list is empty apart from Blood (set 2055).
+Wavecaller's Seastone (1295058, Shadow's other trinket) is modelled: real-PPM 6
+on direct hits, stacking intellect up to 6 and then back down (see the
+validation table). Tier gain is the full sample profile against the same
 profile with `--set gear.set_bonuses=0` (azsim 10,000 iterations, seed 1,
 `--calib`; SimC with `set_bonus=midnight_season_2_{2,4}pc=0` and
 `bite_of_zuljan_2pc=0`, from each spec's doc, where the mechanics, per-piece

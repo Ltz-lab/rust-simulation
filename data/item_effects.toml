@@ -640,3 +640,46 @@ gcd = 0
 requires_buff = "gebbo_totem"
 on_cast = [{ type = "consume", buff = "gebbo_totem" }]
 '''
+
+# Wavecaller's Seastone (item 270167, driver 1295058, Tidal Insight 1295057):
+# real-PPM 6 on direct damage. Each proc grants a stack of intellect (effect 1,
+# up to 6, lasting the fight). The proc that reaches 6 turns it around, so later
+# procs take a stack away; the one that removes the last turns it back. The turn
+# is applied in `on_start`, ahead of the stack change: a proc's own hit rolls
+# procs before `on_cast`, and the next one would otherwise see the old direction.
+# [simc wavecallers_seastone]
+[[effect]]
+spell = 1295058
+text = '''
+[[buffs]]
+name = "tidal_insight"
+duration = 1e9
+max_stacks = ${1295057.stacks}
+refresh_duration = false
+stats = { primary = ${e1} }
+
+[[buffs]]
+name = "tidal_insight_ebb"
+duration = 1e9
+
+[[abilities]]
+name = "tidal_insight"
+triggered_only = true
+gcd = 0
+no_procs = true
+on_start = [
+  { type = "if", if = "buff.tidal_insight_ebb.up&!buff.tidal_insight.up", then = [{ type = "consume", buff = "tidal_insight_ebb", all = true }] },
+]
+on_cast = [{ type = "if", if = "buff.tidal_insight_ebb.up", then = [
+  { type = "consume", buff = "tidal_insight" },
+], else = [
+  { type = "buff", buff = "tidal_insight" },
+  { type = "if", if = "buff.tidal_insight.stack>=${1295057.stacks}", then = [{ type = "buff", buff = "tidal_insight_ebb" }] },
+] }]
+
+[[procs]]
+ability = "tidal_insight"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+'''

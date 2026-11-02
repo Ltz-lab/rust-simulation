@@ -121,8 +121,14 @@ haste x1.03) and mastery and versatility. Spell power is 3,361 against 3,374
 (-0.4%), so `--gear` on that gear gives 142,099 against 142,649 gearless
 (`-n 2000 --seed 1`). The full profile adds both trinkets' stats and, with the
 kit, food, flask, rune, oil and potion, so its stats are higher than the
-snapshot's by design. Neither trinket's effect nor the 2/4-piece set bonus is
-in the effect library yet (`--gear-stats` lists them as `unmodelled`).
+snapshot's by design. Both trinkets and the 2/4-piece set bonus are in the
+effect library (`--gear-stats` lists them `modelled`): Freightrunner's Flask, the
+class set, and Wavecaller's Seastone (real-PPM 6 on direct hits, stacking
+intellect up to 6 and then back down). On the full sample profile (tier set,
+both trinkets, kit and Omnium traits) azsim gives 213,576 against SimC's
+218,840 (-2.41%, 20,000 iterations, seed 1; SimC 30,000). The Seastone's own
+effect, measured over the same character with the trinket's stats removed, is
++5.80% against SimC's +5.69%.
 
 ## Known gaps
 
