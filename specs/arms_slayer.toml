@@ -747,3 +747,77 @@ if = "target.health.pct>=35&!buff.master_of_warfare_proc.up"
 
 [[rotation]]
 action = "wrecking_throw"
+
+# ================================================================== class set (Warrior Arms 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296643): Mortal Strike and Execute deal +10% (effect 1, an aura-108
+# modifier whose class mask lists Mortal Strike 12294 and Execute 260798; the
+# Unhinged strike is spell 12294 too). SimC's script adds a Concussive Slam
+# (1300660) to every Slam; it only hits secondary targets, so it is nothing on
+# one target and not modelled.
+[[gear.effects]]
+spell = 1296643
+text = '''
+precombat = ["set_arms_2pc"]
+
+[[buffs]]
+name = "set_arms_2pc"
+duration = 1e9
+ability_pct = { mortal_strike = ${e1}, mortal_strike_bladestorm_unhinged = ${e1}, execute_damage = ${e1} }
+
+[[abilities]]
+name = "set_arms_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_arms_2pc" }]
+'''
+
+# 4pc (1296644): Overpower +15% (effect 1, class mask lists Overpower 7384).
+# Mortal Strike (the Unhinged one too) and Overpower each add a stack of
+# Winding Up (1300670: 12s, 5 stacks, +20% per stack to Slam and Heroic Strike,
+# class mask bit 21); a Slam or Heroic Strike spends all stacks after it hits
+# [simc mortal_strike_t::execute, overpower_t::execute, slam_base_t::execute].
+[[gear.effects]]
+spell = 1296644
+text = '''
+precombat = ["set_arms_4pc"]
+
+[[buffs]]
+name = "set_arms_4pc"
+duration = 1e9
+ability_pct = { overpower = ${e1} }
+
+[[abilities]]
+name = "set_arms_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_arms_4pc" }]
+
+[[buffs]]
+name = "winding_up"
+duration = ${1300670.duration}
+max_stacks = ${1300670.stacks}
+ability_pct = { slam = ${1300670.e1}, heroic_strike = ${1300670.e1} }
+
+[[patch]]
+ability = "mortal_strike"
+on_cast = [{ type = "buff", buff = "winding_up" }]
+
+[[patch]]
+ability = "mortal_strike_bladestorm_unhinged"
+on_cast = [{ type = "buff", buff = "winding_up" }]
+
+[[patch]]
+ability = "overpower"
+on_cast = [{ type = "buff", buff = "winding_up" }]
+
+[[patch]]
+ability = "slam"
+on_cast = [{ type = "consume", buff = "winding_up", all = true }]
+
+[[patch]]
+ability = "heroic_strike"
+on_cast = [{ type = "consume", buff = "winding_up", all = true }]
+'''

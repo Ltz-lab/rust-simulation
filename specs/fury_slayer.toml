@@ -986,3 +986,98 @@ if = "dot.bladestorm_dot.up"
 [[rotation]]
 action = "whirlwind"
 if = "!dot.bladestorm_dot.up"
+
+# ================================================================== class set (Warrior Fury 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296645): Raging Blow and Crushing Blow deal +15% (effect 1, class mask
+# lists 85384, 96103, 335098, 335100), and each of them cast in Recklessness
+# adds 2s to it (effect 2, 2000 ms), at most 3 times (effect 3) per cast of
+# Recklessness [simc raging_blow_t::execute, crushing_blow_t::execute,
+# recklessness_t::execute]. The extension is a flat +2s, not scaled by
+# Rampaging Berserker like the 12s base.
+[[gear.effects]]
+spell = 1296645
+text = '''
+precombat = ["set_fury_2pc"]
+
+[[buffs]]
+name = "set_fury_2pc"
+duration = 1e9
+ability_pct = { raging_blow_mh = ${e1}, raging_blow_oh = ${e1}, crushing_blow_mh = ${e1}, crushing_blow_oh = ${e1} }
+
+[[abilities]]
+name = "set_fury_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_fury_2pc" }]
+
+[[buffs]]
+name = "set_fury_extensions"   # extensions used since the last Recklessness cast
+duration = 1e9
+max_stacks = ${e3}
+
+[[patch]]
+ability = "recklessness"
+on_cast = [{ type = "consume", buff = "set_fury_extensions", all = true }]
+
+[[patch]]
+ability = "raging_blow"        # Crushing Blow while Reckless is the same cast here
+on_cast = [{ type = "if", if = "buff.recklessness.up&buff.set_fury_extensions.stack<${e3}", then = [
+  { type = "extend_buff", buff = "recklessness", seconds = ${e2:div1000} },
+  { type = "buff", buff = "set_fury_extensions" },
+] }]
+'''
+
+# 4pc (1296646): Bloodthirst and Bloodbath deal +10% (effect 1, class mask
+# lists 23881 and 335096), and each one cast in Recklessness adds a stack of
+# +3% crit (effect 2) to everything, up to 2 stacks (effect 3), gone when
+# Recklessness ends or is cast again [simc bloodthirst_t::execute,
+# bloodbath_t::execute, warrior_t::create_buffs fury_mid2_4pc_crit].
+[[gear.effects]]
+spell = 1296646
+text = '''
+precombat = ["set_fury_4pc"]
+
+[[buffs]]
+name = "set_fury_4pc"
+duration = 1e9
+ability_pct = { bloodthirst = ${e1}, bloodbath = ${e1}, bloodthirst_bladestorm_unhinged = ${e1}, bloodbath_bladestorm_unhinged = ${e1} }
+
+[[abilities]]
+name = "set_fury_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_fury_4pc" }]
+
+[[buffs]]
+name = "fury_mid2_4pc_crit"
+duration = 1e9               # no duration of its own; Recklessness ends it
+max_stacks = ${e3}
+crit_pct = ${e2}
+
+[[patch]]
+buff = "recklessness"
+on_expire = [{ type = "consume", buff = "fury_mid2_4pc_crit", all = true }]
+
+[[patch]]
+ability = "recklessness"
+on_cast = [{ type = "consume", buff = "fury_mid2_4pc_crit", all = true }]
+
+[[patch]]
+ability = "bloodthirst"
+on_cast = [{ type = "if", if = "buff.recklessness.up", then = [{ type = "buff", buff = "fury_mid2_4pc_crit" }] }]
+
+[[patch]]
+ability = "bloodbath"
+on_cast = [{ type = "if", if = "buff.recklessness.up", then = [{ type = "buff", buff = "fury_mid2_4pc_crit" }] }]
+
+[[patch]]
+ability = "bloodthirst_bladestorm_unhinged"
+on_cast = [{ type = "if", if = "buff.recklessness.up", then = [{ type = "buff", buff = "fury_mid2_4pc_crit" }] }]
+
+[[patch]]
+ability = "bloodbath_bladestorm_unhinged"
+on_cast = [{ type = "if", if = "buff.recklessness.up", then = [{ type = "buff", buff = "fury_mid2_4pc_crit" }] }]
+'''
