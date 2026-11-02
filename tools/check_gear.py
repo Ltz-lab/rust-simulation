@@ -42,6 +42,7 @@ SPEC_BY_PROFILE = {
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
     "survival": "survival_sentinel",
+    "windwalker": "windwalker_shadopan",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
