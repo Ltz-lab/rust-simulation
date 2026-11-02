@@ -86,6 +86,31 @@ match, and so do attack power (2,640), crit (19.98%), haste (26.25%), mastery
 181,091 from the hand-entered stats (-0.02%, same seed; SimC 179,298).
 Weapon attack power comes from the main hand's DPS (702 at 117.6).
 
+## Tier set (Midnight season 2, set 2064)
+
+With gear lines, the set's two bonuses are `[[gear.effects]]` entries (spells 1296592 and
+1296593; `--set gear.set_bonuses=0` turns them off). Numbers from DB2 and `sc_rogue.cpp`.
+
+| bonus | game effect | modelled as |
+|---|---|---|
+| 2pc | Backstab costs 10 less energy and deals +100%; Shuriken Storm costs 5 less and deals +60% | costs 30 and 45 (SimC reports 30.0 and 45.0 a cast), `ability_pct` 100 on Backstab and its Shadow Clone and 60 on Shuriken Storm; the Shadow Blades and Lingering Shadow copies take the hit as dealt |
+| 4pc | Eviscerate, its Shadowed Finishers hit and its Shadow Clone trigger Lingering Shadow at 60% of Backstab's rate | a second echo of the Lingering Shadow stacks (new `stacks_of` field on `echo`), 0.6% of the hit per stack, x1.37 for the physical Eviscerate |
+
+Tier gain on `profiles/MID2_Rogue_Subtlety.simc`, Patchwerk 300s, target error 0.3%:
+
+| | SimC | azsim |
+|---|---:|---:|
+| 2pc alone | +5.11% | +4.20% |
+| 4pc on top of the 2pc | +7.35% | +7.19% |
+| full tier gain | +12.83% | +11.69% |
+| full-profile DPS | 282,730 | 275,799 (-2.45%) |
+
+The rotation is unchanged: SimC's APL only reads the 2pc as `variable.targets<=2-set_bonus.midnight_season_2_2pc`,
+which is true at one target either way. The 2pc gap (0.9 points) is the base again: Backstab is
+2.34% of SimC's damage with the set off, and SimC casts it 84.6 times a fight with the discount
+against 70.3 without. The Lingering Shadow copy stays as before: Shuriken Storm's copy (SimC enables it) and the
+Lingering Darkness factor SimC applies to the copy are not modelled.
+
 ## Speed
 
 Same machine (10 cores), 10,000 iterations: azsim **1.2s**, SimC **4.7s**.

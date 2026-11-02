@@ -103,6 +103,30 @@ gives the same order.
   70%, or 7 points under Darkest Night), Fan of Knives at 6 points under
   Darkest Night, then Ambush/Shiv/Mutilate.
 
+## Tier set (Midnight season 2, set 2064)
+
+With gear lines, the set's two bonuses are `[[gear.effects]]` entries (spells 1296590 and
+1296591; `--set gear.set_bonuses=0` turns them off). Numbers from DB2 and `sc_rogue.cpp`.
+
+| bonus | game effect | modelled as |
+|---|---|---|
+| 2pc | Envenom +10%; while Envenom is up, +3% to the spells and auto attacks Envenom's effects 8-10 list | a permanent +10% on Envenom, and a +3% buff on 20 damage sources that is triggered with Envenom's own duration |
+| 4pc | +10% to the bleeds Deadly Poison amplifies while the target has the Deadly Poison dot; auto attacks +3% per Amplifying Poison stack | a buff that is up while the `deadly_poison_dot` ticks (new `while_dot` field) on Garrote, Rupture, Internal Bleeding, Mutilated Flesh and Deathmark; `ability_pct` on the Amplifying Poison debuff for both auto attacks |
+
+Tier gain on `profiles/MID2_Rogue_Assassination.simc`, Patchwerk 300s, target error 0.3%
+(SimC `set_bonus=midnight_season_2_{2,4}pc=0`, `bite_of_zuljan_2pc=0` for off; azsim
+`--set gear.set_bonuses=0`, seed 1):
+
+| | SimC | azsim |
+|---|---:|---:|
+| 2pc alone | +4.10% | +4.30% |
+| 4pc on top of the 2pc | +6.86% | +6.91% |
+| full tier gain | +11.24% | +11.51% |
+| full-profile DPS | 237,425 | 229,234 (-3.45%) |
+
+The rotation is unchanged: SimC's APL has no set-bonus condition for Assassination. The
+full-profile gap is the spec's own: with the set off azsim is -3.68% (205,577 against 213,433).
+
 ## Known gaps
 
 - **Gear is not modelled.** There is no `[gear]`/`[gear.kit]` block, so

@@ -943,3 +943,59 @@ if = "buff.dance_stance.up|buff.stealth.up|buff.vanish.up"
 [[rotation]]
 action = "backstab"
 if = "!(buff.shadow_dance.up|buff.stealth.up|buff.vanish.up)&energy>60"
+
+# ---------------------------------------------------------------- tier set
+# Midnight season 2 class set (set 2064, spec 261). Only with gear lines
+# (`--set gear.set_bonuses=0` turns them off); fragment format as
+# data/item_effects.toml. [db2, simc sc_rogue.cpp]
+
+# 2pc (1296592): Backstab (and its Shadow Clone) costs 10 less energy (effect 1) and
+# deals +100% (effect 2); Shuriken Storm costs 5 less (effect 3) and deals +60%
+# (effect 4). Spell-data modifiers on their class flags; the copies of Shadow
+# Blades and Lingering Shadow take the hit as dealt, so they follow.
+[[gear.effects]]
+spell = 1296592
+text = '''
+precombat = ["set_subtlety_2pc"]
+
+[[buffs]]
+name = "set_subtlety_2pc"
+duration = 1e9
+ability_pct = { backstab = ${e2}, backstab_shadow_clone = ${e2}, shuriken_storm = ${e4} }
+
+[[abilities]]
+name = "set_subtlety_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_subtlety_2pc" }]
+
+[[patch]]
+ability = "backstab"
+set = { cost = { energy = 30 } }   # 40 - 10 [db2 53, 1296592 #1]
+
+[[patch]]
+ability = "shuriken_storm"
+set = { cost = { energy = 45 } }   # 50 - 5 [db2 197835, 1296592 #3]
+'''
+
+# 4pc (1296593): Eviscerate, its Shadowed Finishers hit and its Shadow Clone also
+# trigger Lingering Shadow, at 60% (effect 1) of the Backstab rate: 0.6% of the hit
+# per stack, x1.37 for the physical Eviscerate (the same residual shadow
+# multiplier as Backstab's copy: 0.6 x 1.37 = 0.822). Another echo of the
+# Lingering Shadow stacks, with its own marker buff always up.
+[[gear.effects]]
+spell = 1296593
+text = '''
+precombat = ["set_subtlety_4pc"]
+
+[[buffs]]
+name = "set_lingering_shadow"
+duration = 1e9
+echo = { ability = "lingering_shadow", pct = ${e1:div100}, school_pct = { physical = 0.822 }, stacks_of = "lingering_shadow", pre_armor = false, sources = ["eviscerate", "eviscerate_bonus", "eviscerate_shadow_clone"] }
+
+[[abilities]]
+name = "set_subtlety_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_lingering_shadow" }]
+'''
