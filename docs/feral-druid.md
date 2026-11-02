@@ -83,6 +83,30 @@ Liquid Luster potion. The potion's Lustrous Gleam stacks (420 versatility
 rating each per SimC's log, not the 220.82 an unscaled DB2 read gives; ~3 average over its 30s) are folded into one versatility buff.
 `--set gear.kit.enabled=0` switches it off for core-kit comparisons.
 
+## Tier set (Midnight season 2, set 2057)
+
+With gear lines the spec models the class set from `[[gear.effects]]` (turn it
+off with `--set gear.set_bonuses=0`). The profile's tier gain, SimC against
+azsim (Patchwerk 300s, one target, kit on, seed 1, ~0.3% target error; SimC's
+off runs append `set_bonus=midnight_season_2_{2,4}pc=0`):
+
+| | SimC | azsim |
+|---|---:|---:|
+| 2pc (1296605): Halazzi's Fury | +2.96% | +3.21% |
+| 4pc (1296606) over the 2pc: Berserk +10s | +3.36% | +2.81% |
+| both | +6.42% | +6.10% |
+| full profile DPS | 251,298 | 250,109 (-0.47%) |
+| same, set bonuses off | 236,132 | 235,724 (-0.17%) |
+
+The 2pc banks the combo points spent by Rip, Ferocious Bite and Convoke's
+Bites (counted as 5 each) during Berserk and, when Berserk ends, gives +10%
+damage to the cat's damage spells and auto attacks for one second per banked
+point (about 55s per Berserk: Halazzi's Fury is up 49.6% of the fight in azsim, 48.5%
+in SimC). The 4pc makes Berserk 25s and its combo point clock run as long. Not
+modelled: the Incarnation + Ashamane's Guidance 0.75s per point variant (this
+profile has Berserk), and SimC's 17th Berserk combo point tick (a shortened
+final tick at expiry; the clock here has 16 whole ticks).
+
 ## Known gaps
 
 - **Overflowing Power** (Berserk lets combo points go over the cap, restored
