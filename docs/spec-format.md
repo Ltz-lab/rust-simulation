@@ -332,3 +332,21 @@ on_cast = [{ type = "apply_dot", dot = "shadow_word_madness", strength = 0.25 }]
   ability had been cast, without its direct damage, cost or cooldown.
   `strength` (default 1) scales the new ticks and needs a `rolling` DoT.
   Channel DoTs can't be applied this way.
+
+## Patching the spec from a gear fragment
+
+A class set bonus in a spec's `[[gear.effects]]` (or an effect in
+`data/item_effects.toml`) can change what the spec already has with `[[patch]]`
+entries. A patch names one `ability`, `buff` or `pet` (skipped when the spec has
+no such thing, or none of the abilities in `requires`) and:
+
+- appends to the lists it names (`on_cast = [...]`), or puts them in front with
+  `prepend = true` (when the order of effects matters);
+- `set = { field = value }` overwrites fields, `add = { field = number }` adds to
+  a number (`add = { duration = 1 }`);
+- a table patches the target's table of that name the same way, e.g. a DoT:
+  `dot = { add = { duration = 1 }, on_tick = [{ type = "reduce_cooldown", ability = "aimed_shot", seconds = 0.5 }] }`.
+
+A `[[rotation]]` entry in a fragment goes in front of the first entry for its
+`before` action (under that entry's condition too), after the first entry for
+`after`, after the last one for `after_last`, or in front of the rotation.

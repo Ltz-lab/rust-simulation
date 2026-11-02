@@ -1052,8 +1052,14 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
                     i += 1;
                 }
             } else {
+                // `after` follows the first entry for that action, `after_last` the last one
+                let after_last = r.remove("after_last").and_then(|x| x.as_str().map(|s| s.to_string()));
                 let after = r.remove("after").and_then(|x| x.as_str().map(|s| s.to_string())).unwrap_or_default();
-                let at = list.iter().position(|e| action(e) == after).map_or(0, |i| i + 1);
+                let at = match &after_last {
+                    Some(n) => list.iter().rposition(|e| action(e) == *n),
+                    None => list.iter().position(|e| action(e) == after),
+                }
+                .map_or(0, |i| i + 1);
                 list.insert(at, toml::Value::Table(r));
             }
         }
@@ -1064,9 +1070,11 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
 /// `[[patch]]`: append lists to an existing ability's, buff's or pet's (`ability =` /
 /// `buff =` / `pet =`), e.g. `on_cast`; skipped when the target or anything in
 /// `requires` (ability names) isn't in the spec. `set = { field = value }`
-/// overwrites scalar fields instead, `dot = { on_tick = [..] }` appends to
-/// the lists of the ability's DoT and `prepend = { on_cast = [..] }` inserts
-/// at the front of a list.
+/// overwrites fields instead, `add = { field = number }` adds to a number, and a
+/// table (`dot = { on_tick = [..], add = { duration = 1 } }`) patches the target's
+/// nested table the same way (an error if the target has no such table).
+/// `prepend = true` puts every appended list entry in front of the target's own;
+/// `prepend = { on_cast = [..] }` does that for the lists it names.
 fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
     let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
     let (kind, name) = match (p.remove("ability"), p.remove("buff"), p.remove("pet")) {
@@ -1095,44 +1103,65 @@ fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
         .and_then(|l| l.iter_mut().find(|e| e.get("name").and_then(|x| x.as_str()) == Some(name.as_str())))
         .and_then(|e| e.as_table_mut())
         .unwrap();
+    // `prepend = true` is a flag for the whole patch; `prepend = { .. }` is handled per list below
+    let prepend = match p.get("prepend") {
+        Some(toml::Value::Boolean(b)) => {
+            let b = *b;
+            p.remove("prepend");
+            b
+        }
+        _ => false,
+    };
+    patch_fields(target, p, &name, prepend)
+}
+
+/// The fields of one `[[patch]]`, applied to `target` (see `patch`); recurses into tables.
+fn patch_fields(target: &mut toml::Table, p: toml::Table, name: &str, prepend: bool) -> Result<(), String> {
     for (k, v) in p {
-        // `set = { field = value, .. }` overwrites scalar fields (e.g. a buff's max_stacks)
-        if k == "set" {
-            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'set' must be a table")) };
-            for (f, x) in fields {
-                target.insert(f, x);
+        match (k.as_str(), v) {
+            // `set = { field = value, .. }` overwrites fields (e.g. a buff's max_stacks)
+            ("set", toml::Value::Table(fields)) => {
+                for (f, x) in fields {
+                    target.insert(f, x);
+                }
             }
-            continue;
-        }
-        // `prepend = { on_cast = [..] }` puts the items in front of the ability's own, so they run first
-        if k == "prepend" {
-            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'prepend' must be a table of lists")) };
-            for (f, items) in fields {
-                let toml::Value::Array(mut items) = items else { return Err(format!("patch '{name}': prepend '{f}' must be a list")) };
-                let list = target.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
-                let old = list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{f}' is not a list"))?;
-                items.append(old);
-                *old = items;
+            // `add = { field = number, .. }` adds to a number (e.g. a DoT's duration)
+            ("add", toml::Value::Table(fields)) => {
+                for (f, x) in fields {
+                    let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+                    let (Some(d), Some(cur)) = (num(&x), target.get(&f).and_then(num)) else {
+                        return Err(format!("patch '{name}': add.{f} needs a number on both sides"));
+                    };
+                    target.insert(f, toml::Value::Float(cur + d));
+                }
             }
-            continue;
-        }
-        // `dot = { on_tick = [..] }` appends lists to the ability's own DoT (not the ability)
-        if k == "dot" {
-            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'dot' must be a table of lists")) };
-            let dot = target
-                .get_mut("dot")
-                .and_then(|d| d.as_table_mut())
-                .ok_or_else(|| format!("patch '{name}': the ability has no dot"))?;
-            for (f, items) in fields {
-                let toml::Value::Array(items) = items else { return Err(format!("patch '{name}': dot '{f}' must be a list")) };
-                let list = dot.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
-                list.as_array_mut().ok_or_else(|| format!("patch '{name}': dot '{f}' is not a list"))?.extend(items);
+            // `prepend = { on_cast = [..] }` puts the items in front of the target's own, so they run first
+            ("prepend", toml::Value::Table(fields)) => {
+                for (f, items) in fields {
+                    let toml::Value::Array(items) = items else { return Err(format!("patch '{name}': prepend '{f}' must be a list")) };
+                    let list = target.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                    list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{f}' is not a list"))?.splice(0..0, items);
+                }
             }
-            continue;
+            ("set" | "add" | "prepend", _) => return Err(format!("patch '{name}': '{k}' must be a table")),
+            (_, toml::Value::Table(sub)) => {
+                let nested = target
+                    .get_mut(k.as_str())
+                    .and_then(|t| t.as_table_mut())
+                    .ok_or_else(|| format!("patch '{name}': '{k}' is not a table in the target"))?;
+                patch_fields(nested, sub, name, prepend)?;
+            }
+            (_, toml::Value::Array(items)) => {
+                let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                let list = list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?;
+                if prepend {
+                    list.splice(0..0, items);
+                } else {
+                    list.extend(items);
+                }
+            }
+            _ => return Err(format!("patch '{name}': '{k}' must be a list or a table")),
         }
-        let toml::Value::Array(items) = v else { return Err(format!("patch '{name}': '{k}' must be a list")) };
-        let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
-        list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?.extend(items);
     }
     Ok(())
 }
@@ -1550,6 +1579,70 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         let cfg: GearSpec = doc["gear"].clone().try_into().unwrap();
         let core: String = profile.lines().filter(|l| !l.starts_with("trinket")).map(|l| format!("{l}\n")).collect();
         compute(&core, &cfg).unwrap().report
+    }
+
+    /// `[[patch]]` into a nested table, `add`, `set` and `prepend`.
+    #[test]
+    fn patch_nested_tables_add_and_prepend() {
+        let mut root: toml::Table = toml::from_str(
+            r#"
+            [[abilities]]
+            name = "shot"
+            on_cast = [{ type = "buff", buff = "a" }]
+            [abilities.dot]
+            name = "shot"
+            duration = 4.0
+            on_tick = [{ type = "buff", buff = "b" }]
+            "#,
+        )
+        .unwrap();
+        let p: toml::Value = toml::from_str(
+            r#"
+            ability = "shot"
+            prepend = true
+            on_cast = [{ type = "buff", buff = "c" }]
+            dot = { add = { duration = 1 }, set = { name = "shot2" }, on_tick = [{ type = "buff", buff = "d" }] }
+            "#,
+        )
+        .unwrap();
+        patch(&mut root, p).unwrap();
+        let a = &root["abilities"][0];
+        assert_eq!(a["on_cast"][0]["buff"].as_str(), Some("c"));
+        assert_eq!(a["on_cast"][1]["buff"].as_str(), Some("a"));
+        let dot = &a["dot"];
+        assert_eq!(dot["duration"].as_float(), Some(5.0));
+        assert_eq!(dot["name"].as_str(), Some("shot2"));
+        assert_eq!(dot["on_tick"][0]["buff"].as_str(), Some("d"));
+        assert_eq!(dot["on_tick"][1]["buff"].as_str(), Some("b"));
+        // a table the target doesn't have, or adding to a missing number, is an error
+        let bad: toml::Value = toml::from_str("ability = \"shot\"\nchannel = { set = { ticks = 1 } }").unwrap();
+        assert!(patch(&mut root, bad).is_err());
+        let bad: toml::Value = toml::from_str("ability = \"shot\"\nadd = { cooldown = 1 }").unwrap();
+        assert!(patch(&mut root, bad).is_err());
+    }
+
+    /// The Midnight season 2 Hunter sets (2059) are modelled for all three specs,
+    /// and the bonuses reach the spec.
+    #[test]
+    fn hunter_tier_set_is_modelled() {
+        let cases: [(&str, &str, [i64; 2]); 3] = [
+            (include_str!("../specs/beast_mastery_pack_leader.toml"), include_str!("../profiles/MID2_Hunter_Beast_Mastery.simc"), [1296631, 1296632]),
+            (include_str!("../specs/marksmanship_sentinel.toml"), include_str!("../profiles/MID2_Hunter_Marksmanship.simc"), [1296633, 1296634]),
+            (include_str!("../specs/survival_sentinel.toml"), include_str!("../profiles/MID2_Hunter_Survival.simc"), [1296636, 1296635]),
+        ];
+        for (spec, profile, spells) in cases {
+            let doc: toml::Value = toml::from_str(spec).unwrap();
+            let (doc, rep) = apply_text(doc, profile).unwrap();
+            let name = spec.lines().next().unwrap();
+            for spell in spells {
+                let row = rep["effects"].as_array().unwrap().iter().find(|e| e["spell"] == spell);
+                assert_eq!(row.map(|r| r["status"].as_str().unwrap()), Some("modelled"), "{name}: {spell}");
+            }
+            assert!(!rep["unmodelled"].as_array().unwrap().iter().any(|f| f.as_str().unwrap_or("").contains("2059")), "{name}");
+            // the fragments compile into a spec
+            let spec: crate::spec::Spec = doc.try_into().unwrap();
+            crate::sim::Compiled::new(spec).unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
     }
 
     #[test]
