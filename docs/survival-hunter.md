@@ -117,5 +117,53 @@ versatility edges above it.
 - **Mastery** is modelled as a 1.766x coefficient on the reported 31.82%:
   the reference lifts every hit 10.4% for +500 mastery rating, which a plain
   `1 + mastery` cannot produce (it would need a factor of 0.88).
-- The tier set, trinkets and consumables are not modelled (core kit only), and
-  there is no `[gear]` block yet.
+- The tier set (set 2059) is not modelled; with gear lines the two trinkets and the
+  Bite of Zul'jan 2pc come from the effect library. Consumables are in `[gear.kit]`.
+
+## Gear
+
+`[gear]`, `[gear.kit]` and `[gear.omnium]` are measured on SimC's buffed stats for
+`profiles/MID2_Hunter_Survival.simc` (trinkets and tier set removed). Item levels and
+every item's ratings match; the character totals match to rounding:
+
+| stat | azsim | SimC |
+|---|---:|---:|
+| attack power (core kit / full kit) | 2,742 / 2,829 | 2,742 / 2,829 |
+| crit (core / full) | 33.02% / 37.11% | 33.02% / 37.11% |
+| haste (core / full) | 25.69% / 26.06% | 25.69% / 26.06% |
+| mastery | 31.82% | 31.82% |
+| versatility | 4.98% | 4.98% |
+
+| constant | value | from |
+|---|---|---|
+| base agility, `primary_mult` | 618, 1.1139 | 2,612 on 2,345 (1,727 from gear); same with `optimal_raid=0` |
+| `attack_power_mult` | 1.05 | Battle Shout, 2,612 -> 2,742 |
+| `rating_mult` | crit 1.04, mastery 1.05 | SimC's rating totals exceed the items' and gems' sum by 4% / 5% (831 vs 799 and 1,023 vs 974 without gems; consumable ratings are scaled too) |
+| `crit_bonus` | 0.1401 | 33.02% at 875 rating |
+| `haste_mult` | 1.02 | 25.69% at 1,022 rating |
+| `mastery_points`, coefficient | 7.396, 1.0 | the reported 31.82% = 24.42% from rating + 7.40 |
+| `versatility_bonus` | 0.03 | Mark of the Wild |
+| weapon attack power | none | SimC's attack power is agility x 1.05 alone; gear mode puts all 2,742 in `attack_power` (the spec's 2,000 + 742 split is summed anyway) |
+| `spec_id` | 255 | Survival |
+
+Kit (SimC buffed stats with and without each consumable): food 50 + Void-Touched rune 25.1
+agility, Flask of the Shattered Sun (rank 2) 165 crit and Thalassian Phoenix Oil 16 crit and
+16 haste on the two-hander (crit x1.04 = 188), Bloodlust at the pull, and the potion
+(Recklessness: +1,725 mastery, the highest rating with the flask, and -232 versatility, the
+lowest) used on `cooldown.takedown.ready|fight_remains<25` as the APL has it.
+
+Omnium (`tools/omnium.py ablate`, 20,000 iterations, core kit 163,203 with all five traits,
+158,102 with none, +3.23%): Unleashed Fire 1.01703, Self-Mending 0.99985, Lingering
+1.00084, Burning Haste 1.01269, Overload 1.00157.
+
+DPS on the sample profile without trinkets and tier set (SimC 20,000 iterations, azsim 10,000,
+seed 1; the core-kit row is `tools/check_gear.py --dps --no-trinkets`, 5,000 iterations):
+
+| run | SimC | azsim | diff |
+|---|---:|---:|---:|
+| core kit (no consumables, no Bloodlust) | 163,183 | 163,099 | -0.05% |
+| full kit | 190,604 | 189,057 | -0.81% |
+| full kit, no omnium traits | 184,763 | 183,147 | -0.87% |
+
+Core-kit `--calib` runs without gear are identical before and after (163,190 at 2,000
+iterations, seed 1).

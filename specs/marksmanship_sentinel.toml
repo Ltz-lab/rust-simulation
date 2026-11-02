@@ -51,6 +51,47 @@ versatility = 0.1463           # [obs]
 crit_multiplier = 2.41         # [obs] the reference's own crit/noncrit ratio (2.0 base, x1.05 Take Aim, x(1+0.25xcrit) Penetrating Shots)
 weapon = { min = 0, max = 0, speed = 3.0 }   # [db2] caustic repose greatbow
 
+[gear]
+primary = "agility"
+base_primary = 618            # [obs] level-90 dwarf hunter base agility (SimC: 2526 = (618 + 1718 from gear) x 1.08145)
+primary_mult = 1.08145        # [obs] unbuffed agility 2526 on 2336 (the same passive as Beast Mastery's)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2526 agility -> 2652 attack power
+crit_bonus = 0.148696          # [obs] 36.72% at 1045 rating; SimC counts 40 crit rating more than the items and gems sum to (1005), folded in here
+haste_mult = 1.02             # [obs] 11.55% at 412 rating (9.36%): x1.02, multiplicative with rating haste
+mastery_points = 10           # [obs] 19.77% at 31.63 points / Sniper Training 0.625 [obs: +0.0125 per 2 points] less 21.63 from rating (8 base + 2 buff)
+mastery_coeff = 0.625         # [obs] Sniper Training, % per mastery point (SimC mastery_value over +92 and +460 mastery rating)
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.0       # [db2] weapon attack power 934.77 at 155.8 bow DPS x 6, as in [player]
+spec_id = 254                 # [db2] ChrSpecialization Marksmanship
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 155,386 with all, 149,630 with
+# none, +3.85%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136815", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.02016 },   # [simc] leave-one-out 1.03822
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 1.00006 },   # [simc] leave-one-out 1.00012
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00112 },   # [simc] leave-one-out 1.00210
+  { id = "136815", name = "Critical Power", global_mult = 1.01498 },   # [simc] leave-one-out 1.02835
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00174 },   # [simc] leave-one-out 1.00327
+]
+
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 consumables for the sample profile
+# plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75, crit_rating = 188, haste_rating = 16 }
+#   primary 75     food 50 (+54 agility) + Void-Touched augment rune 25 (+27) [obs: +85 attack power]
+#   crit 172       Flask of the Shattered Sun (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the bow [obs: +17 crit, +16 haste]
+#   crit 188       the three together, as SimC reports it (1233 against 1045)
+
 [fight]
 duration = 300
 variance = 0.2
@@ -528,10 +569,44 @@ spell_id = 1310209
 triggered_only = true
 damage = { ap_coeff = 1.747, school = "shadow" }   # gear; scale from calibration
 
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { crit_rating = 1725, haste_rating = -232 }   # [simc] crit is this gear's highest rating with the flask (1233 vs mastery 995), haste its lowest (428); SimC log: potion_of_recklessness_Crit and _penalty_Haste
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
+
 # ---------------------------------------------------------------- rotation
 # SimC's Sentinel single-target APL (actions.sentst), paraphrased.
 # trueshot_ready = (fight_remains>25 | bullseye at max stacks)
 #                & (explosive shot 15s from ready) | fight_remains<25 | time<10
+
+# Potion [simc APL: potion,if=buff.trueshot.up&(buff.bloodlust.up|fight_remains<120-30*talent.calling_the_shots)|fight_remains<31]
+[[rotation]]
+action = "potion"
+if = "buff.trueshot.up&(buff.bloodlust.up|fight_remains<120)|fight_remains<31"
 
 [[rotation]]
 action = "explosive_shot"

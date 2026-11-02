@@ -42,6 +42,49 @@ crit_multiplier = 2.0       # [obs] +500 crit rating gives +8.50% (27.5% -> 38.3
 # swing count the reference reports (207 a fight).
 weapon = { min = 0, max = 0, speed = 2.60 }
 
+# Gear -> stats (docs/gear.md): SimC's MID2 sample Windwalker profile without
+# trinkets (core kit). Every item level and rating matches SimC
+# (tools/check_gear.py) and the buffed stats land on the [player] snapshot.
+[gear]
+primary = "agility"
+base_primary = 622            # [obs] level-90 troll monk base agility (SimC gear_agility=0 gives 679 = 622 x 1.092)
+primary_mult = 1.092          # [obs] SimC gear_agility probe: +1000 gives +1092 agility (leather specialization etc.)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2555 agility -> 2682 attack power (2555 with optimal_raid=0)
+crit_bonus = 0.14             # [obs] 27.48% at 620 rating = 13.48% from rating + 14%
+haste_mult = 1.05             # [obs] 29.44% at 1024 rating (23.27%): x1.05, multiplicative with rating haste
+mastery_points = 10           # [obs] 8 base + 2 Skyfury (SimC unbuffed 83.13%, buffed 87.78%)
+mastery_coeff = 2.32875       # [obs] Combo Strikes, % per mastery point: 87.78% at 37.70 points
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+weapon_ap_per_dps = 6.8809    # [obs] weapon_attack_power 1072 at 155.80 two-hander DPS
+spec_id = 269                 # [db2] ChrSpecialization Windwalker
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 169,345 with all, 164,187 with
+# none, +3.14%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["136822", "136819", "136817", "136815", "136814"]
+traits = [
+  { id = "136822", name = "Rune of Unleashed Fire", global_mult = 1.01651 },   # [simc] leave-one-out 1.03171
+  { id = "136819", name = "Rune of Self-Mending", global_mult = 1.00015 },   # [simc] leave-one-out 1.00028
+  { id = "136817", name = "Rune of Lingering", global_mult = 1.00120 },   # [simc] leave-one-out 1.00229
+  { id = "136815", name = "Rune of Critical Power", global_mult = 1.01150 },   # [simc] leave-one-out 1.02203
+  { id = "136814", name = "Rune of Overload", global_mult = 1.00179 },   # [simc] leave-one-out 1.00341
+]
+
+# Raid-night kit, applied only with gear lines (`--set gear.kit.enabled=0`
+# turns it off): SimC's default level-90 consumables for the sample profile
+# plus Bloodlust, measured on its buffed stats. [simc]
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]   # Bloodlust at the pull; unlocks the potion
+stats = { primary = 75.1, haste_rating = 181, crit_rating = 16 }
+#   primary 75.1   Harandar Celebration 50 + Void-Touched augment rune 25.1 [obs: +54 and +27 agility, +86 attack power]
+#   haste 165      Flask of the Blood Knights (rank 2) [obs: SimC buffed stats]
+#   crit/haste 16  Thalassian Phoenix Oil (rank 2) on the two-hander [obs]
+
 [fight]
 duration = 300
 variance = 0.2
@@ -513,12 +556,46 @@ school = "cosmic"
 crit_bonus = -2.0
 refresh = "extend"
 
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { mastery_rating = 1725, versatility_rating = -232 }   # [simc] mastery is this gear's highest rating (1274), versatility its lowest (123)
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
+
 # ---------------------------------------------------------------- rotation
 # Paraphrase of SimC's default Windwalker APL, single target (default_st).
 
 [[rotation]]
 action = "touch_of_karma"
 if = "fight_remains>5"
+
+# Potion at the pull [simc APL: potion,if=talent.flurry_strikes&chi>2&time<5; Xuen is not talented]
+[[rotation]]
+action = "potion"
+if = "chi>2&time<5"
 
 [[rotation]]
 action = "zenith"

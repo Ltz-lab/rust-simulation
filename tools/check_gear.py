@@ -36,10 +36,14 @@ SPEC_BY_PROFILE = {
     "devourer": "devourer_voidscarred",
     "assassination": "assassination_deathstalker",
     "beast_mastery": "beast_mastery_pack_leader",
+    "marksmanship": "marksmanship_sentinel",
     "enhancement": "enhancement_stormbringer",
     "unholy": "unholy_rider",
+    "outlaw": "outlaw_trickster",
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
+    "survival": "survival_sentinel",
+    "windwalker": "windwalker_shadopan",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"

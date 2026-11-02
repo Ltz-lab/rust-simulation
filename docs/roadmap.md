@@ -8,7 +8,7 @@ as Loa Worshiper's Band, armor and weapon procs, proc enchants), multi-target, m
 Trinket effects and set bonuses are in (see [gear.md](gear.md#item-effects-and-set-bonuses)):
 an effect library of spec fragments keyed by spell id, numbers from DB2 at
 the item's level. It covers six Midnight trinket effects, Bite of Zul'jan and
-Ret's MID2 tier set; every other trinket or set bonus is reported as
+Ret's MID2 tier set; gear layers, kits and omnium tables now cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw as well (their tier sets are unmodelled); every other trinket or set bonus is reported as
 unmodelled, and the app sends swaps touching one to SimC.
 
 ## Next steps

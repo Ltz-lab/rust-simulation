@@ -166,8 +166,20 @@ a per-trait table (Ret: [retribution.md](retribution.md)). Traits that are
 not a flat damage multiplier would need a spec fragment like the item effects';
 the flat value is exact for the full set and for none, and approximate in between
 (and across gear: the worth is 3.6% at core kit, 3.1% with the full kit). Not
-filled: Frost DK, Marksmanship, Survival, Windwalker and Outlaw have no `[gear]`
-table yet, and Blood and Protection have no `ablate` run. A trait id has to be
+filled: Blood and Protection have no `ablate` run. Frost DK, Marksmanship,
+Survival, Windwalker and Outlaw now have `[gear]`, `[gear.kit]` and omnium tables:
+
+| spec | SimC DPS | azsim DPS | diff | basis |
+|---|---:|---:|---:|---|
+| Frost DK (Deathbringer) | 191,743.8 | 189,425.9 | -1.21% | full kit, no trinkets |
+| Marksmanship (Sentinel) | 180,080 | 177,053 | -1.68% | full kit, no trinkets, tier off |
+| Survival (Sentinel) | 190,603.5 | 189,056.6 | -0.81% | full kit, no trinkets, tier off |
+| Windwalker (Shado-Pan) | 169,360 | 167,114 | -1.33% | core kit, no trinkets (kit on: -2.28%) |
+| Outlaw (Trickster) | 186,182 | 183,134 | -1.64% | full kit, no trinkets, tier off |
+
+SimC at 20,000 iterations, azsim at 10,000 (seed 1); Windwalker's core-kit pair is from the spec reports. The tier sets of all five (2055, 2059 twice, 2061, 2064) are unmodelled. Frost DK has no `SPEC_BY_PROFILE` line in `tools/check_gear.py` (its `spec=frost` is also the Mage's); pass `--spec` and `--calib`.
+
+A trait id has to be
 spelled as the profile spells it (`136822` or `rune_of_unleashed_fire`).
 
 **Per-trait values for every spec with `[gear]`.** Filled from `tools/omnium.py
