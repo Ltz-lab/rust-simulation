@@ -160,3 +160,52 @@ power, while the reference's weapon damage does not scale with AP.
 - Killing Machine is consumed with the Obliterate it empowers; SimC's 30-50ms
   delay doesn't matter on one target.
 - No gear lines (`[gear]`), so `--gear` isn't supported for this spec yet.
+
+## Gear
+
+`[gear]`, `[gear.kit]` and `[gear.omnium]` let `--gear profiles/MID2_Death_Knight_Frost.simc`
+build the character from its items (docs/gear.md). Constants, all measured on SimC's buffed stats for the
+sample profile (human, no trinkets, tier set off):
+
+| constant | value | measured as |
+|---|---:|---|
+| `base_primary` | 760.7 | 2611 buffed strength / 1.05 less the items' 1726 |
+| `primary_mult` | 1.05 | plate specialization |
+| `attack_power_mult` | 1.05 | 2611 strength -> 2741 attack power (one-handers: no flat weapon attack power) |
+| `crit_bonus` | 0.05 | 19.37% at 661 rating |
+| `haste_mult` | 1.04 | 26.41% at 948 rating |
+| `rating_mult` | 1.02 each | Human: 648/929/1355/107 item rating -> 661/948/1382/109 |
+| `mastery_points`, `mastery_coeff` | 10, 2.0 | 80.08% at 1382 rating |
+| `versatility_bonus` | 0.03 | Mark of the Wild |
+| `spec_id` | 251 | ChrSpecialization |
+| `[gear.procs] haste` | 0.0798 | Rune of Burning Haste's average already in `[player].haste` (0.3439 - 0.2641) |
+
+Kit, from SimC's buffed stats with each consumable alone: food and augment rune +83 strength (79.1 before
+the multiplier), Flask of the Shattered Sun +168 crit, Thalassian Phoenix Oil +33 crit and +32 haste on the two
+weapons, Bloodlust at the pull. Potion of Recklessness (rank 2) gives +1759.5 mastery and -236.6 versatility
+for 30s (SimC's stat timeline; 1725 and -232 with Human's 2%); azsim uses it with Pillar of Frost
+(`variable.cooldown_check`). Omnium (SimC ablate, 20,000 iterations, core kit: 163,016 with all traits,
+158,100 with none, +3.11%): Unleashed Fire 1.01600, Burning Haste 1.01193, Overload 1.00176, Lingering
+1.00105, Lynxlike Reflexes 1.00008.
+
+Against SimC on the sample profile without trinkets (`tools/check_gear.py`, passing `--spec` and `--calib`
+because `spec=frost` is also the Frost Mage's):
+
+| stat | azsim | SimC |
+|---|---:|---:|
+| attack power | 2741 | 2741 |
+| crit | 19.37% | 19.37% |
+| haste | 26.40% | 26.41% |
+| mastery | 80.08% | 80.08% |
+| versatility | 5.02% | 5.02% |
+
+Every item level matches; the rating rows differ by Human's 2% because `check_gear.py` prints the item sum
+before `rating_mult`. DPS (azsim 10,000 iterations seed 1 / 5,000 seed 42 in check_gear, SimC 20,000 / 5,000):
+
+| run | SimC | azsim |
+|---|---:|---:|
+| core kit (no consumables, Bloodlust) | 163,086 | 162,593 (-0.30%) |
+| full kit (consumables, Bloodlust, potion) | 191,744 | 189,426 (-1.21%) |
+
+Not modelled for this profile: the tier set (set 2055, 2pc and 4pc). The two trinkets
+(Voracious Heart of Ula'tek, Zul'jin's Guillotine Technique) and the Bite of Zul'jan 2pc are in the effect library.
