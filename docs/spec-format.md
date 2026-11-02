@@ -43,7 +43,9 @@ on refresh (`refresh_extend`), retain their original expiry when stacked
 (`attack_speed_pct`, `attack_speed_per_haste`). DoTs support hasted ticks, partial final ticks (or
 `whole_ticks` only), `pandemic`/`extend`/`reset`/`rolling` refresh, tick-rate buffs, stacks
 (`max_stacks`, `per_stack`, `dot.X.stack`), extend-on-crit, on-tick and
-on-crit effects, and `banked` rolling damage fed by direct hits or ticks. Feed entries may
+on-crit effects, and `banked` rolling damage fed by direct hits or ticks. A DoT's `amount`
+is flat damage per tick added to its `ap_coeff`/`sp_coeff` part (item-level-scaled gear
+DoTs, as `damage.amount` is for hits). Feed entries may
 restrict contributions with `crit_only = true`, an `if` expression, and a
 `chance` (default 1: every hit; each entry rolls its own random stream).
 `mastery_power` applies independent copies of the mastery factor for
@@ -81,7 +83,9 @@ since the last attempt capped at 3.5s, bad-luck protection), or with a flat
 `chance` per hit, plus an optional internal cooldown `icd`. Nothing is rolled
 while the ability's `requires_buff` is down, which makes "while X is up, hits
 can proc Y" plain data. Use `on_tick = true` to include periodic hits (with or without `on_hit`),
-and `sources = ["name", ...]` to restrict eligible damage sources. Hits from
+and `sources = ["name", ...]` to restrict eligible damage sources;
+`physical = true` lets only physical-school hits roll it (melee and ranged
+attacks and physical abilities: SimC proc flags without the magic-spell ones). Hits from
 pets and `no_procs` abilities don't roll.
 Each on-hit proc has its own `hit_proc/<ability>` random stream.
 

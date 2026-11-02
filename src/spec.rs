@@ -134,6 +134,10 @@ pub struct ProcDef {
     /// Internal cooldown in seconds after a successful proc (on_hit procs).
     #[serde(default)]
     pub icd: f64,
+    /// Only physical-school hits roll it (melee and ranged attacks, physical
+    /// abilities): SimC proc flags without the magic-spell ones.
+    #[serde(default)]
+    pub physical: bool,
 }
 
 /// Final, fully-buffed character stats. Gear -> stats is a later layer;
@@ -429,6 +433,10 @@ pub struct DotDef {
     pub ap_coeff: f64,
     #[serde(default)]
     pub sp_coeff: f64,
+    /// Flat damage per tick added to the coefficient part (gear procs:
+    /// item-level scaled).
+    #[serde(default)]
+    pub amount: f64,
     /// Rolling DoT: no coefficient; deals damage banked by `feed` from other
     /// hits, spread evenly over the ticks left. Each feed resets the duration
     /// and keeps the tick cadence. Ticks don't crit (the banked damage already did).

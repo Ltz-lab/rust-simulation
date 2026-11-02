@@ -642,6 +642,7 @@ fn compute(profile: &str, cfg: &GearSpec) -> Result<Computed, String> {
         per_pct: [cr["crit"], cr["haste"], cr["mastery"], cr["versatility"]],
         mastery_coeff: cfg.mastery_coeff,
         power_pct_per_primary: cfg.primary_mult * power_per_primary / total_power * 100.0,
+        primary: cfg.primary.clone(),
     };
     Ok(Computed { report, player_pairs, kit: kit_out, equipped, gems: gems_worn, ctx })
 }
@@ -695,6 +696,8 @@ struct StatCtx {
     mastery_coeff: f64,
     /// `power_pct` per point of primary stat
     power_pct_per_primary: f64,
+    /// "strength", "agility" or "intellect"
+    primary: String,
 }
 
 impl StatCtx {
@@ -707,10 +710,20 @@ impl StatCtx {
     /// Buff fields (and values) for per-stack gear `stats`.
     fn buff_fields(&self, stats: &toml::Table) -> Result<Vec<(&'static str, f64)>, String> {
         let mut out = Vec::new();
+        const RATINGS: [&str; 4] = ["crit_rating", "haste_rating", "mastery_rating", "versatility_rating"];
         for (k, v) in stats {
             let x = v.as_float().or_else(|| v.as_integer().map(|i| i as f64)).ok_or_else(|| format!("stats.{k} is not a number"))?;
-            out.push(match k.as_str() {
+            // the character's highest / lowest secondary rating (SimC's highest_stat / lowest_stat, ties to the first)
+            let pick = |better: fn(f64, f64) -> bool| (0..4).fold(0, |b, i| if better(self.ratings[i], self.ratings[b]) { i } else { b });
+            let k = match k.as_str() {
+                "highest_rating" => RATINGS[pick(|a, b| a > b)],
+                "lowest_rating" => RATINGS[pick(|a, b| a < b)],
+                k => k,
+            };
+            out.push(match k {
                 "primary" => ("power_pct", x * self.power_pct_per_primary),
+                // one primary stat: counts only for characters whose primary it is
+                "strength" | "agility" | "intellect" => ("power_pct", if k == self.primary { x * self.power_pct_per_primary } else { 0.0 }),
                 "crit_rating" => ("crit_pct", self.dr_gain(0, x)),
                 // haste multiplies: (1 + new) / (1 + old)
                 "haste_rating" => {
@@ -938,6 +951,64 @@ fn fill(text: &str, a: &Active) -> Result<String, String> {
         out.push_str(&rest[..i]);
         let j = rest[i..].find('}').ok_or("unclosed ${ in template")?;
         out.push_str(&placeholder(&rest[i + 2..i + j], a)?);
+        rest = &rest[i + j + 1..];
+    }
+    out.push_str(rest);
+    arith(&out)
+}
+
+/// Evaluate every `$[expr]` in a filled template: `+ - * /` and brackets over
+/// numbers, for values made of several game-data numbers.
+fn arith(text: &str) -> Result<String, String> {
+    fn sum(t: &[u8], i: &mut usize) -> Result<f64, String> {
+        let mut v = product(t, i)?;
+        while *i < t.len() && (t[*i] == b'+' || t[*i] == b'-') {
+            let op = t[*i];
+            *i += 1;
+            let r = product(t, i)?;
+            v = if op == b'+' { v + r } else { v - r };
+        }
+        Ok(v)
+    }
+    fn product(t: &[u8], i: &mut usize) -> Result<f64, String> {
+        let mut v = atom(t, i)?;
+        while *i < t.len() && (t[*i] == b'*' || t[*i] == b'/') {
+            let op = t[*i];
+            *i += 1;
+            let r = atom(t, i)?;
+            v = if op == b'*' { v * r } else { v / r };
+        }
+        Ok(v)
+    }
+    fn atom(t: &[u8], i: &mut usize) -> Result<f64, String> {
+        match t.get(*i) {
+            Some(b'(') => {
+                *i += 1;
+                let v = sum(t, i)?;
+                if t.get(*i) != Some(&b')') { return Err("missing ')' in $[..]".into()); }
+                *i += 1;
+                Ok(v)
+            }
+            Some(b'-') => { *i += 1; Ok(-atom(t, i)?) }
+            _ => {
+                let start = *i;
+                while *i < t.len() && (t[*i].is_ascii_digit() || matches!(t[*i], b'.' | b'e' | b'E') || (*i > start && matches!(t[*i], b'-' | b'+') && matches!(t[*i - 1], b'e' | b'E'))) {
+                    *i += 1;
+                }
+                std::str::from_utf8(&t[start..*i]).unwrap().parse::<f64>().map_err(|_| format!("bad number in $[..] at {start}"))
+            }
+        }
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find("$[") {
+        out.push_str(&rest[..i]);
+        let j = rest[i..].find(']').ok_or("unclosed $[ in template")?;
+        let e: Vec<u8> = rest[i + 2..i + j].bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+        let mut k = 0;
+        let v = sum(&e, &mut k)?;
+        if k != e.len() { return Err(format!("can't evaluate $[{}]", &rest[i + 2..i + j])); }
+        out.push_str(&v.to_string());
         rest = &rest[i + j + 1..];
     }
     out.push_str(rest);
@@ -1314,6 +1385,12 @@ finger1=vile_alchemists_band,id=268249,bonus_id=1808/13668,ilevel=334,gem_id=240
 finger2=loa_worshipers_band,id=251513,bonus_id=8960/12214/13751/13836/9627,gem_id=240892,enchant_id=7967
 main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
 ";
+
+    #[test]
+    fn template_arithmetic() {
+        assert_eq!(arith("a = $[2*(1+0.5)], b = $[10/4-1e-1], c = -3").unwrap(), "a = 3, b = 2.4, c = -3");
+        assert!(arith("$[2*]").is_err());
+    }
 
     #[test]
     fn ret_paladin_items_and_totals() {

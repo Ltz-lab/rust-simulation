@@ -183,7 +183,8 @@ def main():
             if sid > 0 and alloc:
                 stats.append([sid, alloc])
         sockets = sum(1 for i in range(3) if r[f"SocketType_{i}"] not in ("0", ""))
-        if not stats and not sockets and c != 2:
+        # trinkets stay even without stats: their effects are the item (Mindpiercer's Sigil)
+        if not stats and not sockets and c != 2 and inv != 12:
             continue
         key = json.dumps(stats)
         if key not in setidx:

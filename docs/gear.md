@@ -91,7 +91,11 @@ is the stat it carries first) and the placeholder modifiers `:band`, `:lvl`
 Buff stats (`stats = { primary = .., crit_rating = .. }` per stack) turn into
 the character's own percent bonuses at the margin: primary stat as a share of
 attack or spell power, ratings through the diminishing-returns curve from the
-character's current rating. On-use items go into the rotation after the
+character's current rating. `strength`, `agility` and `intellect` count only
+for a character with that primary stat (an intellect proc does nothing for
+Ret), and `highest_rating` / `lowest_rating` go to the character's highest or
+lowest secondary rating. `$[...]` in a template evaluates `+ - * /` over the
+filled-in numbers (a value made of two effects). On-use items go into the rotation after the
 spec's `use_after` action, under its `use_items` condition for stat buffs
 (Ret: SimC's "in a fresh Avenging Wrath"). Proc damage from the library takes
 the spec's `effect_mult`: Mystic Touch, Chaos Brand and Hunter's Mark, which
@@ -382,15 +386,15 @@ is within 0.2% of the same specs with hand-entered stats. None has a
   embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
   340 vs 341). Trinket effects and set bonuses count only where the
-  effect library has an entry (twelve trinket effects, the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs,
+  effect library has an entry (every season 2 trinket, see [Season 2 trinkets](#season-2-trinkets), the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs,
   and the season 2 class sets of every other DPS spec, see above, [Fallbacks closed](#fallbacks-closed) and
   [Midnight season 2 class sets](#midnight-season-2-class-sets)); others are reported as `unmodelled`
   (Blood's set 2055 and Ret's MID1 4pc). Library procs are rolled
-  on direct hits as real PPM, but which hits may trigger them isn't read from
-  the proc flags. On-use items share no category cooldown, and Font of
+  on direct hits as real PPM; which hits may trigger them isn't read from
+  the proc flags, except `physical = true` where SimC's flags leave out spells. On-use items share no category cooldown, and Font of
   Venomous Rage is used on cooldown where SimC's APL waits for the other
   trinket. Item data is the full equippable item set of build 12.1.5.70575
-  (873 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.
+  (880 KB gzip'd, with the effect and set tables; trinkets are kept even without stats, such as Mindpiercer's Sigil); rebuild it per patch with `tools/gamedata.py`.
 
 
 ## Fallbacks closed
@@ -525,6 +529,98 @@ Elemental, Enhancement). The generic pieces they needed are in
 conditions, `after_last`) plus a buff's `while_dot` and an echo's `stacks_of`.
 The game data was rebuilt from the merged specs with `tools/gamedata.py`; it no
 longer carries spell 1264849 (Ret's MID1 4pc, which no template names).
+
+## Season 2 trinkets
+
+All 85 trinkets of the season (Midnight 12.1 dungeon, raid, crafted, Darkmoon,
+PvP and the returning BfA/Dragonflight ones) are modelled or marked as adding
+no DPS, so `--gear-stats` lists none as `unmodelled`. Each template follows
+the SimC script for its spell (`unique_gear_midnight.cpp`, `_bfa`,
+`_dragonflight`); the comments in `data/item_effects.toml` give the shapes.
+Thirty-one trinkets have only `none` effects (two more have no effect at
+all): in SimC they add nothing beyond the item's stats on a DPS character (heals, absorbs, defensive or tank effects, PvP
+medallions, Alchemist Stone's potion bonus, kill and ally effects).
+
+Engine and data additions this needed, none of which moves an existing spec:
+
+- a DoT's `amount`: flat item-level damage per tick (Fang of Umbral Malignance,
+  Darkmoon Rot, Void-Reaper's Libram, Sethraliss' Relic, Merektha's Fang, the
+  bile and venom DoTs);
+- a proc's `physical = true`, for SimC proc flags without the magic-spell ones
+  (Void Execution Mandate's stacks, Tiny Electromental);
+- buff `stats` keys `strength` / `agility` / `intellect` (one primary stat:
+  Idol of the War Loa, Mindpiercer's Sigil, Hex Lord's Idol, and now the
+  existing Voracious Heart and Wavecaller's Seastone, which used to count for
+  every primary) and `highest_rating` / `lowest_rating`;
+- `$[...]` arithmetic in templates;
+- trinkets without stats in the item data (Mindpiercer's Sigil, Permafrost
+  Essence).
+
+Each trinket alone at item level 289 against no trinkets, on the Shadow and
+Ret sample profiles (other trinkets removed): the DPS gain, item stats included.
+SimC 3,000 iterations, azsim 3,000 (seed 1), Patchwerk 300s, one target, the
+same raid buffs (`target/issue62/probe.py` and `az_probe.py`). Trinkets marked
+`none` are left out; their azsim gain is the stats alone and lands within 0.15
+points of SimC's. Median gap 0.16 points; the largest of the new templates are
+Merektha's Fang on Ret (-0.9: its 3s channel costs Ret more in azsim), Coiled
+Fangstone and Sapling of the Dawnroot on Shadow (+0.8), and Ruby Whelp Shell
+(+0.6). Of the effects modelled before, the Stormbound Emblem on Ret (+1.4: SimC's
+Ret APL holds it) and Font of Venomous Rage on Shadow (+1.2) are furthest off.
+
+| trinket | Shadow SimC | Shadow azsim | Ret SimC | Ret azsim |
+|---|---:|---:|---:|---:|
+| Blazebinder's Hoof (193762) | +2.37% | +2.70% | +5.75% | +5.63% |
+| Coiled Fangstone (273795) | +0.90% | +1.68% | +5.24% | +5.56% |
+| Darkmoon Dominion: Blood (246305) | +6.18% | +6.26% | +5.92% | +5.88% |
+| Darkmoon Dominion: Hunt (246304) | +6.24% | +6.41% | +6.10% | +5.99% |
+| Darkmoon Dominion: Rot (246306) | +4.13% | +4.38% | +3.97% | +4.15% |
+| Darkmoon Dominion: Void (246307) | +5.79% | +5.92% | +5.53% | +5.56% |
+| Effigy of Ula'tek's Faithful (274493) | +5.72% | +5.81% | +5.50% | +5.45% |
+| Ever-Collapsing Void Fissure (251786) | +4.74% | +4.61% | +1.39% | +1.15% |
+| Fang of Umbral Malignance (270161) | +4.44% | +4.63% | +1.26% | +1.00% |
+| Fiber of Living Agony (265657) | +2.25% | +2.30% | +5.29% | +5.27% |
+| Font of Venomous Rage (270168) | +4.58% | +5.75% | +5.42% | +5.97% |
+| Freightrunner's Flask (250215) | +6.57% | +5.89% | +2.41% | +2.26% |
+| Gebbo's Bottomless Bag (270164) | +6.36% | +6.28% | +5.91% | +5.78% |
+| Glorious Crusader's Keepsake (251792) | +5.41% | +5.55% | +5.45% | +5.39% |
+| Hex Lord's Dooming Idol (270169) | +5.27% | +5.00% | +2.01% | +2.07% |
+| Idol of the Howling Nexus (270174) | +1.92% | +1.98% | +3.98% | +4.02% |
+| Idol of the War Loa (250229) | +2.36% | +2.38% | +5.39% | +5.31% |
+| Keeper's Seething Core (270165) | +2.51% | +2.80% | +5.99% | +6.22% |
+| Knot of Writhing Serpents (273794) | +4.41% | +4.52% | +1.18% | +0.93% |
+| Lightspire Core (250214) | +5.48% | +5.96% | +2.20% | +2.47% |
+| Lost Idol of the Hash'ey (251783) | +4.34% | +4.39% | +4.29% | +4.33% |
+| Lustrous Golden Plumage (159617) | +3.00% | +2.46% | +3.17% | +3.18% |
+| Magister's Alchemist Stone (241340) | +5.72% | +5.93% | +5.55% | +5.55% |
+| Merektha's Fang (158367) | -0.81% | -0.51% | +3.33% | +2.46% |
+| Mindpiercer's Sigil (250224) | +4.64% | +5.02% | +1.53% | +1.46% |
+| Ophidian Bone Whistle (274496) | +3.60% | +3.76% | +3.47% | +3.53% |
+| Resonant Bellowstone (250228) | +1.59% | +1.96% | +4.97% | +5.02% |
+| Ruby Whelp Shell (193757) | +4.06% | +4.70% | +4.01% | +4.34% |
+| Sapling of the Dawnroot (250259) | +4.49% | +5.27% | +4.93% | +5.06% |
+| Seed of the Devouring Wild (250238) | +1.34% | +1.12% | +4.93% | +4.94% |
+| Sethraliss' Defiled Relic (158368) | +4.98% | +5.11% | +2.05% | +1.86% |
+| Sszorak's Ferocity (270163) | +1.16% | +1.54% | +4.92% | +4.94% |
+| Stormbound Emblem of Dazar (273649) | +5.19% | +5.94% | +0.60% | +2.04% |
+| Sylvan Wakrapuku (251784) | +4.26% | +4.54% | +1.10% | +0.96% |
+| Tattered Amani War Banner (273797) | +1.82% | +1.40% | +5.60% | +5.60% |
+| Thalassian Competitor's Insignia of Alacrity (245752) | +5.36% | +5.57% | +5.27% | +5.18% |
+| Tiny Electromental in a Jar (158374) | -0.05% | +0.00% | +1.09% | +0.95% |
+| Tumor of the Swarm (250245) | +0.99% | +1.22% | +4.75% | +4.61% |
+| Twisted Horror's Tendril (281215) | +6.91% | +6.95% | +6.22% | +6.09% |
+| Vashnik's Sanguine Rancor (270166) | +1.21% | +1.44% | +1.60% | +1.49% |
+| Venomous Aspirant's Badge of Ferocity (270559) | +4.40% | +4.80% | +5.85% | +5.95% |
+| Venomous Aspirant's Insignia of Alacrity (270558) | +5.33% | +5.57% | +5.21% | +5.18% |
+| Venomous Aspirant's Insignia of Alacrity (280097) | +5.33% | +5.57% | +5.26% | +5.18% |
+| Venomous Gladiator's Badge of Ferocity (270602) | +4.79% | +5.03% | +5.88% | +5.87% |
+| Venomous Gladiator's Insignia of Alacrity (270603) | +5.36% | +5.57% | +5.20% | +5.18% |
+| Vexhul's Everflowing Gland (270170) | +4.76% | +5.03% | +1.54% | +1.75% |
+| Vile Vial of Volatile Venom (273796) | +6.48% | +5.55% | +6.35% | +6.23% |
+| Void Execution Mandate (250225) | +1.22% | +1.10% | +2.63% | +2.06% |
+| Void-Reaper's Libram (251785) | +5.12% | +5.42% | +1.57% | +1.66% |
+| Voracious Heart of Ula'tek (270175) | +2.35% | +2.97% | +7.09% | +6.93% |
+| Wavecaller's Seastone (270167) | +5.75% | +6.00% | +2.05% | +2.07% |
+| Zul'jin's Guillotine Technique (270173) | +1.73% | +2.32% | +6.38% | +6.30% |
 
 ## Checking a trinket against SimC
 

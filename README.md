@@ -57,7 +57,8 @@ profiles (core kit, 300s Patchwerk):
 With gear lines, Ret also models SimC's default consumables and Bloodlust,
 and any spec gets trinket effects and set bonuses from an
 [effect library](docs/gear.md#item-effects-and-set-bonuses) read at the item's
-level: on the app's Ret character azsim gives 227,081 against SimC's
+level (every season 2 trinket is modelled or marked as adding no DPS,
+[Season 2 trinkets](docs/gear.md#season-2-trinkets)): on the app's Ret character azsim gives 227,081 against SimC's
 like-for-like 225,566 (+0.67%,
 [full kit vs SimC](docs/retribution.md#full-kit-a-real-character-against-simc)).
 Gear layers with kits and omnium tables now also cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw ([numbers](docs/gear.md#omnium)).

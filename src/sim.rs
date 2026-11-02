@@ -218,6 +218,7 @@ struct HitProc {
     on_hit: bool,
     on_tick: bool,
     sources: Vec<usize>,
+    physical: bool,
 }
 
 /// SimC's real PPM: the time counted per attempt is capped at this.
@@ -753,6 +754,7 @@ impl Compiled {
                     sources: p.sources.iter().map(|s| src_names.iter().position(|n| n == s)
                         .ok_or_else(|| format!("proc '{}': unknown source '{s}'", p.ability)))
                         .collect::<Result<_, String>>()?,
+                    physical: p.physical,
                 })
             })
             .collect::<Result<_, String>>()?;
@@ -2201,10 +2203,10 @@ impl<'a> State<'a> {
                 m *= 1.0 + pct * self.mod_stacks(b);
             }
             self.record(d.src, part * m, false);
-        } else if d.def.ap_coeff != 0.0 || d.def.sp_coeff != 0.0 {
+        } else if d.def.ap_coeff != 0.0 || d.def.sp_coeff != 0.0 || d.def.amount != 0.0 {
             let mastery = mastery_factor(d.def.mastery, d.def.mastery_scale, d.def.mastery_power, self.mastery());
             let (ap, sp) = self.power(d.pet);
-            let mut base = (d.def.ap_coeff * ap + d.def.sp_coeff * sp) * frac * self.dot_roll[di];
+            let mut base = (d.def.ap_coeff * ap + d.def.sp_coeff * sp + d.def.amount) * frac * self.dot_roll[di];
             let prev = std::mem::replace(&mut self.cur_pet, d.pet);
             if d.def.per_stack && d.def.max_stacks > 1 {
                 base *= self.dot_stk[di] as f64;
@@ -2212,7 +2214,7 @@ impl<'a> State<'a> {
             let (crit, damage) = self.hit(d.src, base, d.def.mult * mastery, &d.buff_mods, &d.crit_mods, d.physical, d.def.crit_bonus, d.def.crit_damage_bonus, d.def.crit_damage_per_crit, d.def.crit_scaling, 1.0, false);
             self.feed_hit(&d.feeds, crit, damage);
             if d.pet.is_none() && !d.no_procs {
-                self.hit_procs(d.src, true);
+                self.hit_procs(d.src, true, d.physical);
             }
             self.cur_pet = prev;
             if crit && d.def.extend_on_crit > 0.0 && self.dot_exp[di] > self.now {
@@ -2304,7 +2306,7 @@ impl<'a> State<'a> {
                 let (crit, dmg) = self.hit(a.src, base, d.mult * mastery * instance_mult, &a.buff_mods, &a.crit_mods, a.physical, d.crit_bonus, d.crit_damage_bonus, d.crit_damage_per_crit, d.crit_scaling, d.crit_chance_multiplier, raw);
                 self.feed_hit(&a.feeds, crit, dmg);
                 if a.pet.is_none() && !a.def.no_procs {
-                    self.hit_procs(a.src, false);
+                    self.hit_procs(a.src, false, a.physical);
                 }
                 for e in if crit { &a.on_crit } else { &a.on_noncrit } {
                     self.apply(e);
@@ -2563,10 +2565,10 @@ impl<'a> State<'a> {
     }
 
     /// Roll eligible procs for one direct or periodic hit of the owner's.
-    fn hit_procs(&mut self, src: usize, tick: bool) {
+    fn hit_procs(&mut self, src: usize, tick: bool, physical: bool) {
         let c = self.c;
         for (k, hp) in c.hit_procs.iter().enumerate() {
-            if (tick && !hp.on_tick) || (!tick && !hp.on_hit)
+            if (tick && !hp.on_tick) || (!tick && !hp.on_hit) || (hp.physical && !physical)
                 || (!hp.sources.is_empty() && !hp.sources.contains(&src)) {
                 continue;
             }
@@ -2702,7 +2704,7 @@ impl<'a> State<'a> {
                         let base = self.weapon_roll(auto_src);
                         self.hit(auto_src, base, c.auto_mult, &c.auto_mods, &[], true, 0.0, 0.0, 0.0, false, 1.0, false);
                         self.out.casts[auto_src] += 1;
-                        self.hit_procs(auto_src, false);
+                        self.hit_procs(auto_src, false, true);
                     }
                 }
                 for e in &c.auto_on_hit {
@@ -3606,11 +3608,50 @@ chance = 1
 "#;
         let c = compile(spec);
         let mut st = state(&c);
-        st.hit_procs(src(&c, "eligible"), false);
-        st.hit_procs(src(&c, "other"), true);
+        st.hit_procs(src(&c, "eligible"), false, false);
+        st.hit_procs(src(&c, "other"), true, false);
         assert_eq!(st.out.casts[src(&c, "proc")], 0);
-        st.hit_procs(src(&c, "eligible"), true);
+        st.hit_procs(src(&c, "eligible"), true, false);
         assert_eq!(st.out.casts[src(&c, "proc")], 1);
+    }
+
+    #[test]
+    fn physical_proc_skips_magic_hits_and_dot_takes_a_flat_amount() {
+        let spec = r#"
+name = "physical proc"
+rotation = []
+[player]
+spell_power = 100
+crit = 0
+haste = 0
+versatility = 0
+[fight]
+duration = 10
+variance = 0
+[[abilities]]
+name = "proc"
+triggered_only = true
+no_procs = true
+dot = { name = "flat", amount = 50, school = "nature", tick_time = 1, duration = 2, hasted = false }
+[[abilities]]
+name = "hit"
+triggered_only = true
+damage = { sp_coeff = 1 }
+[[procs]]
+ability = "proc"
+on_hit = true
+physical = true
+chance = 1
+"#;
+        let c = compile(spec);
+        let mut st = state(&c);
+        st.hit_procs(src(&c, "hit"), false, false);
+        assert_eq!(st.out.casts[src(&c, "proc")], 0);
+        st.hit_procs(src(&c, "hit"), false, true);
+        assert_eq!(st.out.casts[src(&c, "proc")], 1);
+        let di = c.dots.iter().position(|d| d.def.name == "flat").unwrap();
+        st.dot_tick(di, 1.0);
+        assert!((st.out.damage[src(&c, "flat")] - 50.0).abs() < 1e-9);
     }
 
     /// Energy, combo points, dual wield and echoes on a bare character.

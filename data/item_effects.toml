@@ -11,10 +11,13 @@
 # (see `placeholder` in src/gear.rs): `${e1}` is effect 1 of the entry's
 # spell, `${1297760.e3}` effect 3 of another, plus `rppm`, `rppm_haste`,
 # `duration`, `icd`, `cooldown`, `stacks`, `chance`, `ilvl`, and `:pct` to
-# divide by 100. Rotation entries with `use = "buff"` (stat buffs) or
+# divide by 100; `$[...]` evaluates `+ - * /` over the filled numbers. Rotation entries with `use = "buff"` (stat buffs) or
 # `use = "other"` take the spec's `[gear] use_items` condition for that kind
 # and go after its `use_after` action. Buff `stats` (primary, *_rating, per
-# stack) become the character's own percent bonuses.
+# stack) become the character's own percent bonuses; `strength`, `agility` and
+# `intellect` count only for characters with that primary stat, and
+# `highest_rating` / `lowest_rating` are the character's highest / lowest
+# secondary rating.
 #
 # Most Midnight trinkets keep their numbers in dummy auras and are scripted
 # in SimC (engine/player/unique_gear_midnight.cpp); each entry follows that
@@ -52,9 +55,9 @@ requires = ["venomfang_proc"]
 on_cast = [{ type = "trigger", ability = "venomfang_proc" }]
 '''
 
-# Voracious Heart of Ula'tek (270175): on use, primary stat for 20s; while
-# it's up, hits proc Devour Morsel (physical damage), each adding a stack of
-# Devoured Strength (primary stat), which ends with the main buff.
+# Voracious Heart of Ula'tek (270175): on use, strength or agility for 20s;
+# while it's up, hits proc Devour Morsel (physical damage), each adding a stack
+# of Devoured Strength (strength or agility), which ends with the main buff.
 # [simc voracious_heart_of_ulatek; values on 1297760]
 [[effect]]
 spell = 1297761
@@ -62,14 +65,14 @@ text = '''
 [[buffs]]
 name = "voracious_heart"
 duration = ${duration}
-stats = { primary = ${1297760.e1} }
+stats = { strength = ${1297760.e1}, agility = ${1297760.e1} }
 on_expire = [{ type = "consume", buff = "devoured_strength", all = true }]
 
 [[buffs]]
 name = "devoured_strength"
 duration = ${1305376.duration}
 max_stacks = ${1305376.stacks}
-stats = { primary = ${1297760.e3} }
+stats = { strength = ${1297760.e3}, agility = ${1297760.e3} }
 
 [[abilities]]
 name = "voracious_heart"
@@ -656,7 +659,7 @@ name = "tidal_insight"
 duration = 1e9
 max_stacks = ${1295057.stacks}
 refresh_duration = false
-stats = { primary = ${e1} }
+stats = { intellect = ${e1} }
 
 [[buffs]]
 name = "tidal_insight_ebb"
@@ -683,3 +686,1388 @@ per_minute = ${rppm}
 hasted = ${rppm_haste}
 on_hit = true
 '''
+
+# --- Season 2 trinkets (issue #62) -------------------------------------------
+# Each entry follows the SimC script named in brackets. Trinkets whose effects
+# don't add DPS in SimC beyond the item's stats (heals, absorbs, tank and PvP
+# effects, defensive channels) are `none` at the end of this block.
+
+# Lustrous Golden Plumage (159617): on use, versatility rating for 20s, 120s
+# cooldown. A plain stat buff.
+[[effect]]
+spell = 271107
+text = '''
+[[buffs]]
+name = "golden_luster"
+duration = ${duration}
+stats = { versatility_rating = ${e1} }
+
+[[abilities]]
+name = "golden_luster"
+spell_id = 271107
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "golden_luster" }]
+
+[[rotation]]
+action = "golden_luster"
+use = "buff"
+'''
+
+# Gladiator's / Aspirant's Badge of Ferocity (270559, 270602): on use, primary
+# stat for 15s, 60s cooldown.
+[[effect]]
+spell = 345228
+text = '''
+[[buffs]]
+name = "gladiators_badge"
+duration = ${duration}
+stats = { primary = ${e1} }
+
+[[abilities]]
+name = "gladiators_badge"
+spell_id = 345228
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "gladiators_badge" }]
+
+[[rotation]]
+action = "gladiators_badge"
+use = "buff"
+'''
+
+# Gladiator's / Aspirant's Insignia of Alacrity (245752, 270558, 270603,
+# 280097): real-PPM 1.5, primary stat (345230 effect 1) for 20s.
+[[effect]]
+spell = 345229
+text = '''
+[[procs]]
+ability = "gladiators_insignia"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "gladiators_insignia"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "gladiators_insignia" }]
+
+[[buffs]]
+name = "gladiators_insignia"
+duration = ${345230.duration}
+stats = { primary = ${345230.e1} }
+'''
+
+# Magister's Alchemist Stone (241340): real-PPM 2.5, primary stat for 15s
+# (Alchemist's Strength/Agility/Intellect, 299788-299790).
+# [simc magisters_alchemist_stone]
+[[effect]]
+spell = 1280591
+text = '''
+[[procs]]
+ability = "alchemists_stone"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "alchemists_stone"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "alchemists_stone" }]
+
+[[buffs]]
+name = "alchemists_stone"
+duration = ${299790.duration}
+stats = { primary = ${e1} }
+'''
+
+# Darkmoon Dominion: Hunt (246304): real-PPM 4 (1252457), a 15s rating buff
+# chosen by the target's creature type: SimC's default picks one per fight from
+# the 12.1 raid list (5 of 8 humanoid: mastery; 3 beast or mechanical: crit).
+# [simc darkmoon hunt, raid_random]
+[[effect]]
+spell = 1245050
+text = '''
+precombat = ["hunt_target"]
+
+[[abilities]]
+name = "hunt_target"
+triggered_only = true
+on_cast = [{ type = "choose", choices = [
+  { effects = [] }, { effects = [] }, { effects = [] }, { effects = [] }, { effects = [] },
+  { effects = [{ type = "buff", buff = "hunt_beast" }] },
+  { effects = [{ type = "buff", buff = "hunt_beast" }] },
+  { effects = [{ type = "buff", buff = "hunt_beast" }] },
+] }]
+
+[[buffs]]
+name = "hunt_beast"
+duration = 1e9
+
+[[procs]]
+ability = "hunt"
+per_minute = ${1252457.rppm}
+hasted = ${1252457.rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "hunt"
+triggered_only = true
+on_cast = [{ type = "if", if = "buff.hunt_beast.up", then = [{ type = "buff", buff = "focused_hunt" }], else = [{ type = "buff", buff = "masterful_hunt" }] }]
+
+[[buffs]]
+name = "focused_hunt"
+duration = ${1252487.duration}
+stats = { crit_rating = ${e1} }
+
+[[buffs]]
+name = "masterful_hunt"
+duration = ${1252488.duration}
+stats = { mastery_rating = ${e1} }
+'''
+
+# Darkmoon Dominion: Blood (246305): real-PPM 1.1 (1245012), the lowest
+# secondary rating for 15s (Farstrider's Guile 1245025). [simc darkmoon blood]
+[[effect]]
+spell = 1245001
+text = '''
+[[procs]]
+ability = "farstriders_guile"
+per_minute = ${1245012.rppm}
+hasted = ${1245012.rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "farstriders_guile"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "farstriders_guile" }]
+
+[[buffs]]
+name = "farstriders_guile"
+duration = ${1245025.duration}
+stats = { lowest_rating = ${e1} }
+'''
+
+# Darkmoon Dominion: Rot (246306): real-PPM 30 (1244332), each proc a stack of
+# Root Rot (1247411, 6s each, up to 10), a nature DoT ticking every 2s for
+# effect 1 per stack. [simc darkmoon rot]
+[[effect]]
+spell = 1245051
+text = '''
+[[procs]]
+ability = "root_rot"
+per_minute = ${1244332.rppm}
+hasted = ${1244332.rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "root_rot"
+spell_id = 1247411
+triggered_only = true
+no_procs = true
+dot = { name = "root_rot", amount = ${e1}, school = "nature", tick_time = 2, duration = ${1247411.duration}, hasted = false, max_stacks = ${1247411.stacks}, overlap = true }    # asynchronous stacks
+'''
+
+# Darkmoon Dominion: Void (246307): real-PPM 3 (1244253), a stack of Void Glass
+# (versatility, 15s, up to 10, each stack its own timer). [simc darkmoon void_]
+[[effect]]
+spell = 1244254
+text = '''
+[[procs]]
+ability = "void_glass"
+per_minute = ${1244253.rppm}
+hasted = ${1244253.rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "void_glass"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "void_glass" }]
+
+[[buffs]]
+name = "void_glass"
+duration = ${1244617.duration}
+max_stacks = ${1244617.stacks}
+overlap = true    # Asynchronous Aura
+stats = { versatility_rating = ${e1} }
+'''
+
+# Lightspire Core (250214): mastery (effect 2) for the whole fight, plus
+# real-PPM 1.25 Light's Blessing, more mastery (effect 3) for 12s (1263762).
+# [simc lightspire_core]
+[[effect]]
+spell = 1250527
+text = '''
+precombat = ["lightspire_core"]
+
+[[abilities]]
+name = "lightspire_core"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "lightspire_core" }]
+
+[[buffs]]
+name = "lightspire_core"
+duration = 1e9
+stats = { mastery_rating = ${e2} }
+
+[[procs]]
+ability = "lights_blessing"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "lights_blessing"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "lights_blessing" }]
+
+[[buffs]]
+name = "lights_blessing"
+duration = ${1263762.duration}
+stats = { mastery_rating = ${e3} }
+'''
+
+# Mindpiercer's Sigil (250224): real-PPM 2, Voidtorn Eruption (shadow, effect
+# 1) and Cosmic Siphon, intellect (effect 2) for 10s. [simc mindpiercers_sigil]
+[[effect]]
+spell = 1250546
+text = '''
+[[procs]]
+ability = "voidtorn_eruption"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "voidtorn_eruption"
+spell_id = 1264374
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "shadow" }
+on_cast = [{ type = "buff", buff = "cosmic_siphon" }]
+
+[[buffs]]
+name = "cosmic_siphon"
+duration = ${1264404.duration}
+stats = { intellect = ${e2} }
+'''
+
+# Void Execution Mandate (250225): on use, haste (effect 3) for 20s and Marked
+# for Execution on the target; while it's marked, each physical hit adds a stack
+# of Impending Execution (crit, effect 2, up to 15), which ends with the haste.
+# [simc void_execution_mandate]
+[[effect]]
+spell = 1250557
+text = '''
+[[buffs]]
+name = "void_execution_mandate"
+duration = ${duration}
+stats = { haste_rating = ${e3} }
+on_expire = [{ type = "consume", buff = "impending_execution", all = true }]
+
+[[buffs]]
+name = "marked_for_execution"
+duration = ${1263355.duration}
+
+[[buffs]]
+name = "impending_execution"
+duration = ${1263357.duration}
+max_stacks = ${1263357.stacks}
+stats = { crit_rating = ${e2} }
+
+[[abilities]]
+name = "void_execution_mandate"
+spell_id = 1250557
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "void_execution_mandate" }, { type = "buff", buff = "marked_for_execution" }]
+
+[[procs]]
+ability = "impending_execution"
+on_hit = true
+chance = 1.0
+physical = true
+
+[[abilities]]
+name = "impending_execution"
+triggered_only = true
+requires_buff = "marked_for_execution"
+on_cast = [{ type = "buff", buff = "impending_execution" }]
+
+[[rotation]]
+action = "void_execution_mandate"
+use = "buff"
+'''
+
+# Resonant Bellowstone (250228): real-PPM 1 (30s ICD), crit (effect 1) for 30s;
+# while it's up, each crit adds a stack of Echoing Roar (crit, effect 2, 8s, up
+# to 5). The crit is rolled here at the character's crit chance.
+# [simc resonant_bellowstone]
+[[effect]]
+spell = 1250564
+text = '''
+[[procs]]
+ability = "xathuuxs_last_roar"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+icd = ${icd}
+on_hit = true
+
+[[abilities]]
+name = "xathuuxs_last_roar"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "xathuuxs_last_roar" }]
+
+[[buffs]]
+name = "xathuuxs_last_roar"
+duration = ${1254180.duration}
+stats = { crit_rating = ${e1} }
+
+[[procs]]
+ability = "echoing_roar"
+on_hit = true
+chance = 1.0
+
+[[abilities]]
+name = "echoing_roar"
+triggered_only = true
+requires_buff = "xathuuxs_last_roar"
+on_cast = [{ type = "trigger", ability = "echoing_roar_stack", chance_expr = "crit" }]
+
+[[abilities]]
+name = "echoing_roar_stack"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "echoing_roar" }]
+
+[[buffs]]
+name = "echoing_roar"
+duration = ${1254331.duration}
+max_stacks = ${1254331.stacks}
+stats = { crit_rating = ${e2} }
+'''
+
+# Idol of the War Loa (250229): real-PPM 2.5, strength (effect 1) for 15s.
+# [simc idol_of_the_war_loa]
+[[effect]]
+spell = 1250567
+text = '''
+[[procs]]
+ability = "nalorakks_rage"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "nalorakks_rage"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "nalorakks_rage" }]
+
+[[buffs]]
+name = "nalorakks_rage"
+duration = ${1258223.duration}
+stats = { strength = ${e1} }
+'''
+
+# Seed of the Devouring Wild (250238): on use, nature damage (1259351 effect 1)
+# and mastery (1259351 effect 2) for 10s, 90s cooldown.
+# [simc seed_of_the_devouring_wild]
+[[effect]]
+spell = 1250580
+text = '''
+[[buffs]]
+name = "seed_of_the_devouring_wild"
+duration = ${1259352.duration}
+stats = { mastery_rating = ${1259351.e2} }
+
+[[abilities]]
+name = "seed_of_the_devouring_wild"
+spell_id = 1250580
+gcd = 0
+cooldown = ${cooldown}
+no_procs = true
+damage = { amount = ${1259351.e1}, school = "nature" }
+on_cast = [{ type = "buff", buff = "seed_of_the_devouring_wild" }]
+
+[[rotation]]
+action = "seed_of_the_devouring_wild"
+use = "buff"
+'''
+
+[[effect]]
+spell = 1259351    # Seed of the Devouring Wild's values, read by 1250580
+none = true
+
+# Tumor of the Swarm (250245): real-PPM 3, Crawling Plague (nature, effect 1);
+# the heal is not modelled. [simc crawling_plague]
+[[effect]]
+spell = 1250589
+text = '''
+[[procs]]
+ability = "crawling_plague"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "crawling_plague"
+spell_id = 1264146
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "nature" }
+'''
+
+# Sapling of the Dawnroot (250259): real-PPM 2, an Uprooted Lasher for 15s
+# (1263077) that swings every 1.5s (unhasted) for effect 1 physical, and on
+# leaving deals effect 2 holy. The lasher's swings are dealt here as the
+# player's hits. [simc sapling_of_the_dawnroot]
+[[effect]]
+spell = 1250604
+text = '''
+[[procs]]
+ability = "sapling_of_the_dawnroot"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "sapling_of_the_dawnroot"
+triggered_only = true
+on_cast = [
+  { type = "trigger", ability = "lightbloom_lashing", count = "10", interval = 1.5 },
+  { type = "trigger", ability = "sappy_demise", delay = ${1263077.duration} },
+]
+
+[[abilities]]
+name = "lightbloom_lashing"
+spell_id = 1263101
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "physical" }
+
+[[abilities]]
+name = "sappy_demise"
+spell_id = 1263121
+triggered_only = true
+no_procs = true
+damage = { amount = ${e2}, school = "holy" }
+'''
+
+# Lost Idol of the Hash'ey (251783): real-PPM 1 (5s ICD), for 30s one of: Bear
+# (primary stat, effect 2), Pangolin (the highest secondary, effect 1) or Lynx
+# (the lowest, effect 1). The first is one of the three at random, each later
+# one of the two not used last. No procs while one is up.
+# [simc lost_idol_of_the_hashey]
+[[effect]]
+spell = 1253111
+text = '''
+[[procs]]
+ability = "lost_idol"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+icd = ${icd}
+on_hit = true
+
+[[abilities]]
+name = "lost_idol"
+triggered_only = true
+on_cast = [{ type = "if", if = "!buff.bear.up&!buff.pangolin.up&!buff.lynx.up", then = [{ type = "choose", choices = [
+  { if = "!buff.idol_last_bear.up", effects = [{ type = "buff", buff = "bear" }, { type = "buff", buff = "idol_last_bear" }, { type = "consume", buff = "idol_last_pangolin" }, { type = "consume", buff = "idol_last_lynx" }] },
+  { if = "!buff.idol_last_pangolin.up", effects = [{ type = "buff", buff = "pangolin" }, { type = "buff", buff = "idol_last_pangolin" }, { type = "consume", buff = "idol_last_bear" }, { type = "consume", buff = "idol_last_lynx" }] },
+  { if = "!buff.idol_last_lynx.up", effects = [{ type = "buff", buff = "lynx" }, { type = "buff", buff = "idol_last_lynx" }, { type = "consume", buff = "idol_last_bear" }, { type = "consume", buff = "idol_last_pangolin" }] },
+] }] }]
+
+[[buffs]]
+name = "bear"
+duration = ${1266182.duration}
+stats = { primary = ${e2} }
+
+[[buffs]]
+name = "pangolin"
+duration = ${1266184.duration}
+stats = { highest_rating = ${e1} }
+
+[[buffs]]
+name = "lynx"
+duration = ${1266197.duration}
+stats = { lowest_rating = ${e1} }
+
+[[buffs]]
+name = "idol_last_bear"
+duration = 1e9
+
+[[buffs]]
+name = "idol_last_pangolin"
+duration = 1e9
+
+[[buffs]]
+name = "idol_last_lynx"
+duration = 1e9
+'''
+
+# Sylvan Wakrapuku (251784): real-PPM 2, three Dive-Bombs (physical, effect 1)
+# landing 0.5s apart. [simc sylvan_wakrapuku]
+[[effect]]
+spell = 1253112
+text = '''
+[[procs]]
+ability = "sylvan_wakrapuku"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "sylvan_wakrapuku"
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "divebomb", count = "3", delay = 0.5, interval = 0.5 }]
+
+[[abilities]]
+name = "divebomb"
+spell_id = 1266366
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "physical" }
+'''
+
+# Void-Reaper's Libram (251785): real-PPM 3 (5s ICD). Without Sacred Text on
+# the target, applies it (holy DoT, effect 1 per 1s tick, 30s); with it, Text
+# Ignite deals the DoT's remaining damage at once (the DoT keeps ticking) and
+# grants Sacred Duty, crit (effect 2) for 15s. [simc voidreapers_libram]
+[[effect]]
+spell = 1253113
+text = '''
+[[procs]]
+ability = "voidreapers_libram"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+icd = ${icd}
+on_hit = true
+
+[[abilities]]
+name = "voidreapers_libram"
+triggered_only = true
+on_cast = [{ type = "if", if = "dot.sacred_text.ticking", then = [
+  { type = "trigger", ability = "text_ignite" },
+  { type = "buff", buff = "sacred_duty" },
+], else = [{ type = "trigger", ability = "sacred_text" }] }]
+
+[[abilities]]
+name = "sacred_text"
+spell_id = 1266394
+triggered_only = true
+no_procs = true
+dot = { name = "sacred_text", amount = ${e1}, school = "holy", tick_time = 1, duration = ${1266394.duration}, hasted = false }
+
+[[abilities]]
+name = "text_ignite"
+spell_id = 1266407
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "holy", scale = "dot.sacred_text.remains" }
+
+[[buffs]]
+name = "sacred_duty"
+duration = ${1266403.duration}
+stats = { crit_rating = ${e2} }
+'''
+
+# Ever-collapsing Void Fissure (251786): on use, 10s of haste that grows a
+# stack a second: effect 5 per stack after the first (0 to 9). 120s cooldown.
+# [simc evercollapsing_void_fissure]
+[[effect]]
+spell = 1253114
+text = '''
+[[buffs]]
+name = "evercollapsing_void_fissure"
+duration = 9
+max_stacks = 9
+refresh_duration = false
+stats = { haste_rating = ${e5} }
+
+[[abilities]]
+name = "evercollapsing_void_fissure"
+spell_id = 1253114
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "trigger", ability = "evercollapsing_void_fissure_tick", count = "9", delay = 1, interval = 1 }]
+
+[[abilities]]
+name = "evercollapsing_void_fissure_tick"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "evercollapsing_void_fissure" }]
+
+[[rotation]]
+action = "evercollapsing_void_fissure"
+use = "buff"
+'''
+
+# Glorious Crusader's Keepsake (251792): real-PPM 2, the highest secondary
+# rating (effect 1) for 15s (Fanatical Inspiration 1266299); the allies' buff
+# isn't modelled. [simc glorious_crusaders_keepsake]
+[[effect]]
+spell = 1253120
+text = '''
+[[procs]]
+ability = "fanatical_inspiration"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "fanatical_inspiration"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "fanatical_inspiration" }]
+
+[[buffs]]
+name = "fanatical_inspiration"
+duration = ${1266299.duration}
+stats = { highest_rating = ${e1} }
+'''
+
+# Fiber of Living Agony (265657): real-PPM 2.25, crit (1276677 effect 1) for 15s.
+[[effect]]
+spell = 1276678
+text = '''
+[[procs]]
+ability = "fiber_of_living_agony"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "fiber_of_living_agony"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "fiber_of_living_agony" }]
+
+[[buffs]]
+name = "fiber_of_living_agony"
+duration = ${1276677.duration}
+stats = { crit_rating = ${1276677.e1} }
+'''
+
+# Fang of Umbral Malignance (270161): real-PPM 12, each proc a stack of Umbral
+# Malignance (shadow DoT, effect 1 per stack every 3s, 60s, up to 30). The
+# burst on a kill only matters with more targets. [simc fang_of_umbral_malignance]
+[[effect]]
+spell = 1295219
+text = '''
+[[procs]]
+ability = "umbral_malignance"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "umbral_malignance"
+spell_id = 1305853
+triggered_only = true
+no_procs = true
+on_start = [{ type = "if", if = "dot.umbral_malignance.ticking", then = [{ type = "dot_stack", dot = "umbral_malignance", stacks = 1 }] }]
+dot = { name = "umbral_malignance", amount = ${e1}, school = "shadow", tick_time = 3, duration = ${1305853.duration}, hasted = false, max_stacks = ${1305853.stacks} }
+'''
+
+# Sszorak's Ferocity (270163): real-PPM 4, Ravage (physical,
+# effect 1) on one target. Killer Instincts needs kills. [simc sszoraks_ferocity]
+[[effect]]
+spell = 1295617
+text = '''
+[[procs]]
+ability = "sszoraks_ravage"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "sszoraks_ravage"
+spell_id = 1307332
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "physical" }
+'''
+
+[[effect]]
+spell = 1307356    # Sszorak's Ferocity's kill driver (Killer Instincts)
+none = true
+
+# Keeper's Seething Core (270165): real-PPM 6, a stack of Focus of Ula'tek
+# (haste, effect 1, 12s, up to 10, each its own timer); from 2 stacks each is
+# worth effect 2% more, applied here to every stack. [simc keepers_seething_core]
+[[effect]]
+spell = 1292065
+text = '''
+[[procs]]
+ability = "focus_of_ulatek"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "focus_of_ulatek"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "focus_of_ulatek" }]
+
+[[buffs]]
+name = "focus_of_ulatek"
+duration = ${1295582.duration}
+max_stacks = ${1295582.stacks}
+overlap = true    # Asynchronous Aura
+stats = { haste_rating = $[${e1}*(1+${e2:pct})] }
+'''
+
+# Vashnik's Sanguine Rancor (270166): real-PPM 15, a stack of Sanguine Rancor;
+# at 15 they are spent for Crimson Bile (shadow, effect 1) and, on one target,
+# Concentrated Bile, effect 2% of that over 3s. [simc vashniks_sanguine_rancor]
+[[effect]]
+spell = 1295553
+text = '''
+[[procs]]
+ability = "sanguine_rancor"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "sanguine_rancor"
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "sanguine_rancor" },
+  { type = "if", if = "buff.sanguine_rancor.stack>=${1303479.stacks}", then = [
+    { type = "consume", buff = "sanguine_rancor", all = true },
+    { type = "trigger", ability = "crimson_bile" },
+  ] },
+]
+
+[[buffs]]
+name = "sanguine_rancor"
+duration = 1e9
+max_stacks = ${1303479.stacks}
+
+[[abilities]]
+name = "crimson_bile"
+spell_id = 1303483
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "shadow" }
+on_cast = [{ type = "trigger", ability = "concentrated_bile" }]
+
+[[abilities]]
+name = "concentrated_bile"
+spell_id = 1303484
+triggered_only = true
+no_procs = true
+dot = { name = "concentrated_bile", amount = $[${e1}*${e2:pct}/3], school = "shadow", tick_time = 1, duration = 3, hasted = false }
+'''
+
+# Hex Lord's Dooming Idol (270169): hits (6s ICD) stack Hex Lord's Doom, -e1
+# intellect each (up to 30, all fight); on use (30s cooldown) the stacks become
+# Hex Lord's Dooming Idol, +e2 intellect each for 30s. [simc hex_lords_dooming_idol]
+[[effect]]
+spell = 1295884
+text = '''
+[[procs]]
+ability = "hex_lords_doom"
+on_hit = true
+chance = 1.0
+icd = ${icd}
+
+[[abilities]]
+name = "hex_lords_doom"
+triggered_only = true
+on_cast = [{ type = "buff", buff = "hex_lords_doom" }]
+
+[[buffs]]
+name = "hex_lords_doom"
+duration = 1e9
+max_stacks = ${1307470.stacks}
+refresh_duration = false
+stats = { intellect = -${e1} }
+'''
+
+[[effect]]
+spell = 1295885
+text = '''
+[[buffs]]
+name = "hex_lords_dooming_idol"
+duration = ${duration}
+max_stacks = ${1307470.stacks}
+stats = { intellect = ${1295884.e2} }
+
+[[abilities]]
+name = "hex_lords_dooming_idol"
+spell_id = 1295885
+gcd = 0
+cooldown = ${cooldown}
+requires_buff = "hex_lords_doom"
+on_cast = [
+  { type = "buff", buff = "hex_lords_dooming_idol", set = "buff.hex_lords_doom.stack" },
+  { type = "consume", buff = "hex_lords_doom", all = true },
+]
+
+[[rotation]]
+action = "hex_lords_dooming_idol"
+use = "buff"
+'''
+
+# Knot of Writhing Serpents (273794): real-PPM 2, Writhing Venom (nature,
+# effect 1) and its DoT, effect 2 over 15s in 1s ticks. [simc knot_of_writhing_serpents]
+[[effect]]
+spell = 1293304
+text = '''
+[[procs]]
+ability = "writhing_venom"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "writhing_venom"
+spell_id = 1295676
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "nature" }
+on_cast = [{ type = "trigger", ability = "writhing_venom_dot" }]
+
+[[abilities]]
+name = "writhing_venom_dot"
+spell_id = 1295679
+triggered_only = true
+no_procs = true
+dot = { name = "writhing_venom_dot", amount = $[${e2}/${1295679.duration}], school = "nature", tick_time = 1, duration = ${1295679.duration}, hasted = false }
+'''
+
+# Coiled Fangstone (273795): on use (60s), three Envenomed Bites (nature,
+# 1295491 effect 1) 0.4s apart from 0.25s, each 10% more than the last; on
+# one target a bite deals (1 + 0.3) / 2 of its value. [simc coiled_fangstone]
+[[effect]]
+spell = 1293311
+text = '''
+[[abilities]]
+name = "coiled_fangstone"
+spell_id = 1293311
+gcd = 0
+cooldown = ${cooldown}
+no_procs = true
+on_cast = [
+  { type = "trigger", ability = "envenomed_bite_1", delay = 0.25 },
+  { type = "trigger", ability = "envenomed_bite_2", delay = 0.65 },
+  { type = "trigger", ability = "envenomed_bite_3", delay = 1.05 },
+]
+
+[[abilities]]
+name = "envenomed_bite_1"
+source = "envenomed_bite"
+spell_id = 1295535
+triggered_only = true
+no_procs = true
+damage = { amount = $[${1295491.e1}*0.65], school = "nature" }
+
+[[abilities]]
+name = "envenomed_bite_2"
+source = "envenomed_bite"
+spell_id = 1295535
+triggered_only = true
+no_procs = true
+damage = { amount = $[${1295491.e1}*0.65*(1+${e3:pct})], school = "nature" }
+
+[[abilities]]
+name = "envenomed_bite_3"
+source = "envenomed_bite"
+spell_id = 1295535
+triggered_only = true
+no_procs = true
+damage = { amount = $[${1295491.e1}*0.65*(1+2*${e3:pct})], school = "nature" }
+
+[[rotation]]
+action = "coiled_fangstone"
+use = "other"
+'''
+
+[[effect]]
+spell = 1295491    # Coiled Fangstone's bite value, read by 1293311
+none = true
+
+# Tattered Amani War Banner (273797): on use (90s), Battle Fervor, the highest
+# secondary rating (1295725 effect 1) for 15s. The extension on a kill isn't
+# modelled. [simc tattered_amani_war_banner]
+[[effect]]
+spell = 1293326
+text = '''
+[[buffs]]
+name = "battle_fervor"
+duration = ${duration}
+stats = { highest_rating = ${1295725.e1} }
+
+[[abilities]]
+name = "tattered_amani_war_banner"
+spell_id = 1293326
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "battle_fervor" }]
+
+[[rotation]]
+action = "tattered_amani_war_banner"
+use = "buff"
+'''
+
+[[effect]]
+spell = 1295725    # Tattered Amani War Banner's rating, read by 1293326
+none = true
+
+# Effigy of Ula'tek's Faithful (274493): real-PPM 2, Faith in Ula'tek (1296714)
+# for 12s: one random secondary rating (effect 1); the random tertiary
+# (effect 2) adds no damage. [simc ulateks_faithful]
+[[effect]]
+spell = 1294329
+text = '''
+[[procs]]
+ability = "faith_in_ulatek"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "faith_in_ulatek"
+triggered_only = true
+on_cast = [
+  { type = "consume", buff = "faith_in_ulatek_crit" },
+  { type = "consume", buff = "faith_in_ulatek_haste" },
+  { type = "consume", buff = "faith_in_ulatek_mastery" },
+  { type = "consume", buff = "faith_in_ulatek_vers" },
+  { type = "choose", choices = [
+    { effects = [{ type = "buff", buff = "faith_in_ulatek_crit" }] },
+    { effects = [{ type = "buff", buff = "faith_in_ulatek_haste" }] },
+    { effects = [{ type = "buff", buff = "faith_in_ulatek_mastery" }] },
+    { effects = [{ type = "buff", buff = "faith_in_ulatek_vers" }] },
+  ] },
+]
+
+[[buffs]]
+name = "faith_in_ulatek_crit"
+duration = ${1296714.duration}
+stats = { crit_rating = ${e1} }
+
+[[buffs]]
+name = "faith_in_ulatek_haste"
+duration = ${1296714.duration}
+stats = { haste_rating = ${e1} }
+
+[[buffs]]
+name = "faith_in_ulatek_mastery"
+duration = ${1296714.duration}
+stats = { mastery_rating = ${e1} }
+
+[[buffs]]
+name = "faith_in_ulatek_vers"
+duration = ${1296714.duration}
+stats = { versatility_rating = ${e1} }
+'''
+
+# Ophidian Bone Whistle (274496): on use (180s), nature damage (1296883 effect
+# 1) 0.65s later; when the cooldown ends the next hit repeats it, so each use
+# is two hits, the second a cooldown after the first. [simc ophidian_bone_whistle]
+[[effect]]
+spell = 1306743
+text = '''
+[[abilities]]
+name = "ophidian_bone_whistle"
+spell_id = 1306743
+gcd = 0
+cooldown = ${cooldown}
+no_procs = true
+on_cast = [
+  { type = "trigger", ability = "ophidian_bone_whistle_damage", delay = 0.65 },
+  { type = "trigger", ability = "ophidian_bone_whistle_damage", delay = ${cooldown} },
+]
+
+[[abilities]]
+name = "ophidian_bone_whistle_damage"
+spell_id = 1294327
+triggered_only = true
+no_procs = true
+damage = { amount = ${1296883.e1}, school = "nature" }
+
+[[rotation]]
+action = "ophidian_bone_whistle"
+use = "other"
+'''
+
+[[effect]]
+spell = 1296883    # Ophidian Bone Whistle's damage, read by 1306743
+none = true
+
+# Sethraliss' Defiled Relic (158368): on use (120s), Curse of the Wound, a
+# nature DoT dealing 1294747 effect 1 over 15s (1s hasted ticks), and Rotten
+# Wound for 15s: real-PPM 20 (1294941) Deepened Wound hits (nature, 1294747
+# effect 2). [simc sethraliss_defiled_relic]
+[[effect]]
+spell = 1294746
+text = '''
+[[abilities]]
+name = "curse_of_the_wound"
+spell_id = 1294746
+gcd = 0
+cooldown = ${cooldown}
+no_procs = true
+dot = { name = "curse_of_the_wound", amount = $[${1294747.e1}/${duration}], school = "nature", tick_time = 1, duration = ${duration} }
+on_cast = [{ type = "buff", buff = "rotten_wound" }]
+
+[[buffs]]
+name = "rotten_wound"
+duration = ${1294941.duration}
+
+[[procs]]
+ability = "deepened_wound"
+per_minute = ${1294941.rppm}
+hasted = ${1294941.rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "deepened_wound"
+spell_id = 1294936
+triggered_only = true
+no_procs = true
+requires_buff = "rotten_wound"
+damage = { amount = ${1294747.e2}, school = "nature" }
+
+[[rotation]]
+action = "curse_of_the_wound"
+use = "other"
+'''
+
+[[effect]]
+spell = 1294747    # Sethraliss' Defiled Relic's values, read by 1294746
+none = true
+
+# Merektha's Fang (158367): on use (120s), a 3s channel (hasted) applying a
+# stack of Noxious Venom (nature, 267410: effect 1 a second for 4s, up to 3)
+# each second. Dealt here as the channel and a 3-stack DoT at its end.
+# [simc merekthas_fang]
+[[effect]]
+spell = 267402
+text = '''
+[[abilities]]
+name = "noxious_venom_gland"
+spell_id = 267402
+gcd = 0
+cast_time = ${duration}
+cooldown = ${cooldown}
+no_procs = true
+dot = { name = "noxious_venom", amount = $[${267410.e1}*${267410.stacks}], school = "nature", tick_time = 1, duration = ${267410.duration} }
+
+[[rotation]]
+action = "noxious_venom_gland"
+use = "other"
+'''
+
+# Tiny Electromental in a Jar (158374): real-PPM 20 on melee and ranged
+# attacks, a stack of Phenomenal Power (267179); the one that reaches max
+# stacks spends them for Unleash Lightning (nature, 267205 effect 1), as
+# SimC's proc callback does with a stacking buff and an action. [simc tiny_electromental_in_a_jar]
+[[effect]]
+spell = 267177
+text = '''
+[[procs]]
+ability = "phenomenal_power"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+physical = true
+
+[[abilities]]
+name = "phenomenal_power"
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "phenomenal_power" },
+  { type = "if", if = "buff.phenomenal_power.stack>=${267179.stacks}", then = [
+    { type = "consume", buff = "phenomenal_power", all = true },
+    { type = "trigger", ability = "unleash_lightning" },
+  ] },
+]
+
+[[buffs]]
+name = "phenomenal_power"
+duration = ${267179.duration}
+max_stacks = ${267179.stacks}
+
+[[abilities]]
+name = "unleash_lightning"
+spell_id = 267205
+triggered_only = true
+no_procs = true
+damage = { amount = ${267205.e1}, school = "nature" }
+'''
+
+# Blazebinder's Hoof (193762): on use (120s), Bound by Fire and Blaze for 20s:
+# strength (effect 1) per stack, a stack on use and from real-PPM 12 procs
+# (0.5s ICD) up to 6; when it ends, Burnout Wave deals effect 2 / 6 fire per
+# stack. [simc blazebinders_hoof]
+[[effect]]
+spell = 383926
+text = '''
+[[buffs]]
+name = "bound_by_fire_and_blaze"
+duration = ${duration}
+max_stacks = ${stacks}
+refresh_duration = false
+stats = { strength = ${e1} }
+on_expire = [{ type = "trigger", ability = "burnout_wave" }]
+
+[[buffs]]
+name = "burnout_stacks"
+duration = 1e9
+max_stacks = ${stacks}
+
+[[abilities]]
+name = "blazebinders_hoof"
+spell_id = 383926
+gcd = 0
+cooldown = ${cooldown}
+on_cast = [{ type = "buff", buff = "bound_by_fire_and_blaze" }, { type = "buff", buff = "burnout_stacks" }]
+
+[[procs]]
+ability = "bound_by_fire_stack"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+icd = ${icd}
+on_hit = true
+
+[[abilities]]
+name = "bound_by_fire_stack"
+triggered_only = true
+requires_buff = "bound_by_fire_and_blaze"
+on_cast = [{ type = "buff", buff = "bound_by_fire_and_blaze" }, { type = "buff", buff = "burnout_stacks" }]
+
+[[abilities]]
+name = "burnout_wave"
+spell_id = 389710
+triggered_only = true
+no_procs = true
+damage = { amount = $[${e2}/${stacks}], school = "fire", scale = "buff.burnout_stacks.stack" }
+on_cast = [{ type = "consume", buff = "burnout_stacks", all = true }]
+
+[[rotation]]
+action = "blazebinders_hoof"
+use = "buff"
+'''
+
+# Ruby Whelp Shell (193757): real-PPM 2, with SimC's default (untrained) whelp
+# one of six at random: Fire Shot (fire, effect 1), Lobbing Fire Nova (fire,
+# effect 2), Sleepy Ruby Warmth (crit, effect 5, 12s), Under Red Wings (haste,
+# effect 6, 12s), or one of two heals. The on-use training isn't modelled.
+# [simc ruby_whelp_shell]
+[[effect]]
+spell = 383812
+text = '''
+[[procs]]
+ability = "ruby_whelp_shell"
+per_minute = ${rppm}
+hasted = ${rppm_haste}
+on_hit = true
+
+[[abilities]]
+name = "ruby_whelp_shell"
+triggered_only = true
+on_cast = [{ type = "choose", choices = [
+  { effects = [{ type = "trigger", ability = "fire_shot" }] },
+  { effects = [{ type = "trigger", ability = "lobbing_fire_nova" }] },
+  { effects = [{ type = "buff", buff = "sleepy_ruby_warmth" }] },
+  { effects = [{ type = "buff", buff = "under_red_wings" }] },
+  { effects = [] },
+  { effects = [] },
+] }]
+
+[[abilities]]
+name = "fire_shot"
+spell_id = 389839
+triggered_only = true
+no_procs = true
+damage = { amount = ${e1}, school = "fire" }
+
+[[abilities]]
+name = "lobbing_fire_nova"
+spell_id = 390234
+triggered_only = true
+no_procs = true
+damage = { amount = ${e2}, school = "fire" }
+
+[[buffs]]
+name = "sleepy_ruby_warmth"
+duration = ${383813.duration}
+stats = { crit_rating = ${e5} }
+
+[[buffs]]
+name = "under_red_wings"
+duration = ${389820.duration}
+stats = { haste_rating = ${e6} }
+'''
+
+# Idol of the Howling Nexus (270174): a tank trinket. Avoiding an attack procs
+# Bolstering Gale, strength or agility (effect 1) for 12s; with no avoidance
+# for 15s it procs anyway, then waits 60s (Recovering Winds) before the 15s
+# timer starts again. Out of tanking that is a proc at 15s and every 75s after.
+# [simc idol_of_the_howling_nexus]
+[[effect]]
+spell = 1295643
+text = '''
+precombat = ["imminent_gale"]
+
+[[abilities]]
+name = "imminent_gale"
+triggered_only = true
+on_cast = [{ type = "trigger", ability = "bolstering_gale", delay = ${1306822.duration} }]
+
+[[abilities]]
+name = "bolstering_gale"
+triggered_only = true
+on_cast = [
+  { type = "buff", buff = "bolstering_gale" },
+  { type = "trigger", ability = "imminent_gale", delay = ${1306823.duration} },
+]
+
+[[buffs]]
+name = "bolstering_gale"
+duration = ${1295649.duration}
+stats = { strength = ${e1}, agility = ${e1} }
+'''
+
+# No DPS beyond the item's stats in SimC: heals, absorbs, avoidance and
+# tank/PvP effects, potion bonuses, kill or ally effects, or nothing scripted.
+
+[[effect]]
+spell = 17619    # Alchemist Stone: potion effects +40% (the kit's potion isn't scaled)
+none = true
+
+[[effect]]
+spell = 384649    # Kyrakka's Searing Embers: heal-driven
+none = true
+
+[[effect]]
+spell = 265946    # Mchimba's Ritual Bandages: heal over time
+none = true
+
+[[effect]]
+spell = 336126    # Gladiator's Medallion: PvP trinket
+none = true
+
+[[effect]]
+spell = 345231    # Gladiator's Emblem: max health
+none = true
+
+[[effect]]
+spell = 336135    # Gladiator's Sigil of Adaptation: PvP
+none = true
+
+[[effect]]
+spell = 1247311    # Drum of Renewed Bonds: on use, ally buff (SimC: disabled)
+none = true
+
+[[effect]]
+spell = 1250587    # Manaheart's Binding Flame: absorb on use
+none = true
+
+[[effect]]
+spell = 1283373    # Manaheart's Binding Flame: values of the absorb
+none = true
+
+[[effect]]
+spell = 1250588    # Permafrost Essence: procs on damage taken (absorb, tank crit)
+none = true
+
+[[effect]]
+spell = 1250591    # Mycolic Medicine: healing
+none = true
+
+[[effect]]
+spell = 1263644    # Seed of Radiant Hope: healing on use
+none = true
+
+[[effect]]
+spell = 1285918    # Seed of Radiant Hope: values
+none = true
+
+[[effect]]
+spell = 1254339    # Unstable Felheart Crystal: on use, damage to self and absorb
+none = true
+
+[[effect]]
+spell = 1266821    # Unstable Felheart Crystal: values
+none = true
+
+[[effect]]
+spell = 1259988    # Consecrated Chalice: healing on use
+none = true
+
+[[effect]]
+spell = 1253117    # Consecrated Chalice: Hope, healing
+none = true
+
+[[effect]]
+spell = 1253118    # Desecrated Chalice: Despair, defensive
+none = true
+
+[[effect]]
+spell = 1272460    # Ultradon Cuirass: absorb on use
+none = true
+
+[[effect]]
+spell = 1272482    # Cosmic Bell: on use, a stun (no damage worth modelling in SimC)
+none = true
+
+[[effect]]
+spell = 1295328    # First Mate's Shellward: absorb on use
+none = true
+
+[[effect]]
+spell = 1295323    # First Mate's Shellward: values
+none = true
+
+[[effect]]
+spell = 1291894    # Soulcoiler Ritual Vessel: defensive channel on use
+none = true
+
+[[effect]]
+spell = 1291885    # Soulcoiler Ritual Vessel: values
+none = true
+
+[[effect]]
+spell = 1295775    # Preternatural Antivenom: healing
+none = true
+
+[[effect]]
+spell = 1294323    # Chiral Marrowgrafter: healing on use
+none = true
+
+[[effect]]
+spell = 1294326    # Pulse Seeker's Oculus: healer effect
+none = true
+
+[[effect]]
+spell = 1297145    # Spirit-Rending Poison: on use, nothing scripted in SimC
+none = true
+
+[[effect]]
+spell = 1297051    # Spirit-Rending Poison: values
+none = true
+
+[[effect]]
+spell = 1294330    # Spirit Ward: absorb on use
+none = true
+
+[[effect]]
+spell = 1294333    # Toxiferous Transfusion: healing
+none = true
+
+[[effect]]
+spell = 1309441    # Lightbearer's Shield Fragment: defensive on use
+none = true
+
+[[effect]]
+spell = 1309434    # Lightbearer's Shield Fragment: values
+none = true
+
+[[effect]]
+spell = 1309868    # Sigil of the Impending Eclipse: healer effect
+none = true
+
+[[effect]]
+spell = 389843    # Ruby Whelp Shell: on use, whelp training (SimC uses an option instead)
+none = true
