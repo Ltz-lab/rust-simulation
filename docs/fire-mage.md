@@ -19,8 +19,8 @@ summoned by Combustion and dismissed when it ends.
 | | DPS |
 |---|---:|
 | reference | 147,374 |
-| azsim | 148,454 (±139) |
-| difference | **+0.73%** |
+| azsim | 148,457 (±125) |
+| difference | **+0.74%** |
 
 ## Structure: hit counts per fight
 
@@ -55,15 +55,15 @@ Fireball and Scorch counts are within a few casts of the reference in each.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +4.61% | +4.20% | -0.41 pts |
-| +500 haste | +8.24% | +10.43% | +2.19 pts |
+| +500 crit | +4.61% | +4.09% | -0.52 pts |
+| +500 haste | +8.24% | +10.35% | +2.11 pts |
 | +500 mastery | +6.53% | +6.44% | -0.08 pts |
 | +500 vers | +7.96% | +7.92% | -0.04 pts |
 | +200 intellect | +6.49% | +6.61% | +0.13 pts |
 
-Mastery, versatility and intellect are within 0.15 points, crit within 0.45.
+Mastery, versatility and intellect are within 0.15 points, crit within 0.55.
 Mastery landing this close matters most: it runs entirely through Ignite, so
-it checks the banked-DoT model directly. **Haste over-responds by 2.2 points**.
+it checks the banked-DoT model directly. **Haste over-responds by 2.1 points**.
 Both stat priorities still put haste first, then vers; mastery and intellect
 swap at fourth and fifth. See [Known gaps](#known-gaps).
 
@@ -125,22 +125,21 @@ Measured on `profiles/MID2_Mage_Fire.simc` as it is (trinkets included), against
 
 | | SimC | azsim | diff |
 |---|---:|---:|---:|
-| 2pc alone | +8.28% | +10.74% | +2.46 pts |
-| 4pc on top of the 2pc | +5.34% | +6.50% | +1.16 pts |
-| **tier gain** | **+14.06%** | **+17.94%** | **+3.88 pts** |
-| full-profile DPS | 234,033 | 245,211 | +4.78% |
-| set bonuses off, DPS | 205,179 | 207,913 | +1.33% |
+| **tier gain** | **+14.16%** | **+14.84%** | **+0.68 pts** |
+| full-profile DPS | 234,327 | 238,342 | +1.71% |
+| set bonuses off, DPS | 205,254 | 207,543 | +1.12% |
 
-**The tier gain is 3.9 points over SimC's, and the cause is not the bonuses.** The spec's `pyroclasm` buff
-has `max_stacks = 2` and a per-stack `ability_pct`, so with both stacks up a hardcast Pyroblast gets
-1 + 2 x 2.5 = 6.0x, where SimC's buff value is 2.5 whatever the stacks (3.5x). Hardcasts therefore carry
-too large a share of Pyroblast's damage, and anything that changes them (always crit, a damage bonus 7% larger,
-a faster cast) is overstated. With `flat = true` on that buff (one line, tried on a copy of the spec, not committed) the
-same fragments give 2pc alone +9.32% (SimC +8.28%), 4pc alone +4.70% (SimC +5.04%) and +14.69% in all (SimC
-+14.06%). But
-`flat = true` also moves the no-gear Fire run (`--calib`, -n 2000, seed 1) by -3.14% (148,221 to 143,573), and
-the base spec and its calibration were left as they are, so this bonus is not within 1.5 points until
-Pyroclasm's stacking is fixed and Fire recalibrated.
+SimC at target error 0.1%. Before the Pyroclasm fix the same runs read +17.94% tier gain and 245,211 full-profile DPS
+(+4.65% against SimC at this error).
+
+**Pyroclasm's stacking.** The buff has two stacks, but they are charges: SimC applies the buff value once
+(`hot_streak_spell_t::composite_da_multiplier` multiplies by `1 + pyroclasm->check_value()`, and `execute()` calls
+`pyroclasm->decrement()`, one stack per cast, in `sc_mage.cpp`). The spec had a per-stack `ability_pct`, which gave
+1 + 2 x 2.5 = 6.0x with both stacks where SimC gives 3.5x, and overstated everything that scales hardcasts (the 2pc's
+guaranteed crit, the 4pc's damage and cast time). The buff is now `flat = true`. That moved the no-gear run
+(`--calib`, -n 2000, seed 1) from 148,221 to 143,573, so Fire was recalibrated with
+`tools/calibrate.py ... --derived derived/fire_mage.toml --rounds 6` (the Fire loop in `docs/development.md`); the
+no-gear run is back to 148,196 (SimC core reference 147,374, +0.56%).
 
 Not modelled: Flamestrike (not in the spec), and the Fire Blast SimC's APL spends while hardcasting a Pyroclasm
 Pyroblast in the execute phase with the 2pc (`apl/mage.cpp`, `fireblast` list; this spec casts Fire Blast between
@@ -148,7 +147,7 @@ casts).
 
 ## Known gaps
 
-- **Haste over-response (+2.2 pts).** Fire Blast's charge economy reacts too
+- **Haste over-response (+2.1 pts).** Fire Blast's charge economy reacts too
   strongly: +500 haste raises Fire Blast casts 15% in azsim against 12% in the
   reference, and Hot Streak Pyroblasts (and the Ignite they feed at ×2.25)
   follow. Base counts match, so it's the loop gain that's off: each Fire Blast
