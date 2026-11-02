@@ -650,3 +650,89 @@ if = "chi<4"
 
 [[rotation]]
 action = "tiger_palm"
+
+# ================================================================== class set (Windwalker 12.1, MID2, set 2061)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296621): casting Fists of Fury also strikes with one extra tick at
+# effect 1's 50% of a tick's damage [simc fists_of_fury_t: mid2_ww_tier, a tick_t
+# with base_multiplier x 0.5, run in execute() before the first tick]. It
+# reports under Fists of Fury so the tick's calibration (derived x mult,
+# crit_bonus) carries over.
+#
+# Momentum Boost: every tick that lands adds a stack of +10% to the next ones
+# [db2 451297 e1, max 10, 10s], and the extra tick lands first, so the five real
+# ticks carry one stack more: 1.0, 1.1 .. 1.4 becomes 1.1 .. 1.5 (SimC: Fists of
+# Fury +6.6% with the 2pc on, over and above the extra tick's own damage). The
+# spec's calibrated tick has the average of that ramp (1.2) built in, so the
+# 2pc lifts the ticks by 1.3 / 1.2 = +8.333% (10 / 120), while the extra tick,
+# which lands before any stack, deals 50% of an unramped tick: 0.5 / 1.3 of what
+# the calibrated source plus the lift gives.
+[[gear.effects]]
+spell = 1296621
+text = '''
+precombat = ["set_ww_2pc_ramp"]
+
+[[buffs]]
+name = "set_ww_2pc_ramp"
+duration = 1e9
+ability_pct = { fists_of_fury = 8.3333 }   # 100 x 0.10 / (1 + 0.10 x 2), see above [db2 451297]
+
+[[abilities]]
+name = "set_ww_2pc_ramp"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_ww_2pc_ramp" }]
+
+[[abilities]]
+name = "set_ww_2pc"
+source = "fists_of_fury"
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 2.6082, school = "physical", mastery = true, crit_bonus = 0.0, scale = "${e1:pct}/(1+${451297.e1:pct}*3)" }   # the FoF tick [db2 117418]
+
+[[patch]]
+ability = "fists_of_fury"
+requires = ["set_ww_2pc"]
+on_start = [{ type = "trigger", ability = "set_ww_2pc" }]
+'''
+
+# 4pc (1296624): Unbroken Rhythm [db2 1297033], a stack for every Fists of Fury
+# tick (the five of the channel and the 2pc's extra one: 6 at most, 20s).
+# Each stack adds effect 1's 10% to Rising Sun Kick's hit (SimC parses it on
+# base_damage_t with CONSUME_BUFF, so Rushing Wind Kick shares it) and effect
+# 2's 20% to Spinning Crane Kick's ticks; either kick spends every stack.
+# Rising Sun Kick and Spinning Crane Kick already come before each other in the
+# priority list the way the APL wants (Dance of Chi-Ji's crane kick first), so
+# the rotation is untouched. SimC snapshots a crane kick's stacks at the cast;
+# here its ticks read the buff while they fire and the channel's end spends it.
+[[gear.effects]]
+spell = 1296624
+text = '''
+[[buffs]]
+name = "unbroken_rhythm"
+duration = ${1297033.duration}
+max_stacks = ${1297033.stacks}
+ability_pct = { rising_sun_kick_damage = ${1297033.e1}, rushing_wind_kick_damage = ${1297033.e1}, spinning_crane_kick_tick = ${1297033.e2} }
+
+[[patch]]
+ability = "fists_of_fury"
+dot = { on_tick = [{ type = "buff", buff = "unbroken_rhythm" }] }
+
+[[patch]]
+ability = "set_ww_2pc"
+on_cast = [{ type = "buff", buff = "unbroken_rhythm" }]
+
+[[patch]]
+ability = "rising_sun_kick"
+on_cast = [{ type = "consume", buff = "unbroken_rhythm", all = true }]
+
+[[patch]]
+ability = "rushing_wind_kick"
+on_cast = [{ type = "consume", buff = "unbroken_rhythm", all = true }]
+
+[[patch]]
+ability = "spinning_crane_kick"
+channel = { on_finish = [{ type = "consume", buff = "unbroken_rhythm", all = true }] }
+'''

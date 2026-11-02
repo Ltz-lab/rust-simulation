@@ -1458,6 +1458,40 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
     }
 
     #[test]
+    fn windwalker_tier_set_is_modelled_and_patches_the_dot_and_channel() {
+        let doc: toml::Value = toml::from_str(include_str!("../specs/windwalker_shadopan.toml")).unwrap();
+        let (out, rep) = apply_text(doc, include_str!("../profiles/MID2_Monk_Windwalker.simc")).unwrap();
+        let sets: Vec<(&str, &str)> = rep["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["from"].as_str().unwrap().starts_with("set 2061"))
+            .map(|r| (r["from"].as_str().unwrap(), r["status"].as_str().unwrap()))
+            .collect();
+        assert_eq!(sets, [("set 2061 (2)", "modelled"), ("set 2061 (4)", "modelled")]);
+        let sp: crate::spec::Spec = out.try_into().unwrap();
+        let ability = |n: &str| sp.abilities.iter().find(|a| a.name == n).unwrap_or_else(|| panic!("no {n}"));
+        let buff = |n: &str| sp.buffs.iter().find(|b| b.name == n).unwrap_or_else(|| panic!("no {n}"));
+        // 2pc: half a Fists of Fury tick, 1 / (1 + 3 x 0.10) of the calibrated source
+        let d = ability("set_ww_2pc").damage.clone().unwrap();
+        assert_eq!(d.scale.as_deref(), Some("0.5/(1+0.1*3)"));
+        assert_eq!(ability("set_ww_2pc").source.as_deref(), Some("fists_of_fury"));
+        // 4pc: Unbroken Rhythm, 6 stacks of 20s, +10% to the kicks and +20% to Spinning Crane Kick
+        let b = buff("unbroken_rhythm");
+        assert_eq!((b.duration, b.max_stacks), (20.0, 6));
+        assert_eq!(b.ability_pct["rising_sun_kick_damage"], 10.0);
+        assert_eq!(b.ability_pct["spinning_crane_kick_tick"], 20.0);
+        // a stack per Fists of Fury tick (a dot patch) and per 2pc tick; spent by kicks and at the crane kick's end
+        let fof = ability("fists_of_fury").dot.clone().unwrap();
+        assert_eq!(fof.on_tick.len(), 1);
+        assert_eq!(ability("set_ww_2pc").on_cast.len(), 1);
+        assert_eq!(ability("rising_sun_kick").on_cast.len(), 4);
+        assert_eq!(ability("rushing_wind_kick").on_cast.len(), 2);
+        let sck = ability("spinning_crane_kick").channel.clone().unwrap();
+        assert_eq!(sck.on_finish.len(), 1);
+    }
+
+    #[test]
     fn omnium_traits_parse_and_scale_against_the_baseline() {
         assert_eq!(omnium_traits("omnium_talents=136822:1/136816:1\n"), ["136822", "136816"]);
         assert_eq!(omnium_traits("omnium_talents=rune_of_overload/rune_of_lingering"), ["rune_of_overload", "rune_of_lingering"]);
