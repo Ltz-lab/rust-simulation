@@ -913,3 +913,65 @@ if = "combo_points<5|buff.darkest_night.up&combo_points<7"
 [[rotation]]
 action = "mutilate"
 if = "combo_points<5|buff.darkest_night.up&combo_points<7"
+
+# ---------------------------------------------------------------- tier set
+# Midnight season 2 class set (set 2064, spec 259). Only with gear lines
+# (`--set gear.set_bonuses=0` turns them off); fragment format as
+# data/item_effects.toml. [db2, simc sc_rogue.cpp]
+
+# 2pc (1296590): Envenom deals +10% (effect 1, a spell-data modifier on
+# Envenom's class flags), and while Envenom is up +3% (effect 2) to the spells
+# and auto attacks Envenom's own effects 8-10 list: SimC's mid2_assassination_2pc,
+# a damage buff triggered with Envenom and expiring with it. The class-flag
+# match (flag word 1, bit 22) covers the finishers, builders, bleeds, poisons,
+# Kingsbane, Deathmark's bleed and the Deathstalker hits, not Mutilated Flesh or
+# the gear procs. SimC triggers it in Envenom's impact, after the hit has been
+# rolled, so it joins on_cast here.
+[[gear.effects]]
+spell = 1296590
+text = '''
+precombat = ["set_envenom_2pc"]
+
+[[buffs]]
+name = "set_envenom_2pc"
+duration = 1e9
+ability_pct = { envenom = ${e1} }
+
+[[buffs]]
+name = "set_envenom_damage"
+duration = 7
+ability_pct = { envenom = ${e2}, garrote = ${e2}, rupture = ${e2}, internal_bleeding = ${e2}, mutilate_mh = ${e2}, mutilate_oh = ${e2}, fan_of_knives = ${e2}, shiv = ${e2}, ambush = ${e2}, kingsbane = ${e2}, deathmark = ${e2}, deathstalkers_mark = ${e2}, hunt_them_down = ${e2}, implacable_strikes_nature = ${e2}, implacable_strikes_physical = ${e2}, deadly_poison_instant = ${e2}, deadly_poison_dot = ${e2}, amplifying_poison = ${e2}, auto_attack_mh = ${e2}, auto_attack_oh = ${e2} }
+
+[[abilities]]
+name = "set_envenom_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_envenom_2pc" }]
+
+[[patch]]
+ability = "envenom"
+on_cast = [
+  { type = "if", if = "spent.combo_points>=7", then = [{ type = "buff", buff = "set_envenom_damage", duration = 7 }] },
+  { type = "if", if = "spent.combo_points>=6&spent.combo_points<7", then = [{ type = "buff", buff = "set_envenom_damage", duration = 6 }] },
+  { type = "if", if = "spent.combo_points<6", then = [{ type = "buff", buff = "set_envenom_damage", duration = 5 }] },
+]
+'''
+
+# 4pc (1296591): +10% (effect 1) to the bleeds Deadly Poison amplifies (the
+# spells in its dot's effect 2: Garrote, Rupture, Internal Bleeding, Mutilated
+# Flesh, Deathmark) while the target has the Deadly Poison dot, and the auto
+# attacks of the main hand and off hand deal +3% (effect 2) per stack of
+# Amplifying Poison on the target [simc composite_target_multiplier].
+[[gear.effects]]
+spell = 1296591
+text = '''
+[[buffs]]
+name = "set_deadly_poison_bleeds"
+duration = 1e9
+while_dot = "deadly_poison_dot"
+ability_pct = { garrote = ${e1}, rupture = ${e1}, internal_bleeding = ${e1}, mutilated_flesh = ${e1}, deathmark = ${e1} }
+
+[[patch]]
+buff = "amplifying_poison"
+set = { ability_pct = { auto_attack_mh = ${e2}, auto_attack_oh = ${e2} } }
+'''
