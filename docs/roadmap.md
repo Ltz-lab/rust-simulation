@@ -7,15 +7,17 @@ as Loa Worshiper's Band, armor and weapon procs, proc enchants), multi-target, m
 
 Trinket effects and set bonuses are in (see [gear.md](gear.md#item-effects-and-set-bonuses)):
 an effect library of spec fragments keyed by spell id, numbers from DB2 at
-the item's level. It covers six Midnight trinket effects, Bite of Zul'jan and
-Ret's MID2 tier set; gear layers, kits and omnium tables now cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw as well (their tier sets are unmodelled); every other trinket or set bonus is reported as
+the item's level. It covers the Midnight trinket effects listed there, Bite of Zul'jan and
+the season 2 class set of every DPS spec ([tier gains](gear.md#midnight-season-2-class-sets)); gear layers, kits and omnium tables now cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw as well. Every other trinket or set bonus (Blood's set, Ret's MID1 4pc) is reported as
 unmodelled, and the app sends swaps touching one to SimC.
 
 ## Next steps
 
-1. Grow the effect library: the season's remaining trinkets and the other
-   specs' tier sets, then the non-trinket item effects (rings, armor,
-   weapons, enchants) with the same templates, so Top Gear values them.
+1. Grow the effect library: the season's remaining trinkets and Blood's tier
+   set, then the non-trinket item effects (rings, armor, weapons, enchants)
+   with the same templates, so Top Gear values them. Close the three tier
+   misses, each a base-spec change: Devourer's Reap/Cull fragment economy,
+   Fire's Pyroclasm stacking, Outlaw's Dispatch share.
 
 2. Check the fitted and `[obs]` mechanics against SimC's class modules,
    starting with the haste over-response (Ret's Expurgation and Hammer of

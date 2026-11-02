@@ -1052,8 +1052,14 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
                     i += 1;
                 }
             } else {
+                // `after` follows the first entry for that action, `after_last` the last one
+                let after_last = r.remove("after_last").and_then(|x| x.as_str().map(|s| s.to_string()));
                 let after = r.remove("after").and_then(|x| x.as_str().map(|s| s.to_string())).unwrap_or_default();
-                let at = list.iter().position(|e| action(e) == after).map_or(0, |i| i + 1);
+                let at = match &after_last {
+                    Some(n) => list.iter().rposition(|e| action(e) == *n),
+                    None => list.iter().position(|e| action(e) == after),
+                }
+                .map_or(0, |i| i + 1);
                 list.insert(at, toml::Value::Table(r));
             }
         }
@@ -1061,12 +1067,57 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
     Ok(rows)
 }
 
+/// `[[patch]] rotation = "<action>" and = "<condition>"`: AND the condition onto the `if` of the
+/// spec's rotation entries for that action (all of them, or only those whose `if` is exactly
+/// `match_if`). Skipped when the spec's rotation doesn't use the action; an error when it does but
+/// no entry matches, so a changed rotation can't silently drop the set bonus's condition.
+fn patch_rotation(root: &mut toml::Table, mut p: toml::Table, action: &str) -> Result<(), String> {
+    let and = p.remove("and").and_then(|x| x.as_str().map(str::to_string)).ok_or_else(|| format!("rotation patch '{action}' needs 'and'"))?;
+    let match_if = p.remove("match_if").and_then(|x| x.as_str().map(str::to_string));
+    if let Some(k) = p.keys().next() {
+        return Err(format!("rotation patch '{action}': unknown key '{k}'"));
+    }
+    let Some(list) = root.get_mut("rotation").and_then(|r| r.as_array_mut()) else { return Ok(()) };
+    let (mut used, mut hit) = (false, false);
+    for e in list.iter_mut().filter_map(|e| e.as_table_mut()) {
+        if e.get("action").and_then(|x| x.as_str()) != Some(action) {
+            continue;
+        }
+        used = true;
+        let cur = e.get("if").and_then(|x| x.as_str()).map(str::to_string);
+        if match_if.is_some() && cur != match_if {
+            continue;
+        }
+        hit = true;
+        let new = match cur {
+            Some(c) => format!("({c})&({and})"),
+            None => and.clone(),
+        };
+        e.insert("if".into(), toml::Value::String(new));
+    }
+    if used && !hit {
+        return Err(format!("rotation patch '{action}': no entry has the condition {match_if:?}"));
+    }
+    Ok(())
+}
+
 /// `[[patch]]`: append lists to an existing ability's, buff's or pet's (`ability =` /
 /// `buff =` / `pet =`), e.g. `on_cast`; skipped when the target or anything in
 /// `requires` (ability names) isn't in the spec. `set = { field = value }`
-/// overwrites scalar fields instead.
+/// overwrites fields instead, `add = { field = number }` adds to a number, and a
+/// table (`dot = { on_tick = [..], add = { duration = 1 } }`) patches the target's
+/// nested table the same way (an error if the target has no such table).
+/// `prepend = true` puts every appended list entry in front of the target's own;
+/// `prepend = { on_cast = [..] }` does that for the lists it names. `set` is applied
+/// last and merges nested tables (`set = { channel = { ticks = 8 } }` keeps the
+/// channel's other fields). `rotation = "action"` with `and = "cond"` extends a
+/// rotation entry's condition instead (see `patch_rotation`).
 fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
     let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
+    if let Some(a) = p.remove("rotation") {
+        let a = a.as_str().ok_or("a rotation patch names an action")?.to_string();
+        return patch_rotation(root, p, &a);
+    }
     let (kind, name) = match (p.remove("ability"), p.remove("buff"), p.remove("pet")) {
         (Some(n), None, None) => ("abilities", n),
         (None, Some(n), None) => ("buffs", n),
@@ -1093,20 +1144,81 @@ fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
         .and_then(|l| l.iter_mut().find(|e| e.get("name").and_then(|x| x.as_str()) == Some(name.as_str())))
         .and_then(|e| e.as_table_mut())
         .unwrap();
-    for (k, v) in p {
-        // `set = { field = value, .. }` overwrites scalar fields (e.g. a buff's max_stacks)
-        if k == "set" {
-            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'set' must be a table")) };
-            for (f, x) in fields {
-                target.insert(f, x);
-            }
-            continue;
+    // `prepend = true` is a flag for the whole patch; `prepend = { .. }` is handled per list below
+    let prepend = match p.get("prepend") {
+        Some(toml::Value::Boolean(b)) => {
+            let b = *b;
+            p.remove("prepend");
+            b
         }
-        let toml::Value::Array(items) = v else { return Err(format!("patch '{name}': '{k}' must be a list")) };
-        let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
-        list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?.extend(items);
+        _ => false,
+    };
+    patch_fields(target, p, &name, prepend)
+}
+
+/// The fields of one `[[patch]]`, applied to `target` (see `patch`); recurses into tables.
+fn patch_fields(target: &mut toml::Table, mut p: toml::Table, name: &str, prepend: bool) -> Result<(), String> {
+    let set = p.remove("set");
+    for (k, v) in p {
+        match (k.as_str(), v) {
+            // `add = { field = number, .. }` adds to a number (e.g. a DoT's duration)
+            ("add", toml::Value::Table(fields)) => {
+                for (f, x) in fields {
+                    let num = |v: &toml::Value| v.as_float().or_else(|| v.as_integer().map(|i| i as f64));
+                    let (Some(d), Some(cur)) = (num(&x), target.get(&f).and_then(num)) else {
+                        return Err(format!("patch '{name}': add.{f} needs a number on both sides"));
+                    };
+                    target.insert(f, toml::Value::Float(cur + d));
+                }
+            }
+            // `prepend = { on_cast = [..] }` puts the items in front of the target's own, so they run first
+            ("prepend", toml::Value::Table(fields)) => {
+                for (f, items) in fields {
+                    let toml::Value::Array(items) = items else { return Err(format!("patch '{name}': prepend '{f}' must be a list")) };
+                    let list = target.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                    list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{f}' is not a list"))?.splice(0..0, items);
+                }
+            }
+            ("add" | "prepend", _) => return Err(format!("patch '{name}': '{k}' must be a table")),
+            (_, toml::Value::Table(sub)) => {
+                let nested = target
+                    .get_mut(k.as_str())
+                    .and_then(|t| t.as_table_mut())
+                    .ok_or_else(|| format!("patch '{name}': '{k}' is not a table in the target"))?;
+                patch_fields(nested, sub, name, prepend)?;
+            }
+            (_, toml::Value::Array(items)) => {
+                let list = target.entry(k.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                let list = list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}' is not a list"))?;
+                if prepend {
+                    list.splice(0..0, items);
+                } else {
+                    list.extend(items);
+                }
+            }
+            _ => return Err(format!("patch '{name}': '{k}' must be a list or a table")),
+        }
+    }
+    // `set = { field = value, .. }` overwrites fields (e.g. a buff's max_stacks), after the rest
+    match set {
+        Some(toml::Value::Table(fields)) => set_fields(target, fields),
+        Some(_) => return Err(format!("patch '{name}': 'set' must be a table")),
+        None => {}
     }
     Ok(())
+}
+
+/// `set`: overwrite the target's fields, merging a table into the target's table of
+/// the same name field by field.
+fn set_fields(target: &mut toml::Table, fields: toml::Table) {
+    for (f, x) in fields {
+        match (target.get_mut(f.as_str()), x) {
+            (Some(toml::Value::Table(cur)), toml::Value::Table(t)) => set_fields(cur, t),
+            (_, x) => {
+                target.insert(f, x);
+            }
+        }
+    }
 }
 
 /// Turn every buff's gear `stats` into the matching percent fields.
@@ -1346,6 +1458,40 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
     }
 
     #[test]
+    fn windwalker_tier_set_is_modelled_and_patches_the_dot_and_channel() {
+        let doc: toml::Value = toml::from_str(include_str!("../specs/windwalker_shadopan.toml")).unwrap();
+        let (out, rep) = apply_text(doc, include_str!("../profiles/MID2_Monk_Windwalker.simc")).unwrap();
+        let sets: Vec<(&str, &str)> = rep["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["from"].as_str().unwrap().starts_with("set 2061"))
+            .map(|r| (r["from"].as_str().unwrap(), r["status"].as_str().unwrap()))
+            .collect();
+        assert_eq!(sets, [("set 2061 (2)", "modelled"), ("set 2061 (4)", "modelled")]);
+        let sp: crate::spec::Spec = out.try_into().unwrap();
+        let ability = |n: &str| sp.abilities.iter().find(|a| a.name == n).unwrap_or_else(|| panic!("no {n}"));
+        let buff = |n: &str| sp.buffs.iter().find(|b| b.name == n).unwrap_or_else(|| panic!("no {n}"));
+        // 2pc: half a Fists of Fury tick, 1 / (1 + 3 x 0.10) of the calibrated source
+        let d = ability("set_ww_2pc").damage.clone().unwrap();
+        assert_eq!(d.scale.as_deref(), Some("0.5/(1+0.1*3)"));
+        assert_eq!(ability("set_ww_2pc").source.as_deref(), Some("fists_of_fury"));
+        // 4pc: Unbroken Rhythm, 6 stacks of 20s, +10% to the kicks and +20% to Spinning Crane Kick
+        let b = buff("unbroken_rhythm");
+        assert_eq!((b.duration, b.max_stacks), (20.0, 6));
+        assert_eq!(b.ability_pct["rising_sun_kick_damage"], 10.0);
+        assert_eq!(b.ability_pct["spinning_crane_kick_tick"], 20.0);
+        // a stack per Fists of Fury tick (a dot patch) and per 2pc tick; spent by kicks and at the crane kick's end
+        let fof = ability("fists_of_fury").dot.clone().unwrap();
+        assert_eq!(fof.on_tick.len(), 1);
+        assert_eq!(ability("set_ww_2pc").on_cast.len(), 1);
+        assert_eq!(ability("rising_sun_kick").on_cast.len(), 4);
+        assert_eq!(ability("rushing_wind_kick").on_cast.len(), 2);
+        let sck = ability("spinning_crane_kick").channel.clone().unwrap();
+        assert_eq!(sck.on_finish.len(), 1);
+    }
+
+    #[test]
     fn omnium_traits_parse_and_scale_against_the_baseline() {
         assert_eq!(omnium_traits("omnium_talents=136822:1/136816:1\n"), ["136822", "136816"]);
         assert_eq!(omnium_traits("omnium_talents=rune_of_overload/rune_of_lingering"), ["rune_of_overload", "rune_of_lingering"]);
@@ -1394,6 +1540,37 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         // Unleashed Fire alone is worth its own 1.01901, not the whole set
         let (m_fire, _) = ret("omnium_talents=136822:1\n");
         assert!((m_fire / m_none - 1.01901).abs() < 1e-9, "{}", m_fire / m_none);
+    }
+
+    /// The Shaman tier set (2065) is modelled for both specs: the profile's pieces
+    /// reach the 2pc and 4pc, nothing is left `unmodelled`, the spec still compiles
+    /// with the fragments in it, and `set_bonuses = 0` takes them out again.
+    #[test]
+    fn shaman_tier_set_is_modelled() {
+        let cases = [
+            (include_str!("../specs/elemental_farseer.toml"), include_str!("../profiles/MID2_Shaman_Elemental.simc"), ["set_elemental_2pc", "fe_spend"]),
+            (include_str!("../specs/enhancement_stormbringer.toml"), include_str!("../profiles/MID2_Shaman_Enhancement.simc"), ["set_enhancement_2pc", "fire_nova_explosion"]),
+        ];
+        for (spec, profile, abilities) in cases {
+            let doc: toml::Value = toml::from_str(spec).unwrap();
+            let (out, rep) = apply_text(doc.clone(), profile).unwrap();
+            assert_eq!(rep["unmodelled"], json!([]));
+            let sets: Vec<&Value> = rep["effects"].as_array().unwrap().iter().filter(|r| r["set"] == 2065).collect();
+            assert_eq!(sets.iter().map(|r| r["pieces"].as_i64().unwrap()).collect::<Vec<_>>(), [2, 4]);
+            assert!(sets.iter().all(|r| r["status"] == "modelled"));
+            let sp: crate::spec::Spec = out.try_into().unwrap();
+            for a in abilities {
+                assert!(sp.abilities.iter().any(|x| x.name == a), "missing {a}");
+            }
+            crate::sim::Compiled::new(sp).unwrap();
+
+            let mut off = doc;
+            off["gear"].as_table_mut().unwrap().insert("set_bonuses".into(), toml::Value::Float(0.0));
+            let (out, rep) = apply_text(off, profile).unwrap();
+            assert!(rep["effects"].as_array().unwrap().iter().filter(|r| r["set"] == 2065).all(|r| r["status"] == "off"));
+            let sp: crate::spec::Spec = out.try_into().unwrap();
+            assert!(sp.abilities.iter().all(|x| x.name != abilities[0]));
+        }
     }
 
     #[test]
@@ -1524,6 +1701,70 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         compute(&core, &cfg).unwrap().report
     }
 
+    /// `[[patch]]` into a nested table, `add`, `set` and `prepend`.
+    #[test]
+    fn patch_nested_tables_add_and_prepend() {
+        let mut root: toml::Table = toml::from_str(
+            r#"
+            [[abilities]]
+            name = "shot"
+            on_cast = [{ type = "buff", buff = "a" }]
+            [abilities.dot]
+            name = "shot"
+            duration = 4.0
+            on_tick = [{ type = "buff", buff = "b" }]
+            "#,
+        )
+        .unwrap();
+        let p: toml::Value = toml::from_str(
+            r#"
+            ability = "shot"
+            prepend = true
+            on_cast = [{ type = "buff", buff = "c" }]
+            dot = { add = { duration = 1 }, set = { name = "shot2" }, on_tick = [{ type = "buff", buff = "d" }] }
+            "#,
+        )
+        .unwrap();
+        patch(&mut root, p).unwrap();
+        let a = &root["abilities"][0];
+        assert_eq!(a["on_cast"][0]["buff"].as_str(), Some("c"));
+        assert_eq!(a["on_cast"][1]["buff"].as_str(), Some("a"));
+        let dot = &a["dot"];
+        assert_eq!(dot["duration"].as_float(), Some(5.0));
+        assert_eq!(dot["name"].as_str(), Some("shot2"));
+        assert_eq!(dot["on_tick"][0]["buff"].as_str(), Some("d"));
+        assert_eq!(dot["on_tick"][1]["buff"].as_str(), Some("b"));
+        // a table the target doesn't have, or adding to a missing number, is an error
+        let bad: toml::Value = toml::from_str("ability = \"shot\"\nchannel = { set = { ticks = 1 } }").unwrap();
+        assert!(patch(&mut root, bad).is_err());
+        let bad: toml::Value = toml::from_str("ability = \"shot\"\nadd = { cooldown = 1 }").unwrap();
+        assert!(patch(&mut root, bad).is_err());
+    }
+
+    /// The Midnight season 2 Hunter sets (2059) are modelled for all three specs,
+    /// and the bonuses reach the spec.
+    #[test]
+    fn hunter_tier_set_is_modelled() {
+        let cases: [(&str, &str, [i64; 2]); 3] = [
+            (include_str!("../specs/beast_mastery_pack_leader.toml"), include_str!("../profiles/MID2_Hunter_Beast_Mastery.simc"), [1296631, 1296632]),
+            (include_str!("../specs/marksmanship_sentinel.toml"), include_str!("../profiles/MID2_Hunter_Marksmanship.simc"), [1296633, 1296634]),
+            (include_str!("../specs/survival_sentinel.toml"), include_str!("../profiles/MID2_Hunter_Survival.simc"), [1296636, 1296635]),
+        ];
+        for (spec, profile, spells) in cases {
+            let doc: toml::Value = toml::from_str(spec).unwrap();
+            let (doc, rep) = apply_text(doc, profile).unwrap();
+            let name = spec.lines().next().unwrap();
+            for spell in spells {
+                let row = rep["effects"].as_array().unwrap().iter().find(|e| e["spell"] == spell);
+                assert_eq!(row.map(|r| r["status"].as_str().unwrap()), Some("modelled"), "{name}: {spell}");
+            }
+            assert!(!rep["unmodelled"].as_array().unwrap().iter().any(|f| f.as_str().unwrap_or("").contains("2059")), "{name}");
+            // the fragments compile into a spec
+            let spec: crate::spec::Spec = doc.try_into().unwrap();
+            crate::sim::Compiled::new(spec).unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
+    }
+
     #[test]
     fn kits_match_simc_buffed_stats() {
         // (spec, profile, spell/attack power, crit, haste, mastery, versatility) from SimC's report
@@ -1542,5 +1783,152 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
                 assert!((b[k].as_f64().unwrap() - want).abs() < 6e-4, "{name} {k}: {} vs {want}", b[k]);
             }
         }
+    }
+
+    #[test]
+    fn patch_dot_prepend_and_pet_lists() {
+        let mut root: toml::Table = toml::from_str(
+            r#"
+            [[abilities]]
+            name = "cast"
+            on_cast = [{ type = "buff", buff = "b" }]
+            [abilities.dot]
+            name = "d"
+            on_tick = [{ type = "buff", buff = "x" }]
+            [[pets]]
+            name = "p"
+            [[pets.abilities]]
+            name = "old"
+            [[pets.rotation]]
+            action = "old"
+            "#,
+        )
+        .unwrap();
+        let p = |t: &str| toml::from_str::<toml::Value>(t).unwrap();
+        patch(&mut root, p("ability = \"cast\"\ndot = { on_tick = [{ type = \"buff\", buff = \"y\" }] }\nprepend = { on_cast = [{ type = \"consume\", buff = \"z\" }] }")).unwrap();
+        patch(&mut root, p("pet = \"p\"\nabilities = [{ name = \"new\" }]\nset = { rotation = [{ action = \"new\" }] }")).unwrap();
+        let a = &root["abilities"][0];
+        let ticks: Vec<&str> = a["dot"]["on_tick"].as_array().unwrap().iter().map(|e| e["buff"].as_str().unwrap()).collect();
+        assert_eq!(ticks, ["x", "y"]);
+        let cast: Vec<&str> = a["on_cast"].as_array().unwrap().iter().map(|e| e["type"].as_str().unwrap()).collect();
+        assert_eq!(cast, ["consume", "buff"]);
+        let pet = &root["pets"][0];
+        assert_eq!(pet["abilities"].as_array().unwrap().len(), 2);
+        assert_eq!(pet["rotation"][0]["action"].as_str(), Some("new"));
+        // a dot patch on an ability without a DoT is an error, not a silent skip
+        root.get_mut("abilities").unwrap().as_array_mut().unwrap().push(p("name = \"plain\"").clone());
+        assert!(patch(&mut root, p("ability = \"plain\"\ndot = { on_tick = [] }")).is_err());
+    }
+
+    #[test]
+    fn patches_reach_into_tables_merge_sets_and_extend_rotation_conditions() {
+        let mut root: toml::Table = toml::from_str(
+            r#"
+            [[abilities]]
+            name = "a"
+            channel = { ticks = 7, finish_delay = 0.25 }
+            [abilities.dot]
+            name = "a_dot"
+            tick_time = 0.35
+            on_tick = [{ type = "buff", buff = "x" }]
+
+            [[rotation]]
+            action = "p"
+            if = "x>13"
+            [[rotation]]
+            action = "p"
+            "#,
+        )
+        .unwrap();
+        let p = |s: &str| toml::from_str::<toml::Value>(s).unwrap();
+        patch(
+            &mut root,
+            p(r#"
+            ability = "a"
+            set = { channel = { ticks_expr = "7+1" }, dot = { tick_time = 0.2975 } }
+            dot = { on_tick = [{ type = "buff", buff = "y" }] }
+            "#),
+        )
+        .unwrap();
+        let a = &root["abilities"][0];
+        assert_eq!(a["channel"]["ticks"].as_integer(), Some(7));
+        assert_eq!(a["channel"]["ticks_expr"].as_str(), Some("7+1"));
+        assert_eq!(a["channel"]["finish_delay"].as_float(), Some(0.25));
+        assert_eq!(a["dot"]["tick_time"].as_float(), Some(0.2975));
+        assert_eq!(a["dot"]["name"].as_str(), Some("a_dot"));
+        assert_eq!(a["dot"]["on_tick"].as_array().unwrap().len(), 2);
+
+        // only the entry with that exact condition gets the extra one; others stay
+        patch(&mut root, p(r#"rotation = "p"
+            match_if = "x>13"
+            and = "y>=6""#)).unwrap();
+        assert_eq!(root["rotation"][0]["if"].as_str(), Some("(x>13)&(y>=6)"));
+        assert!(root["rotation"][1].get("if").is_none());
+        // no `match_if`: every entry; an action the rotation doesn't use is skipped
+        patch(&mut root, p(r#"rotation = "p"
+            and = "z""#)).unwrap();
+        assert_eq!(root["rotation"][0]["if"].as_str(), Some("((x>13)&(y>=6))&(z)"));
+        assert_eq!(root["rotation"][1]["if"].as_str(), Some("z"));
+        patch(&mut root, p(r#"rotation = "unused"
+            and = "z""#)).unwrap();
+        // a used action whose entry has changed is an error, not a silent no-op
+        assert!(patch(&mut root, p(r#"rotation = "p"
+            match_if = "x>14"
+            and = "z""#)).is_err());
+    }
+
+    #[test]
+    fn mage_tier_set_2060_is_modelled_and_reaches_the_spec() {
+        let cases = [
+            (include_str!("../specs/arcane_spellslinger.toml"), include_str!("../profiles/MID2_Mage_Arcane.simc")),
+            (include_str!("../specs/fire_mage.toml"), include_str!("../profiles/MID2_Mage_Fire.simc")),
+            (include_str!("../specs/frost_mage_spellslinger.toml"), include_str!("../profiles/MID2_Mage_Frost.simc")),
+        ];
+        let mut docs = Vec::new();
+        for (spec, profile) in cases {
+            let doc: toml::Value = toml::from_str(spec).unwrap();
+            let (out, rep) = apply_text(doc.clone(), profile).unwrap();
+            let sets: Vec<(&str, &str)> = rep["effects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|r| r["from"].as_str().unwrap().starts_with("set 2060"))
+                .map(|r| (r["from"].as_str().unwrap(), r["status"].as_str().unwrap()))
+                .collect();
+            assert_eq!(sets, [("set 2060 (2)", "modelled"), ("set 2060 (4)", "modelled")], "{}", spec.lines().next().unwrap());
+            assert!(!rep["unmodelled"].as_array().unwrap().iter().any(|x| x.as_str().unwrap().starts_with("set ")));
+            // the patched spec compiles: every buff, ability and expression it names exists
+            crate::sim::Compiled::new(out.clone().try_into().unwrap()).unwrap();
+            // with the set bonuses off nothing of it is left in the spec
+            let mut off = doc.clone();
+            off["gear"].as_table_mut().unwrap().insert("set_bonuses".into(), toml::Value::Float(0.0));
+            let (off, _) = apply_text(off, profile).unwrap();
+            assert_ne!(toml::to_string(&off).unwrap(), toml::to_string(&out).unwrap());
+            let mut off = off;
+            off.as_table_mut().unwrap().remove("gear"); // the templates themselves live there
+            let off = toml::to_string(&off).unwrap();
+            for added in ["set_arcane_2pc", "cumulative_power", "set_frost_2pc", "set_rapid_refreezing", "pyroblast_hardcast = 275"] {
+                assert!(!off.contains(added), "{added} is in the spec with the set bonuses off");
+            }
+            docs.push(out);
+        }
+        let find = |d: &toml::Value, list: &str, name: &str| d[list].as_array().unwrap().iter().find(|e| e["name"].as_str() == Some(name)).cloned().unwrap();
+        // Arcane: 8 Arcane Missiles ticks 15% apart, Cumulative Power spent by Blast, and the 4pc's Prismatic Bolt condition
+        let am = find(&docs[0], "abilities", "arcane_missiles");
+        assert_eq!(am["channel"]["ticks_expr"].as_str(), Some("7+1"));
+        assert_eq!(am["dot"]["tick_time_expr"].as_str(), Some("0.35*(100+(-15))/100"));
+        assert_eq!(find(&docs[0], "buffs", "cumulative_power")["max_stacks"].as_integer(), Some(8));
+        let pb = docs[0]["rotation"].as_array().unwrap().iter().find(|r| r["action"].as_str() == Some("prismatic_bolt")).unwrap();
+        assert!(pb["if"].as_str().unwrap().ends_with("&(buff.cumulative_power.stack>=6)"), "{}", pb["if"]);
+        // Fire: Pyroclasm always crits a hardcast Pyroblast, 275% damage, 20% faster
+        let py = find(&docs[1], "buffs", "pyroclasm");
+        assert_eq!(py["ability_crit_pct"]["pyroblast_hardcast"].as_integer(), Some(100));
+        assert_eq!(py["ability_pct"]["pyroblast_hardcast"].as_integer(), Some(275));
+        assert_eq!(py["cast_time_pct"]["pyroblast_hardcast"].as_integer(), Some(20));
+        // Frost: Glacial Spike +20%, Shatter +5%, and Glacial Spike rolls Rapid Refreezing
+        assert_eq!(find(&docs[2], "buffs", "set_frost_2pc")["ability_pct"]["glacial_spike"].as_integer(), Some(20));
+        assert_eq!(find(&docs[2], "buffs", "set_frost_4pc")["ability_pct"]["shatter_ice_lance"].as_integer(), Some(5));
+        let gs = find(&docs[2], "abilities", "glacial_spike");
+        assert!(gs["on_cast"].as_array().unwrap().iter().any(|e| e.get("ability").and_then(|x| x.as_str()) == Some("set_rapid_refreezing_roll")));
     }
 }

@@ -185,6 +185,50 @@ off them; the spec casts it on cooldown). Mastery above about 1,500 rating also
 reads lower in azsim than SimC (2,999 rating: 153.97% vs 156.30%; 4,000: 179.50%
 vs 185.09%), which touches only the potion window.
 
-Not modelled with the full profile: the Midnight season 2 tier set (2pc and 4pc,
-set 2061). Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine
-Technique) are in the effect library.
+Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine Technique) are
+in the effect library.
+
+## Tier set (Midnight season 2, set 2061)
+
+`[[gear.effects]]` at the end of the spec, read from SimC's monk module
+(`fists_of_fury_t`, `rising_sun_kick_t::base_damage_t`,
+`spinning_crane_kick_t::tick_t`, `buff.mid2_ww_4pc`) and DB2 (spells 1296621,
+1296624, 1297033, 451297):
+
+- **2pc (1296621):** every Fists of Fury cast also lands one extra tick at 50% of
+  a tick's damage. It reports under `fists_of_fury`, so it takes the tick's
+  calibration. The extra tick lands before any Momentum Boost stack exists and
+  adds one itself, so the five real ticks get +10% more each (a 1.3 / 1.2 lift
+  on the calibrated average ramp, +8.33%); both are in the fragment.
+- **4pc (1296624):** Unbroken Rhythm, a stack (20s, 6 at most) for each Fists of
+  Fury tick, the five of the channel and the 2pc's extra one. Each stack is +10%
+  on Rising Sun Kick and Rushing Wind Kick and +20% on Spinning Crane Kick's ticks;
+  either kick spends every stack. A new generic `[[patch]]` form
+  (`dot = { on_tick = [..] }`, `channel = { on_finish = [..] }`) hangs the stack on
+  the Fists of Fury tick and the spend on the crane kick's end.
+
+Full profile against the same profile with the set off, SimC and azsim (SimC
+`set_bonus=midnight_season_2_{2,4}pc=0` and `bite_of_zuljan_2pc=0`, Patchwerk 300s,
+seed 1, target error 0.1%; azsim `--set gear.set_bonuses=0`, 20,000 iterations, seed 1):
+
+| | SimC DPS | azsim DPS | SimC gain | azsim gain |
+|---|---:|---:|---:|---:|
+| tier off | 235,325 | 225,173 | | |
+| 2pc only | 243,622 | 233,793 | +3.53% | +3.83% |
+| 2pc + 4pc (full profile) | 257,957 | 247,817 | **+9.62%** | **+10.06%** |
+
+The full profile is -3.9% against SimC, the tier-off one -4.3% (the spec's own gap
+plus the trinkets and kit). Per source, DPS the set adds (SimC 4,000 iterations, azsim
+20,000): Fists of Fury plus the 2pc's extra tick +8,094 (4,559 of it the extra tick) vs
++8,607, Spinning Crane Kick +4,777 vs +4,592, Rising Sun Kick +5,916 vs +8,032 and Rushing
+Wind Kick +3,502 vs +1,378. The three kicks sum to about the same (14,195 vs 14,002), but
+the split differs: this spec casts Rushing Wind Kick ahead of Fists of Fury as soon as its
+buff is up, so it rarely sees stacks, where SimC's list casts it after them.
+
+- The rotation is unchanged. SimC's list prefers a Dance of Chi-Ji crane kick while
+  Unbroken Rhythm is up; this spec already casts that one before Rising Sun Kick.
+- SimC snapshots a crane kick's stacks at the cast; here its ticks read the buff as
+  they fire and the end of the channel spends it (nothing else can add or spend stacks
+  inside a channel).
+- Rising Sun Kick's Glory of the Dawn strike is not boosted: SimC's kick spends the
+  buff before it fires.

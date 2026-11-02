@@ -68,6 +68,42 @@ Held out from calibration (`tools/validate_stats.py`, same calibration):
   (Deadly Precision), +20% for Pistol Shot (Clever Combatant), Zero In's +2%
   crit/damage a stack.
 
+## Tier set (Midnight season 2, set 2064)
+
+With gear lines, the set's two bonuses are `[[gear.effects]]` entries (spells 1296588 and
+1296589; `--set gear.set_bonuses=0` turns them off). Numbers from DB2 and `sc_rogue.cpp`.
+
+| bonus | game effect | modelled as |
+|---|---|---|
+| 2pc | Dispatch and Coup de Grace +15% | a permanent +15% on both (and Coup de Grace's three strikes) |
+| 4pc | Sinister Strike has a 20% chance to grant Fang Strike (15s): the next Dispatch or Coup de Grace costs no energy, counts as the maximum 7 combo points (Supercharger on top) and keeps its combo points | `fang_strike` buff; `dispatch_fang` and `coup_de_grace_fang` pay the real combo points and give them back, deal damage for 7 (+5 for Coup de Grace), and feed Restless Blades and Cut to the Chase the same count |
+
+Following SimC (`snapshot_state`, `spend_combo_points`): the Fang finisher still needs one combo
+point, and Ruthlessness only sees the points above the maximum, i.e. Supercharger's (SimC's
+`bugs` flag).
+
+**New rotation entry**, from SimC's APL (`finish_condition=1` while `buff.fang_strike.up` and
+Between the Eyes and Killing Spree are on cooldown): the two Fang finishers go before the ordinary
+ones, at any combo points of 1 or more when both cooldowns are down, otherwise at the usual 6.
+The ordinary rotation is untouched without the 4pc.
+
+Tier gain on `profiles/MID2_Rogue_Outlaw.simc`, Patchwerk 300s, target error 0.3%:
+
+| | SimC | azsim |
+|---|---:|---:|
+| 2pc alone | +2.08% | +1.48% |
+| 4pc on top of the 2pc | +10.22% | +9.19% |
+| full tier gain | +12.51% | +10.80% |
+| full-profile DPS | 256,818 | 248,760 (-3.14%) |
+
+**azsim is 1.7 points under SimC's gain**, outside the 1.5-point target (SimC at 0.1% error:
++12.54%). The mechanics match: 20.3 Fang Strike applications a fight against SimC's 19.8
+triggers, 12.7% against 13.7% uptime, 14.2 Coup de Grace casts against 14.6. What differs is the
+base: with the set off, Dispatch and Coup de Grace are 9.85% of azsim's damage and 12.67% of
+SimC's, so the same +15% and the same free finishers are worth less (the 2pc gap alone is 0.6
+points). That is the spec's own per-hit calibration (azsim is -4.17% with the set off), left as
+it is.
+
 ## Known gaps
 
 - **Total DPS is 2.3% low** (158,651 against 162,375). This is a known
@@ -141,6 +177,6 @@ reads 154,319 against 158,653 with it (-2.73%). Unleashed Fire is 1.0154,
 Versatile Warrior 1.0105, Overload 1.0013, Lingering 1.0009 and Lynxlike
 Reflexes 0.9998.
 
-Unmodelled on this profile: the Midnight season 2 tier set (set 2064, 2pc and
-4pc). Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine
-Technique) and the Bite of Zul'jan set are modelled.
+Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine Technique), the Bite
+of Zul'jan set and the Midnight season 2 tier set (set 2064, see [Tier set](#tier-set-midnight-season-2-set-2064))
+are modelled.

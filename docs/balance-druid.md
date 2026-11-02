@@ -31,6 +31,30 @@ gear and the raid kit disabled, azsim gives 148,771 DPS vs 150,386 SimC in a
 separate 5,000-iteration check. The gear kit adds approximate standard
 consumables, Bloodlust and potion; see `docs/gear.md` for effect coverage.
 
+## Tier set (Midnight season 2, set 2057)
+
+With gear lines the spec models the class set from `[[gear.effects]]` (turn it
+off with `--set gear.set_bonuses=0`). The profile's tier gain, SimC against
+azsim (Patchwerk 300s, one target, kit on, seed 1, ~0.3% target error; SimC's
+off runs append `set_bonus=midnight_season_2_{2,4}pc=0`):
+
+| | SimC | azsim |
+|---|---:|---:|
+| 2pc (1296603): Starsurge +20% | +6.27% | +6.42% |
+| 4pc (1296604) over the 2pc: Akil'zon's Clarity | +6.21% | +6.03% |
+| both | +12.86% | +12.85% |
+| full profile DPS | 232,517 | 226,940 (-2.40%) |
+| same, set bonuses off | 206,017 | 201,107 (-2.38%) |
+
+The 4pc's Akil'zon's Clarity is +1% damage per stack on the Balance damage
+spells, 10 stacks when an Eclipse starts, falling to 2 at its midpoint and back
+to 10 at its end, counted every second (a 15s Eclipse averages 6.7%, a 20s
+Incarnation Eclipse 6.7%). Not modelled: the 2pc's other half, an instant
+Starfall hit on every enemy (this APL never casts Starfall and the spec has no
+Starfall), and SimC's larger-of-Lunar-and-Solar count when an Eclipse is cast
+inside an Incarnation (azsim restarts the 15s curve). The -2.4% to SimC is the
+spec's existing gap with the set off, not the set.
+
 ## Known gaps
 
 - This is the selected Elune's Chosen single-target build, not a general talent
@@ -43,7 +67,7 @@ consumables, Bloodlust and potion; see `docs/gear.md` for effect coverage.
   counts differ slightly as shown above. Harmony duration, denizen cast delay,
   and gear proc rates use approximations documented in the spec.
 - Core gear enchant and embellishment effects and time-averaged stat procs
-  follow this reference character even when gear changes. Class tier bonuses
-  and some trinket effects are not modeled; inspect `--gear-stats` for effect
-  coverage. The full raid-kit configuration has not been calibrated against a
+  follow this reference character even when gear changes. The class tier set
+  is modelled (above); some trinket effects are not, so inspect `--gear-stats`
+  for effect coverage. The full raid-kit configuration has not been calibrated against a
   full-kit SimC run.

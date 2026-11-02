@@ -167,3 +167,22 @@ seed 1; the core-kit row is `tools/check_gear.py --dps --no-trinkets`, 5,000 ite
 
 Core-kit `--calib` runs without gear are identical before and after (163,190 at 2,000
 iterations, seed 1).
+
+## Tier set (Midnight season 2, set 2059)
+
+Modelled with gear lines, as the spec's `[[gear.effects]]` (`--set gear.set_bonuses=0`
+turns it off); numbers from the set spells and Mongoose Fury (259388) through the game data.
+
+| piece | what it does | modelled as |
+|---|---|---|
+| 2pc (1296636) | Mongoose Fury's effects 3 and 4 (damage of the Wildfire Bomb family, base 0) +10 each: SimC drops 0-valued effects, so this switches Mongoose Fury on for Wildfire Bomb and its bleed, at the buff's stack value (10% a stack) | Mongoose Fury's `ability_pct` gets `wildfire_bomb_damage` and `wildfire_bomb_bleed` |
+| 4pc (1296635) | each Boomstick tick extends the Mongoose Fury stacks 1s; its effects +10%: the stack value 10% -> 11% for Raptor Strike, Raptor Swipe and Wildfire Bomb | `extend_buff` first in Boomstick's tick, `ability_pct` 11 on all four |
+
+Profile `MID2_Hunter_Survival` (300s Patchwerk, one target, full kit, seed 1; SimC 600,000 iterations
+cap with target error 0.1%, azsim 100,000):
+
+| | SimC | azsim |
+|---|---:|---:|
+| tier gain (full / set bonuses off) | +10.30% | +10.38% |
+| 2pc alone / 4pc on top (partial runs, +-0.2) | +7.20% / +2.77% | +6.88% / +3.26% |
+| full-profile DPS | 256,668 | 265,058 (+3.27%; off: +3.20%) |

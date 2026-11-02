@@ -1019,3 +1019,58 @@ if = "!(cooldown.reapers_mark.remains<6&runes<3)&!buff.pillar_of_frost.up"
 [[rotation]]
 action = "howling_blast"
 if = "!buff.killing_machine.up&buff.pillar_of_frost.up"
+
+# ================================================================== class set (Death Knight Frost 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296652): every Remorseless Winter tick that hits grants a stack of
+# Freezing Tempest (1297365, 5s, refreshed by each tick, 100 stacks): +1%
+# auto-attack speed (effect 1, aura 342: swings only, not haste) and +2% Icy
+# Death Torrent damage (effect 2, label 6665) a stack [simc remorseless_winter_damage_t::execute].
+# SimC expires the buff when Remorseless Winter is cast again, before the first
+# tick of the new one, and that matters: a long window (49 ticks, 38s in SimC's
+# log) plus the tail runs past the next Pillar, and its stacks must not carry over.
+# The patch puts the consume at the front of the cast.
+[[gear.effects]]
+spell = 1296652
+text = '''
+[[buffs]]
+name = "freezing_tempest"
+duration = ${1297365.duration}
+max_stacks = ${1297365.stacks}
+attack_speed_pct = ${1297365.e1}
+ability_pct = { icy_death_torrent = ${1297365.e2} }
+
+[[patch]]
+ability = "remorseless_winter_apply"
+dot = { on_tick = [{ type = "buff", buff = "freezing_tempest" }] }
+
+[[patch]]
+ability = "remorseless_winter"
+prepend = { on_cast = [{ type = "consume", buff = "freezing_tempest", all = true }] }
+'''
+
+# 4pc (1296653): Remorseless Winter ticks 20% sooner (effect 1, -20% tick time:
+# 1s -> 0.8s, "25% more frequently", effect 2) and Freezing Tempest lasts 5s
+# longer (effect 3, 5000 ms): 5s + 5s.
+[[gear.effects]]
+spell = 1296653
+text = '''
+precombat = ["set_frost_4pc"]
+
+[[buffs]]
+name = "set_frost_4pc"
+duration = 1e9
+tick_rate_pct = { remorseless_winter_damage = ${e2} }
+
+[[abilities]]
+name = "set_frost_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_frost_4pc" }]
+
+[[patch]]
+buff = "freezing_tempest"
+set = { duration = 10 }   # 1297365's 5s [db2] + 1296653 effect 3's 5000 ms
+'''

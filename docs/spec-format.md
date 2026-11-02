@@ -49,6 +49,13 @@ restrict contributions with `crit_only = true`, an `if` expression, and a
 `mastery_power` applies independent copies of the mastery factor for
 multischool damage (default 1).
 
+`while_dot = "<dot name>"` makes a buff up exactly while that DoT is ticking on the target,
+without being applied (Assassination's tier 4pc: +10% to the bleeds "while the target has
+Deadly Poison"); its bonuses count one stack, and it can't be `overlap` or have health limits.
+An `echo` with `stacks_of = "<buff>"` copies `pct` per stack of that other buff instead of its
+own (the echo buff is then a marker kept up; the copy needs both up), so a second echo can share
+one stack count at another rate (Subtlety's tier 4pc on Lingering Shadow).
+
 A DoT with `overlap = true` keeps an independent expiration for each
 application, up to `max_stacks`, replacing the oldest at the cap. Its ticks
 share a cadence and, with `per_stack`, deal damage proportional to the number
@@ -335,3 +342,33 @@ on_cast = [{ type = "apply_dot", dot = "shadow_word_madness", strength = 0.25 }]
   ability had been cast, without its direct damage, cost or cooldown.
   `strength` (default 1) scales the new ticks and needs a `rolling` DoT.
   Channel DoTs can't be applied this way.
+
+## Patching the spec from a gear fragment
+
+A class set bonus in a spec's `[[gear.effects]]` (or an effect in
+`data/item_effects.toml`) can change what the spec already has with `[[patch]]`
+entries. A patch names one `ability`, `buff` or `pet` (skipped when the spec has
+no such thing, or none of the abilities in `requires`) and:
+
+- appends to the lists it names (`on_cast = [...]`), or puts them in front:
+  `prepend = true` for every list in the patch, `prepend = { on_cast = [...] }`
+  for the lists it names (when the order of effects matters);
+- `set = { field = value }` overwrites fields after the rest of the patch is
+  applied; a table merges into the target's table of that name field by field
+  (`set = { channel = { ticks_expr = ".." }, dot = { tick_time_expr = ".." } }`
+  leaves the rest of the channel and the DoT alone);
+- `add = { field = number }` adds to a number (`add = { duration = 1 }`);
+- a table patches the target's table of that name the same way (an error if the
+  target has no such table), e.g. a DoT:
+  `dot = { add = { duration = 1 }, on_tick = [{ type = "reduce_cooldown", ability = "aimed_shot", seconds = 0.5 }] }`
+  or a channel: `channel = { on_finish = [...] }`.
+
+`[[patch]] rotation = "action"` with `and = "condition"` ANDs the condition onto
+the `if` of the rotation entries for that action, or only those whose `if` is
+exactly `match_if`. It is skipped when the rotation doesn't use the action and
+an error when it does but no entry matches, so a rotation change can't silently
+drop a set bonus's condition.
+
+A `[[rotation]]` entry in a fragment goes in front of the first entry for its
+`before` action (under that entry's condition too), after the first entry for
+`after`, after the last one for `after_last`, or in front of the rotation.

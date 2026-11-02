@@ -512,3 +512,97 @@ if = "buff.glacial_spike.up"
 
 [[rotation]]
 action = "frostbolt"
+
+# ---------------------------------------------------------------- Midnight season 2 tier set (set 2060), gear lines only
+# 2pc (1296585) [db2]: Glacial Spike +20% damage (e1); every stack of Freezing shattered has a 4% chance
+# (e2) to make an Icicle, which can complete the Glacial Spike cast [simc sc_mage.cpp trigger_shatter].
+# Fingers of Frost shatters 6 (12) stacks whatever Freezing is up, so it rolls for those; the others
+# for the stacks they spend. A trigger rolls its chance once, so each stack triggers a one-roll helper.
+[[gear.effects]]
+spell = 1296585
+text = '''
+precombat = ["set_frost_2pc"]
+
+[[buffs]]
+name = "set_frost_2pc"
+duration = 1e9
+ability_pct = { glacial_spike = ${e1} }
+
+[[abilities]]
+name = "set_frost_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_frost_2pc" }]
+
+[[abilities]]
+name = "set_frost_icicle"   # an Icicle, like the clock's [simc mage_t::trigger_icicle]
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "icicles" },
+  { type = "if", if = "buff.icicles.stack=5", then = [{ type = "buff", buff = "glacial_spike" }] },
+]
+
+[[abilities]]
+name = "set_frost_shatter_stack"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "trigger", ability = "set_frost_icicle", chance = ${e2:pct} }]
+
+[[patch]]
+ability = "shatter_fof"
+on_start = [{ type = "trigger", ability = "set_frost_shatter_stack", count = "6+6*buff.thermal_void.up" }]
+
+[[patch]]
+ability = "shatter_freezing"
+on_start = [{ type = "trigger", ability = "set_frost_shatter_stack", count = "buff.freezing.stack*(buff.freezing.stack<6+6*buff.thermal_void.up)+(6+6*buff.thermal_void.up)*(buff.freezing.stack>=6+6*buff.thermal_void.up)" }]
+'''
+
+# 4pc (1296586) [db2]: Shatter +5% (e1) (Winter's End isn't in this spec), and a Glacial Spike cast
+# has a chance to start Rapid Refreezing (1310248): an Icicle every 0.2 s for 1 s, e2 = 5 in all. The
+# chance is SimC's hardcoded accumulated RNG, 20% on the first try after a proc and +2.0116% per miss
+# [simc sc_mage.cpp init_rng rapid_refreezing]; `rapid_refreezing_attempts` counts the tries.
+[[gear.effects]]
+spell = 1296586
+text = '''
+precombat = ["set_frost_4pc"]
+
+[[buffs]]
+name = "set_frost_4pc"
+duration = 1e9
+ability_pct = { shatter_ice_lance = ${e1} }
+
+[[abilities]]
+name = "set_frost_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_frost_4pc" }]
+
+[[buffs]]
+name = "rapid_refreezing_attempts"
+duration = 1e9
+max_stacks = 100
+flat = true
+
+[[abilities]]
+name = "set_rapid_refreezing_roll"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "buff", buff = "rapid_refreezing_attempts" },
+  { type = "trigger", ability = "set_rapid_refreezing", chance_expr = "0.2+0.020116149192034555*(buff.rapid_refreezing_attempts.stack-1)" },
+]
+
+[[abilities]]
+name = "set_rapid_refreezing"
+triggered_only = true
+gcd = 0
+on_cast = [
+  { type = "consume", buff = "rapid_refreezing_attempts", all = true },
+  { type = "trigger", ability = "set_frost_icicle", count = "${e2}", delay = 0.2, interval = 0.2 },   # [db2 1310248] period 0.2 s, 1 s
+]
+
+[[patch]]
+ability = "glacial_spike"
+on_cast = [{ type = "trigger", ability = "set_rapid_refreezing_roll" }]
+'''

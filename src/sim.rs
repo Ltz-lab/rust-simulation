@@ -83,6 +83,8 @@ enum BuffKind {
     Overlap,
     /// Up while the target's health is within (lo, hi].
     Health(f64, f64),
+    /// Up while the DoT with this index is ticking.
+    Dot(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -233,6 +235,8 @@ struct CEcho {
     /// Per result row: is it copied (empty: all are).
     sources: Vec<bool>,
     pre_armor: bool,
+    /// Buff whose stacks scale the copy (default: the echo buff itself).
+    stacks_of: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -786,7 +790,8 @@ impl Compiled {
                 for i in sources {
                     mask[i] = true;
                 }
-                echoes.push(CEcho { buff: bi, ab: ai, pct: e.pct / 100.0, school_pct: e.school_pct.iter().map(|(k, v)| (k.clone(), v / 100.0)).collect(), sources: mask, pre_armor: e.pre_armor });
+                let stacks_of = e.stacks_of.as_ref().map(|n| buff.get(n).copied().ok_or_else(|| ctx(format!("no buff '{n}'")))).transpose()?;
+                echoes.push(CEcho { buff: bi, ab: ai, pct: e.pct / 100.0, school_pct: e.school_pct.iter().map(|(k, v)| (k.clone(), v / 100.0)).collect(), sources: mask, pre_armor: e.pre_armor, stacks_of });
             }
         }
         let mut src_school = vec!["physical".to_string(); src_names.len()];
@@ -860,12 +865,17 @@ impl Compiled {
         let buff_kind = spec
             .buffs
             .iter()
-            .map(|b| match (b.below_health, b.above_health, b.overlap) {
-                (None, None, false) => BuffKind::Shared,
-                (None, None, true) => BuffKind::Overlap,
-                (below, above, _) => BuffKind::Health(above.unwrap_or(-1.0), below.unwrap_or(1e9)),
+            .map(|b| match (&b.while_dot, b.below_health, b.above_health, b.overlap) {
+                (Some(d), None, None, false) => dot
+                    .get(d)
+                    .map(|&i| BuffKind::Dot(i))
+                    .ok_or_else(|| format!("buff '{}': while_dot names unknown dot '{d}'", b.name)),
+                (Some(_), ..) => Err(format!("buff '{}': while_dot can't combine with overlap or health limits", b.name)),
+                (None, None, None, false) => Ok(BuffKind::Shared),
+                (None, None, None, true) => Ok(BuffKind::Overlap),
+                (None, below, above, _) => Ok(BuffKind::Health(above.unwrap_or(-1.0), below.unwrap_or(1e9))),
             })
-            .collect();
+            .collect::<Result<Vec<_>, String>>()?;
         let on_expire: Vec<Vec<CEffect>> = spec.buffs.iter().map(|b| effects(&b.on_expire, &format!("{}/on_expire", b.name))).collect::<Result<_, _>>()?;
         let rate_users = (0..spec.buffs.len())
             .map(|b| {
@@ -1058,7 +1068,7 @@ impl Compiled {
     pub fn buff_names(&self) -> Vec<&str> { self.buffs.iter().map(|b| b.name.as_str()).collect() }
 
     /// False for buffs whose uptime isn't tracked (the ones tied to target health).
-    pub fn buff_tracked(&self, b: usize) -> bool { !matches!(self.buff_kind[b], BuffKind::Health(..)) }
+    pub fn buff_tracked(&self, b: usize) -> bool { !matches!(self.buff_kind[b], BuffKind::Health(..) | BuffKind::Dot(_)) }
 
 
     // Stream layout: fight length, crit per source, damage range per source,
@@ -1371,6 +1381,7 @@ impl<'a> State<'a> {
         match self.c.buff_kind[i] {
             BuffKind::Shared => self.buff_exp[i] > self.now,
             BuffKind::Overlap => self.ov_exp[i].iter().any(|&t| t > self.now),
+            BuffKind::Dot(d) => self.dot_exp[d] > self.now,
             BuffKind::Health(lo, hi) => {
                 let h = self.health_pct();
                 h > lo && h <= hi
@@ -1382,7 +1393,7 @@ impl<'a> State<'a> {
         match self.c.buff_kind[i] {
             BuffKind::Shared => if self.buff_exp[i] > self.now { self.buff_stk[i] as f64 } else { 0.0 },
             BuffKind::Overlap => self.ov_exp[i].iter().filter(|&&t| t > self.now).count() as f64,
-            BuffKind::Health(..) => if self.buff_up(i) { 1.0 } else { 0.0 },
+            BuffKind::Health(..) | BuffKind::Dot(_) => if self.buff_up(i) { 1.0 } else { 0.0 },
         }
     }
 
@@ -1414,7 +1425,7 @@ impl<'a> State<'a> {
             let k = match self.c.buff_kind[b] {
                 BuffKind::Shared => if self.buff_exp[b] > t { self.buff_stk[b] as f64 } else { 0.0 },
                 BuffKind::Overlap => self.ov_exp[b].iter().filter(|&&x| x > t).count() as f64,
-                BuffKind::Health(..) => self.stacks(b),
+                BuffKind::Health(..) | BuffKind::Dot(_) => self.stacks(b),
             };
             h *= 1.0 + p * if self.c.buffs[b].flat { k.min(1.0) } else { k };
         }
@@ -1451,7 +1462,7 @@ impl<'a> State<'a> {
                             }
                         }
                     }
-                    BuffKind::Health(..) => {}
+                    BuffKind::Health(..) | BuffKind::Dot(_) => {}
                 }
             }
             let mid = 0.5 * (a + b);
@@ -1460,7 +1471,7 @@ impl<'a> State<'a> {
                 let k = match self.c.buff_kind[x] {
                     BuffKind::Shared => if self.buff_exp[x] > mid { self.buff_stk[x] as f64 } else { 0.0 },
                     BuffKind::Overlap => self.ov_exp[x].iter().filter(|&&t| t > mid).count() as f64,
-                    BuffKind::Health(..) => self.stacks(x),
+                    BuffKind::Health(..) | BuffKind::Dot(_) => self.stacks(x),
                 };
                 1.0 + p * if self.c.buffs[x].flat { k.min(1.0) } else { k }
             }).product();
@@ -1666,7 +1677,7 @@ impl<'a> State<'a> {
         let exp = match self.c.buff_kind[b] {
             BuffKind::Shared => self.buff_exp[b],
             BuffKind::Overlap => self.ov_exp[b].iter().copied().fold(f64::NEG_INFINITY, f64::max),
-            BuffKind::Health(..) => return,
+            BuffKind::Health(..) | BuffKind::Dot(_) => return,
         };
         let t0 = self.buff_t[b];
         if t > t0 {
@@ -1883,7 +1894,7 @@ impl<'a> State<'a> {
                         self.buff_exp[buff] = (self.buff_exp[buff] + secs).max(self.now);
                         self.watch_expiry(buff);
                     }
-                    BuffKind::Health(..) => {}
+                    BuffKind::Health(..) | BuffKind::Dot(_) => {}
                 }
             }
             CEffect::If { ref cond, ref then, ref otherwise } => {
@@ -2020,10 +2031,11 @@ impl<'a> State<'a> {
     fn echo(&mut self, src: usize, dmg: f64, armor: f64) {
         let c = self.c;
         for e in &c.echoes {
-            if !e.sources[src] || !self.buff_up(e.buff) {
+            let scale = e.stacks_of.unwrap_or(e.buff);
+            if !e.sources[src] || !self.buff_up(e.buff) || !self.buff_up(scale) {
                 continue;
             }
-            let pct = e.school_pct.get(&c.src_school[src]).copied().unwrap_or(e.pct) * self.mod_stacks(e.buff);
+            let pct = e.school_pct.get(&c.src_school[src]).copied().unwrap_or(e.pct) * self.mod_stacks(scale);
             let base = if e.pre_armor { dmg / armor } else { dmg } * pct;
             let a = &c.abilities[e.ab];
             let d = a.def.damage.as_ref().unwrap();
@@ -3966,6 +3978,114 @@ if = "cooldown.slam.full_recharge_time>100"
         assert!(e.contains("strength needs refresh"), "{e}");
         let e = bad(&DOTS.replace("tick_rate_pct = { pain = 100 }", "tick_rate_pct = { payne = 100 }"));
         assert!(e.contains("unknown dot 'payne'"), "{e}");
+    }
+
+    const WHILE_DOT: &str = r#"
+name = "while_dot test"
+[player]
+spell_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 100
+variance = 0
+[[buffs]]
+name = "poisoned"
+duration = 1e9
+while_dot = "poison"
+ability_pct = { strike = 100 }
+[[abilities]]
+name = "apply"
+gcd = 0
+cooldown = 30
+[abilities.dot]
+name = "poison"
+duration = 10
+tick_time = 1
+[[abilities]]
+name = "strike"
+gcd = 1.5
+damage = { sp_coeff = 1.0, school = "fire" }
+[[rotation]]
+action = "apply"
+[[rotation]]
+action = "strike"
+"#;
+
+    /// A `while_dot` buff is up exactly while its DoT ticks: the strikes made in the 10s after each
+    /// of the four applications (28 of 67) deal double.
+    #[test]
+    fn while_dot_buff_follows_the_dot() {
+        let dmg = |text: &str| {
+            let c = compile(text);
+            let r = run_iteration(&c, 1, false);
+            (r.damage[src(&c, "strike")], r.casts[src(&c, "strike")])
+        };
+        let (with, casts) = dmg(WHILE_DOT);
+        let (without, casts0) = dmg(&WHILE_DOT.replace("while_dot = \"poison\"\n", "").replace("duration = 1e9", "duration = 0.001"));
+        assert_eq!(casts, casts0);
+        let ratio = with / without;
+        assert!((ratio - (casts as f64 + 28.0) / casts as f64).abs() < 1e-6, "{ratio} over {casts} strikes");
+        let e = Compiled::new(toml::from_str(&WHILE_DOT.replace("while_dot = \"poison\"", "while_dot = \"poisson\"")).unwrap()).err().unwrap();
+        assert!(e.contains("unknown dot 'poisson'"), "{e}");
+    }
+
+    const ECHO_STACKS: &str = r#"
+name = "echo stacks_of test"
+precombat = ["arm"]
+[player]
+spell_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 20
+variance = 0
+[[buffs]]
+name = "marker"
+duration = 1e9
+echo = { ability = "copy", pct = 10, stacks_of = "charges", sources = ["strike"], pre_armor = false }
+[[buffs]]
+name = "charges"
+duration = 1e9
+max_stacks = 5
+[[abilities]]
+name = "arm"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "marker" }]
+[[abilities]]
+name = "charge"
+gcd = 0
+cooldown = 1000
+on_cast = [{ type = "buff", buff = "charges", stacks = 3 }]
+[[abilities]]
+name = "copy"
+triggered_only = true
+damage = { school = "fire" }
+[[abilities]]
+name = "strike"
+gcd = 1.5
+damage = { sp_coeff = 1.0, school = "fire" }
+[[rotation]]
+action = "charge"
+[[rotation]]
+action = "strike"
+"#;
+
+    /// An echo with `stacks_of` copies `pct` per stack of the other buff, and nothing while that buff is down.
+    #[test]
+    fn echo_scales_with_another_buffs_stacks() {
+        let run = |text: &str| {
+            let c = compile(text);
+            let r = run_iteration(&c, 1, false);
+            (r.damage[src(&c, "strike")], r.damage[src(&c, "copy")])
+        };
+        let (strike, copy) = run(ECHO_STACKS);
+        assert!(strike > 0.0 && (copy / strike - 0.30).abs() < 1e-9, "{copy} / {strike}");
+        let (strike, copy) = run(&ECHO_STACKS.replace("action = \"charge\"", "action = \"copy\""));
+        assert!(strike > 0.0 && copy == 0.0, "{copy} / {strike}");
     }
 
     #[test]

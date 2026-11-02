@@ -871,3 +871,135 @@ if = "buff.opportunity.up&combo_points<=3&(combo_points>1|(!buff.rtb2.up&!buff.r
 [[rotation]]
 action = "sinister_strike"
 if = "energy>=45&(combo_points<6|energy>=23.5)&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3)"
+
+# ---------------------------------------------------------------- tier set
+# Midnight season 2 class set (set 2064, spec 260). Only with gear lines
+# (`--set gear.set_bonuses=0` turns them off); fragment format as
+# data/item_effects.toml. [db2, simc sc_rogue.cpp]
+
+# 2pc (1296588): Dispatch and Coup de Grace deal +15% (effect 1, a spell-data
+# modifier on their class flags; the three Coup de Grace strikes carry them too).
+[[gear.effects]]
+spell = 1296588
+text = '''
+precombat = ["set_outlaw_2pc"]
+
+[[buffs]]
+name = "set_outlaw_2pc"
+duration = 1e9
+ability_pct = { dispatch = ${e1}, coup_de_grace = ${e1} }
+
+[[abilities]]
+name = "set_outlaw_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_outlaw_2pc" }]
+'''
+
+# 4pc (1296589): Sinister Strike has a 20% chance (effect 1) to grant Fang
+# Strike for 15s [db2 1301405]. SimC's next Dispatch or Coup de Grace then costs
+# no energy (-100% cost), counts as spending the maximum 7 combo points
+# (snapshot_state: effective_cp = consume_cp_max, Supercharger on top) and
+# keeps the combo points it would spend (spend_combo_points: cp_loss = 0), and
+# uses the buff up; it still needs one point to be usable (ready()). Ruthlessness
+# only sees the points above the maximum (SimC's bugs flag: "can only trigger
+# Ruthlessness if its effective CPs are boosted by Supercharger or Coup de Grace").
+# Modelled as Fang variants of the two finishers: they pay the real combo points
+# and give them back, deal damage for 7 (+5 for Coup de Grace, +3 Supercharged),
+# and feed Restless Blades and Cut to the Chase the same count through cp_bonus.
+# NEW ROTATION CONDITION, from SimC's APL (variable finish_condition=1 if
+# buff.fang_strike.up & Between the Eyes and Killing Spree are on cooldown): the
+# Fang finishers go before the ordinary ones, at any combo points above zero when
+# both are down, otherwise at the usual 6.
+[[gear.effects]]
+spell = 1296589
+text = '''
+[[buffs]]
+name = "fang_strike"
+duration = ${1301405.duration}
+
+[[abilities]]
+name = "fang_strike_proc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "fang_strike" }]
+
+[[patch]]
+ability = "sinister_strike"
+on_cast = [{ type = "trigger", ability = "fang_strike_proc", chance = ${e1:pct} }]
+
+[[abilities]]
+name = "dispatch_fang"
+source = "dispatch"
+requires_buff = "fang_strike"
+cost = { combo_points = 1 }
+cost_max = { combo_points = 7 }
+gcd = 1.07
+damage = { ap_coeff = 0.6116, school = "physical", scale = "7+3*buff.supercharge.up" }
+on_cast = [
+  { type = "gain", resource = "combo_points", amount_expr = "spent.combo_points" },
+  { type = "consume", buff = "fang_strike" },
+  { type = "buff", buff = "cp_bonus", set = "7-spent.combo_points" },
+  { type = "trigger", ability = "restless_blades" },
+  { type = "trigger", ability = "cut_to_the_chase" },
+  { type = "buff", buff = "cp_bonus", set = "0" },
+  { type = "trigger", ability = "ruthlessness_bonus", chance_expr = "0.2*3*buff.supercharge.up" },
+  { type = "trigger", ability = "fatal_flourish", chance = 0.25 },
+  { type = "trigger", ability = "scoundrel_strike_dispatch" },
+  { type = "trigger", ability = "palmed_proc", chance_expr = "0.12*(7+3*buff.supercharge.up)" },
+  { type = "consume", buff = "supercharge" },
+]
+
+[[abilities]]
+name = "coup_de_grace_fang"
+source = "coup_de_grace"
+requires_buff = "escalating_blade"
+cost = { combo_points = 1 }
+cost_max = { combo_points = 7 }
+gcd = 1.2
+on_cast = [
+  { type = "gain", resource = "combo_points", amount_expr = "spent.combo_points" },
+  { type = "consume", buff = "fang_strike" },
+  { type = "trigger", ability = "coup_de_grace_fang_damage_1" },
+  { type = "trigger", ability = "coup_de_grace_fang_damage_2" },
+  { type = "trigger", ability = "coup_de_grace_fang_damage_3" },
+  { type = "consume", buff = "supercharge" },
+  { type = "consume", buff = "escalating_blade", all = true },
+  { type = "buff", buff = "cp_bonus", set = "5+7-spent.combo_points" },
+  { type = "trigger", ability = "restless_blades" },
+  { type = "trigger", ability = "cut_to_the_chase" },
+  { type = "buff", buff = "cp_bonus", set = "0" },
+  { type = "gain", resource = "combo_points", amount = 1 },
+  { type = "if", if = "buff.fazed.up", then = [{ type = "buff", buff = "flawless_form", stacks = 5 }] },
+  { type = "trigger", ability = "scoundrel_strike_coup_de_grace" },
+  { type = "trigger", ability = "palmed_proc", chance_expr = "0.12*7" },
+]
+
+[[abilities]]
+name = "coup_de_grace_fang_damage_1"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.153, school = "physical", scale = "7+5+3*buff.supercharge.up" }
+
+[[abilities]]
+name = "coup_de_grace_fang_damage_2"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.153, school = "physical", scale = "7+5+3*buff.supercharge.up" }
+
+[[abilities]]
+name = "coup_de_grace_fang_damage_3"
+triggered_only = true
+source = "coup_de_grace"
+damage = { ap_coeff = 0.306, school = "physical", scale = "7+5+3*buff.supercharge.up" }
+
+[[rotation]]
+action = "dispatch_fang"
+after = "killing_spree"
+if = "buff.fang_strike.up&combo_points>=1&((combo_points>=6&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3))|(!cooldown.between_the_eyes.ready&!cooldown.killing_spree.ready))"
+
+[[rotation]]
+action = "coup_de_grace_fang"
+after = "killing_spree"
+if = "buff.fang_strike.up&buff.escalating_blade.stack>=4&combo_points>=1&((combo_points>=6&!(cooldown.killing_spree.ready&buff.supercharge.up&energy<42.3))|(!cooldown.between_the_eyes.ready&!cooldown.killing_spree.ready))"
+'''

@@ -97,3 +97,29 @@ after):
   longer re-schedules `PetAct` at that same timestamp.
 
 Without them a pet on a focus budget could spin forever at one timestamp.
+
+## Tier set (Midnight season 2, set 2059)
+
+Modelled with gear lines, as the specs' `[[gear.effects]]` (`--set gear.set_bonuses=0`
+turns it off); numbers from the set spells and Cobra Fang (1299389) through the game data.
+
+| piece | what it does | modelled as |
+|---|---|---|
+| 2pc (1296631) | each Barbed Shot makes every stable pet Stomp a second time at 50% of Stomp's damage | `stomp_2pc` on the main pet, animal companion and Nature's Ally pet, triggered by Barbed Shot, reports under the pet's `stomp` source |
+| 4pc (1296632) | every Stomp adds a Cobra Fang stack (4, 15s); Cobra Shot deals +20% a stack and ends them | `cobra_fang` buff: 2 stacks a pet per Barbed Shot, 1 a Thundering Hooves, `ability_pct` on both Cobra Shots, consumed by both; rotation gets SimC's `cobra_shot,if=buff.cobra_fang.at_max_stacks` after the last Kill Command |
+
+Cobra Cleave (Beast Cleave up, other targets) is not modelled: one target never has it.
+Profile `MID2_Hunter_Beast_Mastery` (300s Patchwerk, one target, full kit, seed 1; SimC 600,000 iterations
+cap with target error 0.1%, azsim 100,000):
+
+| | SimC | azsim |
+|---|---:|---:|
+| tier gain (full / set bonuses off) | +5.81% | +5.06% |
+| 2pc alone / 4pc on top (20,000-iteration runs) | +1.69% / +4.10% | +1.77% / +3.23% |
+| full-profile DPS | 262,823 | 258,526 (-1.63%) |
+
+The 4pc is 0.9 points light. Counting over single iterations, SimC starts 62 Cobra Fang buffs a fight and spends
+55 of them on a four-stack Cobra Shot (the rest on Snakeskin Quiver ones); azsim starts 56 and spends 44 and 11.
+Probably azsim's ungated Kill Command is why: SimC casts one Kill Command between a Barbed Shot and the
+four-stack Cobra Shot, azsim two, so the stacks wait longer, Snakeskin Quiver takes more of them and more Barbed
+Shots land before one is spent. That is the base rotation's Kill Command paraphrase, which this change leaves alone.

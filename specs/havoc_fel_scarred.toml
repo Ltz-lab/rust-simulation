@@ -811,3 +811,108 @@ action = "immolation_aura"
 
 [[rotation]]
 action = "arcane_torrent"
+
+# ================================================================== class set (Demon Hunter Havoc 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296611): +12% damage (effect 1: a spell modifier, aura 108) to the spells with
+# its class flags: Chaos Strike and Annihilation (both hits), Blade Dance and Death Sweep
+# (all four), Essence Break and its echo [db2 SpellClassOptions; SimC applies it from spell
+# data, and its per-hit damage rises by 12.0% on each of these, not on Eye Beam, The Hunt
+# or Demonsurge]. The Relentless Onslaught repeats are the same spells.
+[[gear.effects]]
+spell = 1296611
+text = '''
+precombat = ["set_havoc_2pc"]
+
+[[buffs]]
+name = "set_havoc_2pc"
+duration = 1e9
+ability_pct = { chaos_strike_damage_1 = ${e1}, chaos_strike_damage_2 = ${e1}, annihilation_damage_1 = ${e1}, annihilation_damage_2 = ${e1}, chaos_strike_onslaught_damage_1 = ${e1}, chaos_strike_onslaught_damage_2 = ${e1}, annihilation_onslaught_damage_1 = ${e1}, annihilation_onslaught_damage_2 = ${e1}, blade_dance_first_blood = ${e1}, blade_dance_first_blood_2 = ${e1}, blade_dance_first_blood_3 = ${e1}, blade_dance_first_blood_4 = ${e1}, death_sweep_first_blood = ${e1}, death_sweep_first_blood_2 = ${e1}, death_sweep_first_blood_3 = ${e1}, death_sweep_first_blood_4 = ${e1}, essence_break = ${e1}, essence_break_proc_damage = ${e1} }
+
+[[abilities]]
+name = "set_havoc_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_havoc_2pc" }]
+'''
+
+# 4pc (1296612): Essence Break deals +35% (effect 1, label 6669 = the cast, not its echo)
+# and its debuff lasts 2s longer (effect 2, label 6670 = the debuff, 4s -> 6s). SimC's
+# own script adds Cycle of Hatred to Essence Break: each cast cuts its cooldown by 2.5s a
+# stack (4 at most, one more stack per Eye Beam or Essence Break), and while the stack
+# count is 1-3 each of the two also takes a further 2.5s off the other's cooldown
+# [simc sc_demon_hunter.cpp eye_beam_t / essence_break_t::execute; db2 258887 effect 1
+# 2500 ms, 1214887 4 stacks]. The spec's Eye Beam lockout is a fixed 20s (the 4-stack
+# steady state of the talent alone), so its own cut is already in it; only the cross
+# terms shorten the lockout, and the stacks start at zero at the pull.
+[[gear.effects]]
+spell = 1296612
+text = '''
+precombat = ["set_havoc_4pc"]
+
+[[buffs]]
+name = "set_havoc_4pc"
+duration = 1e9
+ability_pct = { essence_break = ${e1} }
+
+[[buffs]]
+name = "cycle_of_hatred"
+duration = 1e9
+max_stacks = ${1214887.stacks}
+flat = true
+
+[[abilities]]
+name = "set_havoc_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_havoc_4pc" }]
+
+[[patch]]
+ability = "essence_break"
+on_cast = [
+  { type = "extend_buff", buff = "essence_break", seconds = ${e2:div1000} },
+  { type = "reduce_cooldown", ability = "essence_break", seconds_expr = "${258887.e1:div1000}*buff.cycle_of_hatred.stack" },
+  { type = "if", if = "buff.cycle_of_hatred.stack>=1&buff.cycle_of_hatred.stack<${1214887.stacks}", then = [
+    { type = "extend_buff", buff = "eye_beam_lockout", seconds = -${258887.e1:div1000} },
+  ] },
+  { type = "buff", buff = "cycle_of_hatred" },
+]
+
+[[patch]]
+ability = "eye_beam"
+on_cast = [
+  { type = "if", if = "buff.cycle_of_hatred.stack>=1&buff.cycle_of_hatred.stack<${1214887.stacks}", then = [
+    { type = "reduce_cooldown", ability = "essence_break", seconds = ${258887.e1:div1000} },
+  ] },
+  { type = "buff", buff = "cycle_of_hatred" },
+]
+
+[[patch]]
+ability = "eye_beam_empowered"
+on_cast = [
+  { type = "if", if = "buff.cycle_of_hatred.stack>=1&buff.cycle_of_hatred.stack<${1214887.stacks}", then = [
+    { type = "reduce_cooldown", ability = "essence_break", seconds = ${258887.e1:div1000} },
+  ] },
+  { type = "buff", buff = "cycle_of_hatred" },
+]
+
+[[patch]]
+ability = "abyssal_gaze"
+on_cast = [
+  { type = "if", if = "buff.cycle_of_hatred.stack>=1&buff.cycle_of_hatred.stack<${1214887.stacks}", then = [
+    { type = "reduce_cooldown", ability = "essence_break", seconds = ${258887.e1:div1000} },
+  ] },
+  { type = "buff", buff = "cycle_of_hatred" },
+]
+
+[[patch]]
+ability = "abyssal_gaze_empowered"
+on_cast = [
+  { type = "if", if = "buff.cycle_of_hatred.stack>=1&buff.cycle_of_hatred.stack<${1214887.stacks}", then = [
+    { type = "reduce_cooldown", ability = "essence_break", seconds = ${258887.e1:div1000} },
+  ] },
+  { type = "buff", buff = "cycle_of_hatred" },
+]
+'''

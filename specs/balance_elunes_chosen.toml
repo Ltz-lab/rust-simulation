@@ -655,3 +655,124 @@ action = "starfire_umbral"
 if = "buff.umbral_embrace.up&buff.eclipse_lunar.up"
 [[rotation]]
 action = "starfire"
+
+# ================================================================== class set (Druid Balance 12.1, MID2)
+# Applied with gear lines when the pieces are worn (ItemSetSpell; `--set
+# gear.set_bonuses=0` turns them off). Fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296603): Starsurge deals +20% (effect 1, Starsurge 78674, 197626 and
+# Cascade 1271222). It also gives Starfall an instant 1301742 hit on every enemy;
+# the profile's single-target APL never casts Starfall (SimC's report has no
+# Starfall row either) and the spec has no Starfall, so that half is not modelled.
+[[gear.effects]]
+spell = 1296603
+text = '''
+precombat = ["set_balance_2pc"]
+
+[[buffs]]
+name = "set_balance_2pc"
+duration = 1e9
+ability_pct = { starsurge = ${e1}, starsurge_cascade = ${e1} }
+
+[[abilities]]
+name = "set_balance_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_balance_2pc" }]
+'''
+
+# 4pc (1296604): Akil'zon's Clarity (1301768), damage +1% per stack (max 10, 2 at
+# the least) to the Balance damage spells [simc akilzons_clarity_buff_t]. It is
+# triggered at 10 stacks when an Eclipse starts and re-counted every second:
+#   d     = ticks from the nearer end of the Eclipse (the buff has no duration of
+#           its own, it ends with the last Eclipse)
+#   stack = clamp(ceil(10 - 8 * d / ((T-1)/2)), 2, 10), T the Eclipse length
+# The closed forms below are that formula for T=15 (Eclipse) and T=20 (Incarnation);
+# checked against it for every tick. Eclipse and Incarnation each start a
+# one-second clock with their own T; an Eclipse cast inside an Incarnation
+# restarts the 15s clock, where SimC keeps the larger of the Lunar and Solar
+# counts, so the longer Solar curve is lost for those seconds. Pets and the
+# trinket procs are not in the buff's spell list (Fey Missile is).
+[[gear.effects]]
+spell = 1296604
+text = '''
+[[buffs]]
+name = "akilzons_clarity"
+duration = 1e9
+max_stacks = ${1301768.e3}
+ability_pct = { starfire = 1, starfire_umbral = 1, starfire_precast = 1, wrath_precast = 1, starsurge = 1, starsurge_cascade = 1, goldrinns_fang = 1, moonfire = 1, sunfire = 1, shooting_stars_moonfire = 1, shooting_stars_sunfire = 1, fury_of_elune = 1, fury_of_elune_boundless = 1, sundered_firmament = 1, sundered_firmament_boundless = 1, lunar_bolt = 1, solar_bolt = 1, fey_missile = 1 }
+
+[[buffs]]
+name = "akilzons_n"
+duration = 1e9
+max_stacks = 30
+
+[[buffs]]
+name = "akilzons_d"
+duration = 1e9
+max_stacks = 10
+
+[[abilities]]
+name = "akilzons_eclipse"
+triggered_only = true
+gcd = 0
+on_cast = [
+ { type = "cancel_dot", dot = "akilzons_clock_20" },
+ { type = "consume", buff = "akilzons_n", all = true },
+ { type = "buff", buff = "akilzons_clarity", set = "${1301768.e3}" },
+]
+[abilities.dot]
+name = "akilzons_clock_15"
+tick_time = 1
+duration = 15
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [
+ { type = "buff", buff = "akilzons_n" },
+ { type = "if", if = "(buff.eclipse_lunar.up|buff.eclipse_solar.up)&buff.akilzons_n.stack<15", then = [
+  { type = "buff", buff = "akilzons_d", set = "buff.akilzons_n.stack*(buff.akilzons_n.stack<8)+(14-buff.akilzons_n.stack)*(buff.akilzons_n.stack>7)" },
+  { type = "buff", buff = "akilzons_clarity", set = "10-buff.akilzons_d.stack-(buff.akilzons_n.stack=7)" },
+ ] },
+]
+
+[[abilities]]
+name = "akilzons_incarnation"
+triggered_only = true
+gcd = 0
+on_cast = [
+ { type = "cancel_dot", dot = "akilzons_clock_15" },
+ { type = "consume", buff = "akilzons_n", all = true },
+ { type = "buff", buff = "akilzons_clarity", set = "${1301768.e3}" },
+]
+[abilities.dot]
+name = "akilzons_clock_20"
+tick_time = 1
+duration = 20
+hasted = false
+whole_ticks = true
+refresh = "reset"
+on_tick = [
+ { type = "buff", buff = "akilzons_n" },
+ { type = "if", if = "(buff.eclipse_lunar.up|buff.eclipse_solar.up)&buff.akilzons_n.stack<20", then = [
+  { type = "buff", buff = "akilzons_d", set = "buff.akilzons_n.stack*(buff.akilzons_n.stack<10)+(19-buff.akilzons_n.stack)*(buff.akilzons_n.stack>9)" },
+  { type = "buff", buff = "akilzons_clarity", set = "10-buff.akilzons_d.stack+(buff.akilzons_d.stack>=1)+(buff.akilzons_d.stack>=7)" },
+ ] },
+]
+
+[[patch]]
+ability = "eclipse"
+on_cast = [{ type = "trigger", ability = "akilzons_eclipse" }]
+
+[[patch]]
+ability = "incarnation"
+on_cast = [{ type = "trigger", ability = "akilzons_incarnation" }]
+
+[[patch]]
+buff = "eclipse_lunar"
+on_expire = [{ type = "if", if = "!buff.eclipse_lunar.up&!buff.eclipse_solar.up", then = [{ type = "consume", buff = "akilzons_clarity", all = true }] }]
+
+[[patch]]
+buff = "eclipse_solar"
+on_expire = [{ type = "if", if = "!buff.eclipse_lunar.up&!buff.eclipse_solar.up", then = [{ type = "consume", buff = "akilzons_clarity", all = true }] }]
+'''

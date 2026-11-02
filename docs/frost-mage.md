@@ -106,6 +106,34 @@ reference.
   lingering DoT), Acidbrood Scourge, Void Eruption, and the time-averaged
   secondary-stat procs folded into `[player]`.
 
+## Tier set (Midnight season 2, set 2060)
+
+With gear lines, `[[gear.effects]]` at the end of the spec model both bonuses (`--set gear.set_bonuses=0`
+removes them; runs without gear lines never see them).
+
+| bonus | what it does | modelled as |
+|---|---|---|
+| 2pc (1296585) | Glacial Spike +20%; each stack of Freezing shattered has a 4% chance to make an Icicle | `ability_pct` 20 [db2 e1]; a one-roll helper triggered once per shattered stack from the Ice Lance shatters' `on_start`, 4% [db2 e2] each, adding an Icicle (and the Glacial Spike marker at 5) [simc `trigger_shatter`] |
+| 4pc (1296586) | Shatter +5%; casting Glacial Spike can start Rapid Refreezing (5 Icicles over 1 s) | `ability_pct` 5 on the Ice Lance shatter [db2 e1]; the chance is SimC's hardcoded accumulated RNG, 20% on the first try and +2.0116% for each miss since the last proc [simc `init_rng`], then 5 Icicles 0.2 s apart [db2 1310248] |
+
+Measured on `profiles/MID2_Mage_Frost.simc` as it is (trinkets included), against the same profile with the set bonuses off (SimC: `set_bonus=midnight_season_2_2pc=0`, `..._4pc=0`, `bite_of_zuljan_2pc=0`; azsim: `--set gear.set_bonuses=0`). SimC at target error 0.3%, seed 1; azsim 10,000 iterations, seed 1 (95% error about 0.1%). Tier gain = full / off - 1.
+
+| | SimC | azsim | diff |
+|---|---:|---:|---:|
+| 2pc alone | +5.85% | +6.12% | +0.27 pts |
+| 4pc on top of the 2pc | +3.76% | +4.07% | +0.31 pts |
+| **tier gain** | **+9.83%** | **+10.44%** | **+0.61 pts** |
+| full-profile DPS | 227,208 | 230,204 | +1.32% |
+| set bonuses off, DPS | 206,868 | 208,444 | +0.76% |
+
+Counts per fight, off to full (SimC 10,000 iterations, azsim 10,000): Glacial Spike 15.3 to 26.6 (azsim 15.3 to
+27.3), Frostbolt 34.9 to 20.8 (37.0 to 21.3), Rapid Refreezing procs 6.5 (6.7). Icicles from the set: SimC 38.7
+from the 2pc plus 6.5 x 5 from the 4pc, 71.1 in all; azsim 73.6.
+
+Not modelled: Winter's End (not in the spec, so the 4pc's +5% reaches only the Ice Lance shatter) and the part of
+SimC's APL that lets Glacial Spike be queued for 1.5 s after a Rapid Refreezing proc
+(`time-buff.rapid_refreezing.last_trigger<1.5`); the spec casts it when the Icicles are in.
+
 ## Known gaps
 
 - **Ice Lance 129.4 vs 124.4 casts (+3.8%) and Flurry 38.7 vs 40.3 (-4.1%).**

@@ -662,3 +662,58 @@ action = "moonlight_chakram"
 
 [[rotation]]
 action = "steady_shot"
+
+# ================================================================== class set (Hunter Marksmanship 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296633): Explosive Shot lasts 1s longer (effect 1, 1000 ms) and its ticks
+# deal +5% (effect 3; effect 2's +5% direct damage has nothing to act on, as the
+# DoT is all of it on one target). SimC applies them as plain spell modifiers.
+[[gear.effects]]
+spell = 1296633
+text = '''
+precombat = ["set_marksmanship_2pc"]
+
+[[buffs]]
+name = "set_marksmanship_2pc"
+duration = 1e9
+ability_pct = { explosive_shot = ${e3} }
+
+[[abilities]]
+name = "set_marksmanship_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_marksmanship_2pc" }]
+
+[[patch]]
+ability = "explosive_shot"
+dot = { add = { duration = ${e1:div1000} } }
+'''
+
+# 4pc (1296634): Aimed Shot and Rapid Fire deal +5% (effect 1), and each Explosive
+# Shot tick takes 0.5s (effect 2, 500 ms) off Aimed Shot's and Rapid Fire's cooldowns
+# [simc explosive_shot_base_t::tick].
+[[gear.effects]]
+spell = 1296634
+text = '''
+precombat = ["set_marksmanship_4pc"]
+
+[[buffs]]
+name = "set_marksmanship_4pc"
+duration = 1e9
+ability_pct = { aimed_shot = ${e1}, rapid_fire = ${e1} }
+
+[[abilities]]
+name = "set_marksmanship_4pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_marksmanship_4pc" }]
+
+[[patch]]
+ability = "explosive_shot"
+dot = { on_tick = [
+  { type = "reduce_cooldown", ability = "aimed_shot", seconds = ${e2:div1000} },
+  { type = "reduce_cooldown", ability = "rapid_fire", seconds = ${e2:div1000} },
+] }
+'''

@@ -177,7 +177,7 @@ Survival, Windwalker and Outlaw now have `[gear]`, `[gear.kit]` and omnium table
 | Windwalker (Shado-Pan) | 169,360 | 167,114 | -1.33% | core kit, no trinkets (kit on: -2.28%) |
 | Outlaw (Trickster) | 186,182 | 183,134 | -1.64% | full kit, no trinkets, tier off |
 
-SimC at 20,000 iterations, azsim at 10,000 (seed 1); Windwalker's core-kit pair is from the spec reports. The tier sets of all five (2055, 2059 twice, 2061, 2064) are unmodelled. Frost DK has no `SPEC_BY_PROFILE` line in `tools/check_gear.py` (its `spec=frost` is also the Mage's); pass `--spec` and `--calib`.
+SimC at 20,000 iterations, azsim at 10,000 (seed 1); Windwalker's core-kit pair is from the spec reports. Their tier sets (2055, 2059 twice, 2061, 2064) are modelled now; see [Midnight season 2 class sets](#midnight-season-2-class-sets). Frost DK has no `SPEC_BY_PROFILE` line in `tools/check_gear.py` (its `spec=frost` is also the Mage's); pass `--spec` and `--calib`.
 
 A trait id has to be
 spelled as the profile spells it (`136822` or `rune_of_unleashed_fire`).
@@ -382,13 +382,15 @@ is within 0.2% of the same specs with hand-entered stats. None has a
   embellishments aren't read from data yet. Two rare item-level bonuses are
   off: type 53 (the Aln'hara Lantern, 331 vs 337) and one Myth bonus (12856,
   340 vs 341). Trinket effects and set bonuses count only where the
-  effect library has an entry (eleven trinket effects and the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs so far,
-  see above and [Fallbacks closed](#fallbacks-closed)); others are reported as `unmodelled`. Library procs are rolled
+  effect library has an entry (eleven trinket effects, the Midnight 12.0/12.1 class sets of Ret, Shadow and the three warlock specs,
+  and the season 2 class sets of every other DPS spec, see above, [Fallbacks closed](#fallbacks-closed) and
+  [Midnight season 2 class sets](#midnight-season-2-class-sets)); others are reported as `unmodelled`
+  (Blood's set 2055 and Ret's MID1 4pc). Library procs are rolled
   on direct hits as real PPM, but which hits may trigger them isn't read from
   the proc flags. On-use items share no category cooldown, and Font of
   Venomous Rage is used on cooldown where SimC's APL waits for the other
   trinket. Item data is the full equippable item set of build 12.1.5.70575
-  (871 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.
+  (873 KB gzip'd, with the effect and set tables); rebuild it per patch with `tools/gamedata.py`.
 
 
 ## Fallbacks closed
@@ -458,6 +460,63 @@ re-applies Expurgation with its own base multiplier, which makes the DoT's ticks
 stronger in SimC (+6.9%). Wavecaller's Seastone (1295058, Shadow's other trinket)
 is still `unmodelled`.
 
+## Midnight season 2 class sets
+
+The season 2 class set (2pc and 4pc) is modelled for twenty specs, each in its
+spec's `[[gear.effects]]`; `--gear-stats` lists them `modelled` and every
+profile's `unmodelled` list is empty apart from Blood (set 2055) and Shadow's
+Wavecaller's Seastone. Tier gain is the full sample profile against the same
+profile with `--set gear.set_bonuses=0` (azsim 10,000 iterations, seed 1,
+`--calib`; SimC with `set_bonus=midnight_season_2_{2,4}pc=0` and
+`bite_of_zuljan_2pc=0`, from each spec's doc, where the mechanics, per-piece
+splits and gaps are written up):
+
+| spec | set | SimC gain | azsim gain | gap |
+|---|---|---:|---:|---:|
+| Frost DK | 2055 | +8.21% | +8.07% | -0.14 |
+| Unholy | 2055 | +11.11% | +10.90% | -0.21 |
+| Havoc | 2056 | +11.05% | +9.75% | -1.30 |
+| Devourer | 2056 | +10.44% | +16.69% | **+6.25** |
+| Balance | 2057 | +12.86% | +12.85% | -0.01 |
+| Feral | 2057 | +6.42% | +6.11% | -0.31 |
+| Beast Mastery | 2059 | +5.81% | +5.05% | -0.76 |
+| Marksmanship | 2059 | +7.13% | +7.21% | +0.08 |
+| Survival | 2059 | +10.30% | +10.37% | +0.07 |
+| Arcane | 2060 | +13.12% | +12.82% | -0.30 |
+| Fire | 2060 | +14.06% | +17.94% | **+3.88** |
+| Frost Mage | 2060 | +9.83% | +10.44% | +0.61 |
+| Windwalker | 2061 | +9.62% | +10.05% | +0.43 |
+| Assassination | 2064 | +11.24% | +11.49% | +0.25 |
+| Outlaw | 2064 | +12.51% | +10.91% | **-1.60** |
+| Subtlety | 2064 | +12.83% | +11.69% | -1.14 |
+| Elemental | 2065 | +14.59% | +14.12% | -0.47 |
+| Enhancement | 2065 | +13.46% | +13.13% | -0.33 |
+| Arms | 2067 | +7.80% | +7.42% | -0.38 |
+| Fury | 2067 | +12.56% | +12.78% | +0.22 |
+
+Known misses, left for separate changes because each needs the base spec
+changed (which moves the no-gear numbers):
+
+- **Devourer** overshoots by about 6 points, all in the 4pc: azsim limits Reap
+  and Cull by cooldown where SimC is limited by Soul Fragments, so each charge
+  the 4pc gives back is a whole extra cast
+  ([devourer-demon-hunter.md](devourer-demon-hunter.md)).
+- **Fire** is about 3.9 points over: the base spec's `pyroclasm` stacks its
+  `ability_pct` per stack (two stacks 6.0x where SimC gives 3.5x), which
+  inflates anything that touches Pyroclasm Pyroblasts ([fire-mage.md](fire-mage.md)).
+- **Outlaw** is about 1.7 points short (1.6 at 10,000 iterations): Dispatch and
+  Coup de Grace are a smaller share of the base spec's damage than SimC's
+  ([outlaw-rogue.md](outlaw-rogue.md)).
+
+Several sets add rotation entries that only exist with the set worn, because
+SimC's APL changes with it (Devourer, Beast Mastery, Arcane, Outlaw,
+Elemental, Enhancement). The generic pieces they needed are in
+[spec-format.md](spec-format.md#patching-the-spec-from-a-gear-fragment)
+(`[[patch]]` into nested tables, `add`, `prepend`, merging `set`, rotation
+conditions, `after_last`) plus a buff's `while_dot` and an echo's `stacks_of`.
+The game data was rebuilt from the merged specs with `tools/gamedata.py`; it no
+longer carries spell 1264849 (Ret's MID1 4pc, which no template names).
+
 ## Checking a trinket against SimC
 
 `tools/validate_effects.py --simc <simc> --case profile.txt:<azsim spec>:trinket2`
@@ -474,7 +533,7 @@ the DPS the item adds on each. Results (20,000 iterations, same raid buffs):
 The trinket-free baselines differ from SimC by -23% (Fire), -6% (Demonology)
 and -12% (Shadow). That gap is not the effect's, and it is not trinket procs
 baked into `[player]` either (`tools/proc_audit.py` finds none): this
-comparison leaves SimC's tier set on, which azsim does not model, and the
+comparison leaves SimC's tier set on, which azsim did not model when it was run, and the
 kit-less specs lack consumables. Switch the set bonuses off on the SimC side
 (`set_bonus=midnight_season_2_2pc=0`, `..._4pc=0`) for baselines that mean
 something.

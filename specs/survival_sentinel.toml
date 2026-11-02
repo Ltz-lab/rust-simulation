@@ -650,3 +650,37 @@ action = "takedown"
 [[buffs]]
 name = "shrapnel_bomb"       # [db2 1292687: 3s] only the focus, paid as a lump sum on cast
 duration = 3
+
+# ================================================================== class set (Hunter Survival 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296636): raises Mongoose Fury's effects 3 and 4 (direct and periodic
+# damage on the Wildfire Bomb family, base 0) by 10 each. SimC leaves a 0-valued
+# effect out of the actions it affects, so this switches Mongoose Fury on for
+# Wildfire Bomb and its bleed; the amount is the buff's stack value, effect 1
+# (10% a stack, as for Raptor Strike) [simc parse_damage_affecting_aura, hunter_action_t].
+[[gear.effects]]
+spell = 1296636
+text = '''
+[[patch]]
+buff = "mongoose_fury"
+set = { ability_pct = { raptor_strike = ${259388.e1}, raptor_swipe = ${259388.e1}, wildfire_bomb_damage = ${259388.e1}, wildfire_bomb_bleed = ${259388.e1} } }
+'''
+
+# 4pc (1296635): each Boomstick tick first extends the Mongoose Fury stacks by 1s
+# (effect 1, 1000 ms) [simc boomstick_t::tick], and effects 1-4 of Mongoose Fury
+# grow by 10% (effects 2-5): its stack value goes from 10% to 11% for every action
+# it affects, Raptor Strike and Raptor Swipe too. 11 = 10 x 1.1.
+[[gear.effects]]
+spell = 1296635
+text = '''
+[[patch]]
+buff = "mongoose_fury"
+set = { ability_pct = { raptor_strike = 11, raptor_swipe = 11, wildfire_bomb_damage = 11, wildfire_bomb_bleed = 11 } }
+
+[[patch]]
+ability = "boomstick"
+prepend = true
+dot = { on_tick = [{ type = "extend_buff", buff = "mongoose_fury", seconds = ${e1:div1000} }] }
+'''

@@ -761,3 +761,82 @@ hasted = true
 school = "physical"
 mastery = true
 crit_bonus = 0.035
+
+# ================================================================== class set (Hunter Beast Mastery 12.1, MID2)
+# Applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0`
+# turns them off); fragment format as data/item_effects.toml. [db2, simc]
+
+# 2pc (1296631): every Barbed Shot also makes each stable pet (the main pet, the
+# animal companion, Nature's Ally's pet) Stomp a second time, at 50% (effect 1)
+# of Stomp's damage [simc stable_pet_t::init_spells stomp_2pc, barbed_shot_t::execute].
+# It is Stomp's own spell (201754, coefficient from its effect 1), so it reports
+# under the pet's `stomp` source and takes that source's calibration.
+[[gear.effects]]
+spell = 1296631
+text = '''
+[[patch]]
+pet = "duck"
+abilities = [{ name = "stomp_2pc", source = "stomp", gcd = 0, triggered_only = true, damage = { ap_coeff = ${201754.e1:ap}, school = "physical", mastery = true, crit_bonus = 0.035, mult = ${e1:pct} } }]
+
+[[patch]]
+pet = "animal_companion"
+abilities = [{ name = "stomp_2pc", source = "stomp", gcd = 0, triggered_only = true, damage = { ap_coeff = ${201754.e1:ap}, school = "physical", mastery = true, crit_bonus = 0.035, mult = ${e1:pct} } }]
+
+[[patch]]
+pet = "natures_ally_pet"
+abilities = [{ name = "stomp_2pc", source = "stomp", gcd = 0, triggered_only = true, damage = { ap_coeff = ${201754.e1:ap}, school = "physical", mastery = true, crit_bonus = 0.035, mult = ${e1:pct} } }]
+
+[[patch]]
+ability = "barbed_shot"
+on_cast = [
+  { type = "for_each_pet", pet = "duck", each = [{ type = "trigger", ability = "duck_stomp_2pc" }] },
+  { type = "for_each_pet", pet = "animal_companion", each = [{ type = "trigger", ability = "animal_companion_stomp_2pc" }] },
+  { type = "for_each_pet", pet = "natures_ally_pet", each = [{ type = "trigger", ability = "natures_ally_pet_stomp_2pc" }] },
+]
+'''
+
+# 4pc (1296632): every Stomp that lands (the talent's, the 2pc's, Thundering
+# Hooves') adds a stack of Cobra Fang (1299389: 15s, 4 stacks). Cobra Shot, the
+# free Snakeskin Quiver one too, deals +20% (effect 2) a stack and ends them all.
+# With Beast Cleave up it would instead cleave 30% (effect 1) a stack onto the other
+# targets; one target never has that [simc cobra_shot_base_t, cobra_cleave_t].
+# One new rotation entry: SimC's `cobra_shot,if=buff.cobra_fang.at_max_stacks`, which
+# sits after Kill Command in its single-target list and never fires without the 4pc.
+[[gear.effects]]
+spell = 1296632
+text = '''
+[[buffs]]
+name = "cobra_fang"
+duration = ${1299389.duration}
+max_stacks = ${1299389.stacks}
+ability_pct = { cobra_shot = ${1299389.e2}, cobra_shot_snakeskin_quiver = ${1299389.e2} }
+
+[[patch]]
+ability = "barbed_shot"
+on_cast = [
+  { type = "for_each_pet", pet = "duck", each = [{ type = "buff", buff = "cobra_fang", stacks = 2 }] },   # Stomp, Stomp 2pc
+  { type = "for_each_pet", pet = "animal_companion", each = [{ type = "buff", buff = "cobra_fang", stacks = 2 }] },
+  { type = "for_each_pet", pet = "natures_ally_pet", each = [{ type = "buff", buff = "cobra_fang", stacks = 2 }] },
+]
+
+# Bestial Wrath: Thundering Hooves, from the main pet and the animal companion
+[[patch]]
+ability = "bestial_wrath"
+on_cast = [
+  { type = "for_each_pet", pet = "duck", each = [{ type = "buff", buff = "cobra_fang" }] },
+  { type = "for_each_pet", pet = "animal_companion", each = [{ type = "buff", buff = "cobra_fang" }] },
+]
+
+[[patch]]
+ability = "cobra_shot"
+on_cast = [{ type = "consume", buff = "cobra_fang", all = true }]
+
+[[patch]]
+ability = "cobra_shot_snakeskin_quiver"
+on_cast = [{ type = "consume", buff = "cobra_fang", all = true }]
+
+[[rotation]]
+action = "cobra_shot"
+if = "buff.cobra_fang.stack>=${1299389.stacks}"
+after_last = "kill_command"
+'''
