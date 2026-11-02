@@ -82,6 +82,39 @@ With gear lines and no kit, azsim gives 164,350 DPS against SimC's 164,317
 (+0.02%, 5,000 iterations, seed 42), which is +0.01% against the spec-stats
 run.
 
+## Tier set (set 2056, 2pc and 4pc)
+
+With gear lines the spec reads the Void-Scarred class set from `[[gear.effects]]`
+(`--set gear.set_bonuses=0` turns it off; `--gear-stats` lists both bonuses as
+`modelled`). Numbers are DB2 spell data (1296615, 1296616, 1297433, 1297432) and
+SimC's `sc_demon_hunter.cpp`.
+
+| bonus | effect | modelled as |
+|---|---|---|
+| 2pc | a Reap or Cull that eats 4+ fragments rolls for Soulburst: 6.63% on the first roll, +5.19% per roll since, cap 39.49% (SimC's `soulburst_blp_*` options, not the spell's flat 20%) | a roll counter buff and a `chance_expr` trigger on Reap and Cull |
+| 2pc | Soulburst (10s) makes the next Consume or Devour instant (still on the GCD) and adds a 6 SP hit | `consume_soulburst` / `devour_soulburst` abilities, rotation entries after Vengeful Retreat (out) and Collapsing Star (in), as the APL's `consume,if=buff.soulburst.up` |
+| 4pc | Reap and Cull +10% | `ability_pct` on both |
+| 4pc | the Soulburst cast grants Moment of Craving, gives back a Reap/Cull charge and spawns 2 fragments | `on_cast` effects on the Soulburst hit |
+
+Measured on the sample profile (SimC 20,000 iterations at 0.14% error, azsim 20,000
+iterations, seed 1, raid buffs on, kit on, trinkets as in the profile):
+
+| | SimC | azsim |
+|---|---:|---:|
+| set bonuses off | 230,132 | 232,398 |
+| 2pc only | 236,655 (+2.83%) | 240,205 (+3.36%) |
+| full set | 254,165 (+10.44%) | 271,130 (+16.67%) |
+| 4pc over the 2pc | +7.40% | +12.87% |
+
+The 2pc matches (Soulburst procs 14.0 a fight with the 2pc alone against SimC's 13.9 for the full set; 15.7
+in azsim's full set; the hit 87,850 / 99,474 non-crit against 87,754 / 97,767). The 4pc overshoots by about 5 points: the spec's Reap and Cull are throttled by
+their cooldowns (the shared 8s pool is split, see Known gaps), so the charge the 4pc gives back is worth a
+cast each time (about +5% on its own), while in SimC the fragment supply is the limit and the same procs add
+only 5.4 casts (the 2 fragments a proc spawns add 0.3% here). Moment of Craving's +6 stacks are
+unconstrained by the fragments left, as for the Void Ray's, and are worth +2% of that. The set's
+Soulburst hit does not shatter fragments (SimC: 9.5% of its hits); not modelled. The Reap/Cull split and
+the fragment economy are the base spec's and are left alone, so the 4pc's gain is not tuned to SimC's.
+
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
