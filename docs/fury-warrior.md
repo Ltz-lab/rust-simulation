@@ -146,6 +146,25 @@ melee specs sit in.
   and the time-averaged Surge of Adrenaline (+30% auto speed and damage for
   6s after a Raging Blow reset, folded in at its observed 57.5% uptime).
 
+## Tier set (Midnight season 2, set 2067)
+
+With gear lines, `[[gear.effects]]` in the spec models the class set (spells 1296645 and 1296646; `--set gear.set_bonuses=0` turns it and the Bite of Zul'jan 2pc off):
+
+| bonus | what | modelled as |
+|---|---|---|
+| 2pc | Raging Blow and Crushing Blow +15% | `ability_pct` buff from effect 1 |
+| 2pc | each of them cast in Recklessness adds 2s to it, at most 3 times per Recklessness cast | `extend_buff` on `raging_blow` (it holds Crushing Blow), counted by a buff that a Recklessness cast clears |
+| 4pc | Bloodthirst and Bloodbath +10% | `ability_pct` buff from effect 1 |
+| 4pc | each Bloodthirst or Bloodbath in Recklessness adds a stack of +3% crit (2 stacks), gone when Recklessness ends or is recast | `fury_mid2_4pc_crit` buff with `crit_pct`, cleared by `on_expire` |
+
+Full profile against the same profile with set bonuses off, Patchwerk 300s, one target (SimC 0.3% target error, azsim 6,000 iterations, seed 1):
+
+| | SimC | azsim |
+|---|---:|---:|
+| full profile DPS | 257,504 | 255,893 |
+| set bonuses off | 228,762 | 226,923 |
+| tier gain | +12.56% | +12.77% |
+
 ## Known gaps
 
 - **GCD allocation, the 3.8%.** Hit by hit the abilities are right; the

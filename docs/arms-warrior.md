@@ -133,6 +133,25 @@ rune, Thalassian Phoenix Oil, Light's Potential in a Colossus Smash window)
 and Bloodlust, as Ret's does. `[gear.procs]` carries Battle Stance's 3% crit
 and the time-averaged stat procs of this gear set.
 
+## Tier set (Midnight season 2, set 2067)
+
+With gear lines, `[[gear.effects]]` in the spec models the class set (spells 1296643 and 1296644; `--set gear.set_bonuses=0` turns it and the Bite of Zul'jan 2pc off):
+
+| bonus | what | modelled as |
+|---|---|---|
+| 2pc | Mortal Strike (the Unhinged one too) and Execute +10% | `ability_pct` buff from effect 1 |
+| 2pc | Slam also casts Concussive Slam | not modelled: it hits secondary targets only, so it deals nothing on one target |
+| 4pc | Overpower +15% | `ability_pct` buff from effect 1 |
+| 4pc | Mortal Strike and Overpower add a stack of Winding Up (12s, 5 stacks, +20% each to Slam and Heroic Strike); Slam or Heroic Strike spends them all | `winding_up` buff, patches on those abilities |
+
+Full profile against the same profile with set bonuses off, Patchwerk 300s, one target (SimC 0.3% target error, azsim 6,000 iterations, seed 1):
+
+| | SimC | azsim |
+|---|---:|---:|
+| full profile DPS | 241,303 | 241,911 |
+| set bonuses off | 223,838 | 225,199 |
+| tier gain | +7.80% | +7.42% |
+
 ## Speed
 
 10,000 iterations on 10 threads: azsim 0.44s, SimC 2.64s (~6×).
