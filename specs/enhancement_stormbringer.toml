@@ -82,6 +82,120 @@ stats = { primary = 75.1, haste_rating = 165 }
 #   haste 165      Flask of the Blood Knights (rank 2) [obs: SimC buffed stats]
 #   no weapon oil  the profile has temporary_enchant=disabled
 
+# ---------------------------------------------------------------- class set
+# Midnight season 2 Enhancement set (2065; 2pc 1296627, 4pc 1296628), applied
+# with gear lines when the pieces are worn (`--set gear.set_bonuses=0` turns it
+# off). Fragment format as data/item_effects.toml; numbers from the set spells
+# through ${...}. Mechanics from SimC's sc_shaman.cpp (debuff mid2_enh_2pc
+# "burning_core", buff mid2_enh_4pc "short_circuit", fire_nova_explosion_t,
+# crash_lightning_t / crash_lightning_attack_t) and its Stormbringer APL. [db2, simc]
+
+# 2pc (1296627): Voltaic Blaze leaves Burning Core (1299975) on its target for
+# 6s; it ticks every 2s (effect 1's period) and each tick is a Fire Nova
+# Explosion (333977: 0.99682 AP, Fire and Nature), which Burning Core makes
+# deal +200% (effect 2: aura 271, mask on Fire Nova's family flags). Three
+# explosions per Voltaic Blaze, at 2, 4 and 6s.
+# The explosion is a new source, so it has no calibration entry. Its multiplier
+# is built the way the calibration builds the others': `derived` from the game's
+# spell modifiers [tools/effects.py derive, 333977: the spec's +25%, Elemental
+# Tempo +10% (1250364), Natural Gift +2% (1264691) = 1.4025, the same set as
+# Ascendance's hit] times the residual the calibration fits for that hit, 1.062781
+# (calibration/enhancement_stormbringer.toml, ascendance_damage). Overcharge's
+# crit damage reaches it (SimC: is_school(school, NATURE) is true for Fire and
+# Nature); the nature spells' extra crit chance in the calibration does not,
+# since SimC's explosion crits about as often as its fire and physical hits.
+# The Fire Nova talent rolls the same explosion on 1 Voltaic Blaze in 5 without
+# Burning Core; that talent is not modelled in this spec, so those casts (about
+# 6 a fight, each also feeding the 4pc) are not either.
+# The Stormbringer APL casts Voltaic Blaze ahead of Crash Lightning while it has
+# fewer than 9 Maelstrom Weapon stacks when the 2pc is worn
+# [simc: voltaic_blaze,if=set_bonus.midnight_season_2_2pc&buff.maelstrom_weapon.stack<9].
+[[gear.effects]]
+spell = 1296627
+text = """
+precombat = ["set_enhancement_2pc"]
+
+[[buffs]]
+name = "burning_core"
+duration = 1e9
+ability_pct = { fire_nova_explosion = ${1299975.e2} }
+
+[[abilities]]
+name = "set_enhancement_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "burning_core" }]
+
+[[abilities]]
+name = "fire_nova_explosion"
+spell_id = 333977
+triggered_only = true
+gcd = 0
+damage = { ap_coeff = 1.0067882, school = "firestorm", crit_damage_per_crit = 0.4, mastery = true, mult = 1.49055 }
+
+[[patch]]
+ability = "voltaic_blaze"
+on_cast = [{ type = "trigger", ability = "fire_nova_explosion", delay = 2 }, { type = "trigger", ability = "fire_nova_explosion", delay = 4 }, { type = "trigger", ability = "fire_nova_explosion", delay = 6 }]
+
+[[rotation]]
+action = "voltaic_blaze"
+if = "buff.maelstrom_weapon.stack<9"
+after = "stormstrike"
+"""
+
+# 4pc (1296628): every Fire Nova Explosion takes 2s (effect 1) off Crash
+# Lightning's cooldown and adds a stack of Short Circuit (1299991: +8% per
+# stack, 5 stacks, 15s). Crash Lightning spends the stacks. It keeps them as
+# the value of that cast's enhancement stack (12s): the Crash Lightning hit that
+# Stormstrike and Lava Lash add is multiplied by 1 + the average of the live
+# stacks' values, and the storm it leaves (Storm Unleashed) deals the stacks
+# it was cast with to every tick.
+#  sc_snap: one stack per Short Circuit stack spent, for as long as that cast's
+#    enhancement stack lives (12s). Their count over the enhancement stacks is
+#    the average, so the hit's weight N x (1 + 8% x sc_snap / N) = N + 8% x sc_snap.
+#  sc_unleashed: the stacks the last cast had, for its 6 ticks.
+[[gear.effects]]
+spell = 1296628
+text = """
+[[buffs]]
+name = "short_circuit"
+duration = ${1299991.duration}
+max_stacks = ${1299991.stacks}
+
+[[buffs]]
+name = "sc_unleashed"
+duration = 6
+max_stacks = ${1299991.stacks}
+ability_pct = { crash_lightning_unleashed = ${1299991.e1} }
+
+[[buffs]]
+name = "sc_snap"
+duration = 12
+max_stacks = 100
+overlap = true
+
+[[patch]]
+ability = "fire_nova_explosion"
+on_cast = [{ type = "reduce_cooldown", ability = "crash_lightning", seconds = ${e1:div1000} }, { type = "buff", buff = "short_circuit" }]
+
+[[patch]]
+ability = "crash_lightning"
+on_begin = [{ type = "buff", buff = "sc_unleashed", set = "buff.short_circuit.stack" }]
+on_cast = [
+  { type = "if", if = "buff.short_circuit.stack=1", then = [{ type = "buff", buff = "sc_snap", stacks = 1 }] },
+  { type = "if", if = "buff.short_circuit.stack=2", then = [{ type = "buff", buff = "sc_snap", stacks = 2 }] },
+  { type = "if", if = "buff.short_circuit.stack=3", then = [{ type = "buff", buff = "sc_snap", stacks = 3 }] },
+  { type = "if", if = "buff.short_circuit.stack=4", then = [{ type = "buff", buff = "sc_snap", stacks = 4 }] },
+  { type = "if", if = "buff.short_circuit.stack=5", then = [{ type = "buff", buff = "sc_snap", stacks = 5 }] },
+  { type = "consume", buff = "short_circuit", all = true },
+]
+
+# the spec's own damage with its scale widened (this replaces the whole table)
+[[patch]]
+ability = "crash_lightning_proc"
+set = { damage = { ap_coeff = 0.987367, school = "nature", crit_damage_per_crit = 0.4, mastery = true, scale = "buff.crash_lightning.stack+${1299991.e1:pct}*buff.sc_snap.stack" } }
+"""
+
 [fight]
 duration = 300
 variance = 0.2
