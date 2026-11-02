@@ -1064,7 +1064,8 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
 /// `[[patch]]`: append lists to an existing ability's, buff's or pet's (`ability =` /
 /// `buff =` / `pet =`), e.g. `on_cast`; skipped when the target or anything in
 /// `requires` (ability names) isn't in the spec. `set = { field = value }`
-/// overwrites scalar fields instead.
+/// overwrites scalar fields instead; `dot = { on_tick = [..] }` and
+/// `channel = { on_finish = [..] }` append to the lists of the ability's DoT or channel.
 fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
     let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
     let (kind, name) = match (p.remove("ability"), p.remove("buff"), p.remove("pet")) {
@@ -1099,6 +1100,23 @@ fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
             let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'set' must be a table")) };
             for (f, x) in fields {
                 target.insert(f, x);
+            }
+            continue;
+        }
+        // `dot = { on_tick = [..] }` / `channel = { on_finish = [..] }`: append lists
+        // to the ability's own DoT or channel table
+        if let toml::Value::Table(sub) = v {
+            if k != "dot" && k != "channel" {
+                return Err(format!("patch '{name}': '{k}' must be a list"));
+            }
+            let t = target
+                .get_mut(k.as_str())
+                .and_then(|x| x.as_table_mut())
+                .ok_or_else(|| format!("patch '{name}': '{k}' is not a table in the spec"))?;
+            for (f, items) in sub {
+                let toml::Value::Array(items) = items else { return Err(format!("patch '{name}': '{k}.{f}' must be a list")) };
+                let list = t.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{k}.{f}' is not a list"))?.extend(items);
             }
             continue;
         }
@@ -1343,6 +1361,40 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
             let (ds, fv) = (sp.rotation[i - 1].condition.clone().unwrap_or_default(), sp.rotation[i].condition.clone());
             assert!(fv.is_none_or(|c| ds.ends_with(&format!("&({c})"))), "{ds}");
         }
+    }
+
+    #[test]
+    fn windwalker_tier_set_is_modelled_and_patches_the_dot_and_channel() {
+        let doc: toml::Value = toml::from_str(include_str!("../specs/windwalker_shadopan.toml")).unwrap();
+        let (out, rep) = apply_text(doc, include_str!("../profiles/MID2_Monk_Windwalker.simc")).unwrap();
+        let sets: Vec<(&str, &str)> = rep["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["from"].as_str().unwrap().starts_with("set 2061"))
+            .map(|r| (r["from"].as_str().unwrap(), r["status"].as_str().unwrap()))
+            .collect();
+        assert_eq!(sets, [("set 2061 (2)", "modelled"), ("set 2061 (4)", "modelled")]);
+        let sp: crate::spec::Spec = out.try_into().unwrap();
+        let ability = |n: &str| sp.abilities.iter().find(|a| a.name == n).unwrap_or_else(|| panic!("no {n}"));
+        let buff = |n: &str| sp.buffs.iter().find(|b| b.name == n).unwrap_or_else(|| panic!("no {n}"));
+        // 2pc: half a Fists of Fury tick, 1 / (1 + 3 x 0.10) of the calibrated source
+        let d = ability("set_ww_2pc").damage.clone().unwrap();
+        assert_eq!(d.scale.as_deref(), Some("0.5/(1+0.1*3)"));
+        assert_eq!(ability("set_ww_2pc").source.as_deref(), Some("fists_of_fury"));
+        // 4pc: Unbroken Rhythm, 6 stacks of 20s, +10% to the kicks and +20% to Spinning Crane Kick
+        let b = buff("unbroken_rhythm");
+        assert_eq!((b.duration, b.max_stacks), (20.0, 6));
+        assert_eq!(b.ability_pct["rising_sun_kick_damage"], 10.0);
+        assert_eq!(b.ability_pct["spinning_crane_kick_tick"], 20.0);
+        // a stack per Fists of Fury tick (a dot patch) and per 2pc tick; spent by kicks and at the crane kick's end
+        let fof = ability("fists_of_fury").dot.clone().unwrap();
+        assert_eq!(fof.on_tick.len(), 1);
+        assert_eq!(ability("set_ww_2pc").on_cast.len(), 1);
+        assert_eq!(ability("rising_sun_kick").on_cast.len(), 4);
+        assert_eq!(ability("rushing_wind_kick").on_cast.len(), 2);
+        let sck = ability("spinning_crane_kick").channel.clone().unwrap();
+        assert_eq!(sck.on_finish.len(), 1);
     }
 
     #[test]
