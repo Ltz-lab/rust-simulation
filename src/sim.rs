@@ -2005,7 +2005,7 @@ impl<'a> State<'a> {
         }
         let cc = self.crit_chance(crit_bonus, crit_mods);
         let crit = self.rng.f64(self.c.crit_stream(src)) < cc * crit_mult;
-        let cm = p.crit_multiplier + crit_dmg + crit_dmg_per_crit * cc + self.buff_sum(&self.c.crit_dmg_buffs);
+        let cm = p.crit_multiplier + crit_dmg + crit_dmg_per_crit * cc + p.crit_damage_per_crit * (cc - p.crit_damage_pivot) + self.buff_sum(&self.c.crit_dmg_buffs);
         let dmg = base * m * if crit { cm } else { 1.0 };
         self.record(src, dmg, crit);
         if !self.c.echoes.is_empty() && !self.c.echo_row[src] {

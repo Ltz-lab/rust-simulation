@@ -96,6 +96,27 @@ different highest/lowest stats would need its own buff.
   Demonic window and Metamorphosis falls from 2.8 casts a fight to 2.1.
 - The default gear's embellishments: Venomfang and Rune of Unleashed Fire.
 
+## Full profile against SimC
+
+Sample profile (`--gear`), SimC 20,000 iterations, azsim 10,000 (seed 1), tier
+set on: SimC 260,982, azsim 246,617 (-5.5%) before, 257,804 (-1.22%) after.
+Three changes, in order of worth:
+
+- **Know Your Enemy** scales the crit multiplier with crit chance (SimC
+  `composite_player_critical_damage_multiplier`: x(1 + 0.4 x crit), about 0.8 on
+  a 2.05 base). The flat 2.4 was the reference's average; the full profile stacks
+  more crit (Initiative, potion, trinkets) and SimC's multiplier there is 2.52 at
+  57% crit to 2.67 at 71%. `[player] crit_damage_per_crit = 0.8` with a pivot at
+  the core kit's average crit chance (0.52) keeps the core kit where it was
+  (158,814 against 159,675, from 158,386) and follows the slope with gear. The
+  crit probe's error goes from -1.80 to +1.03 points.
+- **Font of Venomous Rage** went off on cooldown; SimC's APL waits for Initiative
+  outside Metamorphosis and Essence Break (`use_items`), so it landed with 42%
+  crit instead of 71%.
+- **Essence Break's debuff** is applied 0.25s after the cast and then lasts its
+  full 4s (+2s with the 4pc): 4.25s from the cast, not 4.0. Relentless
+  Onslaught's free casts also echo. Echoes 38.5 -> 41.0 a fight (SimC 45.1).
+
 ## Known gaps
 
 - **Eye Beam / Abyssal Gaze split**: the family's total is right (16.5 channels

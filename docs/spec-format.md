@@ -94,6 +94,9 @@ regen_hasted = true         # x current haste, buffs included
 [player]
 weapon = { min = 0, max = 0, speed = 1.8 }
 off_hand = { min = 0, max = 0, speed = 1.8 }   # own swing timer, first swing at half
+crit_multiplier = 2.4         # crit damage multiplier ...
+crit_damage_per_crit = 0.8    # ... plus 0.8 x (crit chance - pivot), for crit damage that scales with
+crit_damage_pivot = 0.52      #     crit chance (Havoc's Know Your Enemy); multiplier is 2.4 at the pivot
 
 [auto_attack]
 replace_with = "mh_swing"
