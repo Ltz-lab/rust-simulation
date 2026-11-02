@@ -70,9 +70,33 @@ below come out of the rotation and procs.
   rotation is GCD-bound and those surpluses crowd out the Lava Lash / Voltaic
   Blaze / Crash Lightning filler, so the DPS sits 4.0% low even though every
   modelled source matches per hit.
-- Fire Nova (Voltaic Blaze's Fire Nova talent) and the MID2 2-piece's Fire Nova
-  Explosion are not modelled.
+- The Fire Nova talent (Voltaic Blaze rolls a Fire Nova Explosion, about 6 a
+  fight) is not modelled. The MID2 2-piece's Fire Nova Explosion is, with gear
+  lines (see Tier set below).
 - Windfury/Stormstrike proc rolls use SimC's per-hit chance; SimC's own
   deck-RNG guarantees (Tempest, Storm Unleashed, Doom Winds from stacks) are
   approximated with flat per-stack chances.
 - No `[gear]` table yet: the spec runs on the reference's buffed stats.
+
+## Tier set (Midnight season 2, set 2065)
+
+`[[gear.effects]]` entries for 2pc 1296627 and 4pc 1296628 in `specs/enhancement_stormbringer.toml`, applied with gear lines when the pieces are worn (`--set gear.set_bonuses=0` turns them off). Mechanics from `sc_shaman.cpp` (`burning_core`, `short_circuit`, `fire_nova_explosion_t`, `crash_lightning_t`, `crash_lightning_attack_t`), numbers from the set spells and Burning Core / Short Circuit (1299975, 1299991) in the game data.
+
+- **2pc**: Voltaic Blaze leaves Burning Core for 6s; it ticks every 2s and each tick is a Fire Nova Explosion (333977, 0.99682 AP), which Burning Core makes deal +200%. Three explosions per Voltaic Blaze, at 2, 4 and 6s. The explosion is a new source with no calibration entry: its multiplier is the spell-data `derived` value (1.4025: the spec's +25%, Elemental Tempo, Natural Gift) times the residual the calibration fits for Ascendance's hit (same derived set), 1.062781, so it follows the other sources rather than being fitted to its own hits. Average hit, crits included: 59,759 in azsim against 58,767 in SimC (SimC's average includes about 6 unamplified Fire Nova talent explosions a fight); crit rate 35.2% against 40.2%, the same offset azsim has on its other fire hits (Flametongue Attack 36.3% against 41.6% without the set).
+- **4pc**: each explosion takes 2s off Crash Lightning's cooldown and adds a Short Circuit stack (+8%, 5 stacks, 15s). A Crash Lightning cast spends the stacks: the Crash Lightning hit that Stormstrike and Lava Lash add is multiplied by 1 + the average of the live enhancement stacks' values, and the storm it leaves multiplies each tick by its own stacks.
+- **Rotation**: with the 2pc the Stormbringer APL casts Voltaic Blaze ahead of Crash Lightning while Maelstrom Weapon is under 9 stacks (`voltaic_blaze,if=set_bonus.midnight_season_2_2pc&buff.maelstrom_weapon.stack<9`); the fragment adds that line. Without the set the rotation is unchanged.
+
+Profile `MID2_Shaman_Enhancement`, gear lines, seed 1, Patchwerk 300s, one target; SimC 0.05% error, azsim 12,000 iterations (0.07% at 95%). Off is as in [elemental-shaman.md](elemental-shaman.md#tier-set-midnight-season-2-set-2065).
+
+| | SimC | azsim |
+|---|---:|---:|
+| Full profile DPS | 248,245 | 230,414 (-7.2%) |
+| Set bonuses off | 218,796 | 203,688 (-6.9%) |
+| Tier gain | +13.46% | +13.12% |
+| 2pc alone | +6.7% | +8.68% |
+| 4pc on top of the 2pc | +6.1% | +4.08% |
+| Voltaic Blaze casts a fight (full / off) | 28.5 / 15.4 | 28.1 / 11.7 |
+| Fire Nova Explosion hits a fight (full) | 92.5 | 83.1 |
+| Crash Lightning casts a fight (full / off) | 55.9 / 43.5 | 43.8 / 31.2 |
+
+The total is close but the two halves are off by about two points each, in opposite directions (the 2pc-alone rows for SimC come from a 0.14% error run, about +-0.2 points). The 2pc reads high, most likely because azsim's off baseline casts Voltaic Blaze less often (11.7 a fight against 15.4); the set's priority line takes both to about 28, so azsim gains 16 casts of three explosions each where SimC gains 13. The 4pc reads low because azsim's Storm Unleashed storm hangs on its own buff, not on the Crash Lightning cast, so the 12 extra casts the 4pc brings add no storm hits (SimC: 100.2 storm hits a fight against 77.9 off; azsim 65.3 against 66.4). Not modelled: the Fire Nova talent's explosions (they would also feed the 4pc), and Feral Spirit's Crackling Surge and Molten Weapon stacks, which the explosion shares with the calibration's residual.

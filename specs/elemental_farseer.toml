@@ -55,6 +55,140 @@ haste = 0.01726  # [simc/db2]
 mastery = 0.07594  # [simc/db2]
 versatility = 0.00356  # [simc/db2]
 
+# ---------------------------------------------------------------- class set
+# Midnight season 2 Elemental set (2065; 2pc 1296625, 4pc 1296626), applied with
+# gear lines when the pieces are worn (`--set gear.set_bonuses=0` turns it off).
+# Fragment format as data/item_effects.toml; numbers from the set spells through
+# ${...}. Mechanics from SimC's sc_shaman.cpp (buff mid2_ele_4pc_builder /
+# _spender) and its default Elemental APL. [db2, simc]
+
+# 2pc (1296625): effect 1, +25% direct damage to the spells in its class mask:
+# Earth Shock, Earthquake and Elemental Blast (and their overloads) [db2
+# SpellClassOptions]; effect 2 is the same for Earthquake's periodic damage.
+# This spec casts only Elemental Blast (no Earthquake or Earth Shock on one
+# target), so that is what it scales: the cast, its overloads and the Power of
+# the Maelstrom one. The ancestors' Elemental Blast (465717) isn't in the mask.
+[[gear.effects]]
+spell = 1296625
+text = """
+precombat = ["set_elemental_2pc"]
+
+[[buffs]]
+name = "set_elemental_2pc"
+duration = 1e9
+ability_pct = { elemental_blast = ${e1}, elemental_blast_overload = ${e1}, elemental_blast_foe = ${e1}, elemental_blast_overload_foe = ${e1} }
+
+[[abilities]]
+name = "set_elemental_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_elemental_2pc" }]
+"""
+
+# 4pc (1296626): Flowing Elements (1300219, 4 stacks, 20s) arrives as two
+# stacks when Stormkeeper ends or Ascendance ends (four at the end of
+# Ascendance if Stormkeeper ended inside it). It gives +25% (effect 1) to Lava
+# Burst, Lightning Bolt and their overloads, and every Lava Burst or Lightning
+# Bolt cast spends one stack and grants Overcharge! (1300222, 20s): the next
+# Elemental Blast (Earth Shock, Earthquake) costs nothing. A cast made while
+# Overcharge! is up refreshes it rather than stacking.
+# The default APL changes with the set [simc apl_shaman.cpp, set_bonus.mid2_4pc]:
+# Stormkeeper whenever it is ready and not up, Ascendance on cooldown, spend
+# Stormkeeper charges before Ascendance, spend Overcharge! with Elemental Blast
+# before the next builder, and Lava Burst while Flowing Elements is up. The
+# rotation entries below are those lines.
+[[gear.effects]]
+spell = 1296626
+text = """
+[[buffs]]
+name = "flowing_elements"
+duration = ${1300219.duration}
+max_stacks = ${1300219.stacks}
+flat = true
+ability_pct = { lava_burst = ${1300219.e1}, lava_burst_overload = ${1300219.e1}, lava_burst_asc = ${1300219.e1}, lava_burst_overload_asc = ${1300219.e1}, lightning_bolt = ${1300219.e1}, lightning_bolt_overload = ${1300219.e1} }
+
+[[buffs]]
+name = "overcharge_tier"
+duration = ${1300222.duration}
+
+# markers: Stormkeeper is running; it ended inside Ascendance
+[[buffs]]
+name = "fe_sk_up"
+duration = 1e9
+
+[[buffs]]
+name = "fe_buffer"
+duration = 1e9
+
+# a Lava Burst or Lightning Bolt cast: spend a stack, arm the free spender
+[[abilities]]
+name = "fe_spend"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.flowing_elements.up", then = [{ type = "consume", buff = "flowing_elements" }, { type = "buff", buff = "overcharge_tier" }] }]
+
+# Stormkeeper has just run out (last charge spent or timed out)
+[[abilities]]
+name = "fe_sk_check"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "!buff.stormkeeper.up&buff.fe_sk_up.up", then = [{ type = "consume", buff = "fe_sk_up", all = true }, { type = "if", if = "buff.ascendance.up", then = [{ type = "buff", buff = "fe_buffer" }], else = [{ type = "buff", buff = "flowing_elements", stacks = 2 }] }] }]
+
+[[abilities]]
+name = "fe_asc_ended"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "if", if = "buff.fe_buffer.up", then = [{ type = "consume", buff = "fe_buffer", all = true }, { type = "buff", buff = "flowing_elements", stacks = 4 }], else = [{ type = "buff", buff = "flowing_elements", stacks = 2 }] }]
+
+[[patch]]
+ability = "stormkeeper"
+on_cast = [{ type = "buff", buff = "fe_sk_up" }]
+
+[[patch]]
+buff = "stormkeeper"
+on_expire = [{ type = "trigger", ability = "fe_sk_check" }]
+
+[[patch]]
+buff = "ascendance"
+on_expire = [{ type = "trigger", ability = "fe_asc_ended" }]
+
+[[patch]]
+ability = "lava_burst"
+on_cast = [{ type = "trigger", ability = "fe_spend" }]
+
+[[patch]]
+ability = "lightning_bolt"
+on_cast = [{ type = "trigger", ability = "fe_spend" }, { type = "trigger", ability = "fe_sk_check" }]
+
+[[patch]]
+ability = "elemental_blast"
+set = { free_with = "overcharge_tier" }
+
+[[rotation]]
+action = "stormkeeper"
+if = "!buff.stormkeeper.up"
+after = "potion"
+
+[[rotation]]
+action = "lightning_bolt"
+if = "buff.stormkeeper.up&cooldown.ascendance.remains<2*gcd"
+after = "ancestral_swiftness"
+
+[[rotation]]
+action = "ascendance"
+after = "flame_shock"
+
+[[rotation]]
+action = "elemental_blast"
+if = "buff.flowing_elements.up&buff.overcharge_tier.up"
+after = "ascendance"
+
+[[rotation]]
+action = "lava_burst"
+if = "!buff.master_of_the_elements.up&maelstrom<110&buff.flowing_elements.up"
+after = "lava_burst"
+"""
+
 [fight]
 duration = 300  # [simc/db2]
 variance = 0.2  # [simc/db2]

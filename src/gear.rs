@@ -1542,6 +1542,37 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
         assert!((m_fire / m_none - 1.01901).abs() < 1e-9, "{}", m_fire / m_none);
     }
 
+    /// The Shaman tier set (2065) is modelled for both specs: the profile's pieces
+    /// reach the 2pc and 4pc, nothing is left `unmodelled`, the spec still compiles
+    /// with the fragments in it, and `set_bonuses = 0` takes them out again.
+    #[test]
+    fn shaman_tier_set_is_modelled() {
+        let cases = [
+            (include_str!("../specs/elemental_farseer.toml"), include_str!("../profiles/MID2_Shaman_Elemental.simc"), ["set_elemental_2pc", "fe_spend"]),
+            (include_str!("../specs/enhancement_stormbringer.toml"), include_str!("../profiles/MID2_Shaman_Enhancement.simc"), ["set_enhancement_2pc", "fire_nova_explosion"]),
+        ];
+        for (spec, profile, abilities) in cases {
+            let doc: toml::Value = toml::from_str(spec).unwrap();
+            let (out, rep) = apply_text(doc.clone(), profile).unwrap();
+            assert_eq!(rep["unmodelled"], json!([]));
+            let sets: Vec<&Value> = rep["effects"].as_array().unwrap().iter().filter(|r| r["set"] == 2065).collect();
+            assert_eq!(sets.iter().map(|r| r["pieces"].as_i64().unwrap()).collect::<Vec<_>>(), [2, 4]);
+            assert!(sets.iter().all(|r| r["status"] == "modelled"));
+            let sp: crate::spec::Spec = out.try_into().unwrap();
+            for a in abilities {
+                assert!(sp.abilities.iter().any(|x| x.name == a), "missing {a}");
+            }
+            crate::sim::Compiled::new(sp).unwrap();
+
+            let mut off = doc;
+            off["gear"].as_table_mut().unwrap().insert("set_bonuses".into(), toml::Value::Float(0.0));
+            let (out, rep) = apply_text(off, profile).unwrap();
+            assert!(rep["effects"].as_array().unwrap().iter().filter(|r| r["set"] == 2065).all(|r| r["status"] == "off"));
+            let sp: crate::spec::Spec = out.try_into().unwrap();
+            assert!(sp.abilities.iter().all(|x| x.name != abilities[0]));
+        }
+    }
+
     #[test]
     fn effects_switch_off_count_pieces_and_report_unmodelled() {
         let profile = format!("{RET_CORE_PROFILE}{RET_TRINKETS}");
