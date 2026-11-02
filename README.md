@@ -60,7 +60,9 @@ and any spec gets trinket effects and set bonuses from an
 level: on the app's Ret character azsim gives 227,081 against SimC's
 like-for-like 225,566 (+0.67%,
 [full kit vs SimC](docs/retribution.md#full-kit-a-real-character-against-simc)).
-Gear layers with kits and omnium tables now also cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw ([numbers](docs/gear.md#omnium)); their tier sets are unmodelled.
+Gear layers with kits and omnium tables now also cover Frost DK, Marksmanship, Survival, Windwalker and Outlaw ([numbers](docs/gear.md#omnium)).
+The Midnight season 2 class set is modelled for every DPS spec ([tier gains against SimC](docs/gear.md#midnight-season-2-class-sets));
+Devourer (+6 points), Fire (+3.9) and Outlaw (-1.7) miss SimC's tier gain by more than 1.5 points, and Blood's set is unmodelled.
 Not yet built: most gear effects beyond the library's, multi-target, movement,
 healers, tank survivability (Protection models damage only), Warcraft Logs ingestion. See the [roadmap](docs/roadmap.md).
 
