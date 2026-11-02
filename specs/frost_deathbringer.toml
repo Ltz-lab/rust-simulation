@@ -49,6 +49,53 @@ crit_multiplier = 2.08   # [obs] crit_bonus total 1.0808 in the log
 weapon = { min = 0, max = 0, speed = 2.6 }
 off_hand = { min = 0, max = 0, speed = 2.6 }
 
+# How `--gear profile.simc` turns gear into the [player] stats above (see
+# docs/gear.md). All [obs] from SimC's reported stats unless tagged.
+[gear]
+primary = "strength"
+base_primary = 760.7          # [obs] 2611 buffed strength / 1.05 less the items' 1726
+primary_mult = 1.05           # [obs] plate specialization (food +50 gives +55 strength)
+attack_power_mult = 1.05      # [obs] Battle Shout: 2611 strength -> 2741 attack power (no flat weapon attack power, one-handers)
+crit_bonus = 0.05             # [obs] 19.37% at 661 rating (14.37% from rating)
+haste_mult = 1.04             # [obs] 26.41% at 948 rating (21.54%): x1.04, as Unholy
+rating_mult = { crit = 1.02, haste = 1.02, mastery = 1.02, versatility = 1.02 }   # [obs] Human, The Human Spirit: SimC's 661 = 648 x 1.02, 948 = 929 x 1.02, 1382 = 1355 x 1.02, 109 = 107 x 1.02
+mastery_points = 10           # [obs] 0.8008 at 1382 rating (30.04 points from rating): 10 points x 2.0% = 20% more than the rating's
+mastery_coeff = 2.0           # [obs] Frozen Heart, % per mastery point
+versatility_bonus = 0.03      # [obs] Mark of the Wild
+spec_id = 251                 # [simc] DEATH_KNIGHT_FROST (ChrSpecialization 251)
+
+# Rune of Burning Haste's time-averaged haste (340 rating, 8.0%), which the
+# spec folds into [player].haste above the sheet's 26.41%: 0.3439 - 0.2641
+[gear.procs]
+haste = 0.0798
+
+# Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
+# calibration reference has these on, so their worth is inside the fitted
+# multipliers; a character with fewer gets it taken back out, trait by trait.
+# tools/omnium.py ablate at 20,000 iterations: core kit 163,016 with all, 158,100 with
+# none, +3.11%. Each value is the leave-one-out ratio, rescaled so the product
+# is exactly all / none.
+[gear.omnium]
+baseline = ["rune_of_unleashed_fire", "rune_of_lynxlike_reflexes", "rune_of_lingering", "rune_of_burning_haste", "rune_of_overload"]
+traits = [
+  { id = "rune_of_unleashed_fire", name = "Rune of Unleashed Fire", global_mult = 1.01600 },   # [simc] leave-one-out 1.03084
+  { id = "rune_of_lynxlike_reflexes", name = "Rune of Lynxlike Reflexes", global_mult = 1.00008 },   # [simc] leave-one-out 1.00016
+  { id = "rune_of_lingering", name = "Rune of Lingering", global_mult = 1.00105 },   # [simc] leave-one-out 1.00200
+  { id = "rune_of_burning_haste", name = "Rune of Burning Haste", global_mult = 1.01193 },   # [simc] leave-one-out 1.02295
+  { id = "rune_of_overload", name = "Rune of Overload", global_mult = 1.00176 },   # [simc] leave-one-out 1.00337
+]
+
+# Raid-night kit with gear lines (see Ret): SimC's default level-90 Frost DK
+# consumables plus Bloodlust. --set gear.kit.enabled=0 for core-kit runs.
+[gear.kit]
+enabled = 1
+precombat = ["full_kit"]      # Bloodlust at the pull; unlocks the potion
+stats = { primary = 79.1, crit_rating = 201, haste_rating = 32 }
+#   primary 79.1   Silvermoon Parade and the Void-Touched augment rune [obs: strength 2611 -> 2694, +83 buffed]
+#   crit 168       Flask of the Shattered Sun (rank 2) [obs: SimC buffed stats, 661 -> 829]
+#   crit/haste     Thalassian Phoenix Oil (rank 2) on both hands [obs: +33 crit, +32 haste]
+#   ratings are as SimC reports them, Human's +2% included (the kit is added after rating_mult)
+
 [fight]
 duration = 300
 variance = 0.2
@@ -73,6 +120,20 @@ name = "gear_procs"
 triggered_only = true
 gcd = 0
 on_cast = [{ type = "buff", buff = "venomcursed_crit" }]
+
+[[abilities]]
+name = "full_kit"
+gcd = 0
+triggered_only = true
+on_cast = [{ type = "buff", buff = "full_kit" }, { type = "buff", buff = "bloodlust" }]
+
+[[abilities]]
+name = "potion"
+spell_id = 1236994
+gcd = 0
+cooldown = 300
+requires_buff = "full_kit"
+on_cast = [{ type = "buff", buff = "recklessness" }]
 
 [auto_attack]
 replace_with = "mh_swing"
@@ -250,6 +311,21 @@ duration = 8
 name = "cryo_stack"                   # Cryogenic Chamber: one per Rime Howling Blast
 duration = 1e9
 max_stacks = 20
+
+# Raid-night kit (see [gear.kit]); only with gear lines
+[[buffs]]
+name = "full_kit"
+duration = 1e9
+
+[[buffs]]
+name = "bloodlust"          # [db2 2825: +30% haste, 40s]
+duration = 40
+haste_pct = 30
+
+[[buffs]]
+name = "recklessness"       # Potion of Recklessness (rank 2): highest secondary up, lowest down, 30s [db2 1236994]
+duration = 30
+stats = { mastery_rating = 1759.5, versatility_rating = -236.6 }   # [obs] SimC's stat timeline: mastery 1382 -> 3142 and versatility 109 -> -127 (1725 and -232, x1.02 Human); mastery is this gear's highest rating, versatility its lowest
 
 # ---------------------------------------------------------------- auto attacks
 
@@ -877,6 +953,11 @@ refresh = "extend"
 [[rotation]]
 action = "pillar_of_frost"
 if = "fight_remains<20|((cooldown.breath_of_sindragosa.remains>20|(cooldown.breath_of_sindragosa.remains<gcd&runic_power>=40))&runes>=2)"
+
+# Potion with the cooldowns [simc APL: potion,use_off_gcd=1,if=variable.cooldown_check|fight_remains<25]
+[[rotation]]
+action = "potion"
+if = "buff.pillar_of_frost.up|fight_remains<25"
 
 [[rotation]]
 action = "breath_of_sindragosa"
