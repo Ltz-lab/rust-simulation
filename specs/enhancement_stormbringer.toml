@@ -95,12 +95,9 @@ stats = { primary = 75.1, haste_rating = 165 }
 # Explosion (333977: 0.99682 AP, Fire and Nature), which Burning Core makes
 # deal +200% (effect 2: aura 271, mask on Fire Nova's family flags). Three
 # explosions per Voltaic Blaze, at 2, 4 and 6s.
-# The explosion is a new source, so it has no calibration entry. Its multiplier
-# is built the way the calibration builds the others': `derived` from the game's
-# spell modifiers [tools/effects.py derive, 333977: the spec's +25%, Elemental
-# Tempo +10% (1250364), Natural Gift +2% (1264691) = 1.4025, the same set as
-# Ascendance's hit] times the residual the calibration fits for that hit, 1.062781
-# (calibration/enhancement_stormbringer.toml, ascendance_damage). Overcharge's
+# The explosion has no calibration entry. Elemental Tempo +10% (1250364) and
+# Natural Gift +2% (1264691) give 1.122; the spec's global multiplier applies
+# separately. [db2] Overcharge's
 # crit damage reaches it (SimC: is_school(school, NATURE) is true for Fire and
 # Nature); the nature spells' extra crit chance in the calibration does not,
 # since SimC's explosion crits about as often as its fire and physical hits.
@@ -131,7 +128,7 @@ name = "fire_nova_explosion"
 spell_id = 333977
 triggered_only = true
 gcd = 0
-damage = { ap_coeff = 1.0067882, school = "firestorm", crit_damage_per_crit = 0.4, mastery = true, mult = 1.49055 }
+damage = { ap_coeff = 0.99682, school = "firestorm", crit_damage_per_crit = 0.4, mastery = true, mult = 1.122 }
 
 [[patch]]
 ability = "voltaic_blaze"
@@ -148,8 +145,8 @@ after = "stormstrike"
 # stack, 5 stacks, 15s). Crash Lightning spends the stacks. It keeps them as
 # the value of that cast's enhancement stack (12s): the Crash Lightning hit that
 # Stormstrike and Lava Lash add is multiplied by 1 + the average of the live
-# stacks' values, and the storm it leaves (Storm Unleashed) deals the stacks
-# it was cast with to every tick.
+# stacks' values. Storm ticks should use the stacks at cast time; currently
+# they use the latest sc_unleashed buff instead.
 #  sc_snap: one stack per Short Circuit stack spent, for as long as that cast's
 #    enhancement stack lives (12s). Their count over the enhancement stacks is
 #    the average, so the hit's weight N x (1 + 8% x sc_snap / N) = N + 8% x sc_snap.
@@ -277,7 +274,7 @@ duration = 15
 max_stacks = 2
 
 [[buffs]]
-name = "storm_unleashed"   # [db2 1262830] Crash Lightning ignores its cooldown and leaves a storm
+name = "storm_unleashed"   # [db2 1262830] Crash Lightning ignores its cooldown
 duration = 20
 max_stacks = 2
 
@@ -772,7 +769,9 @@ on_cast = [  { type = "buff", buff = "crash_lightning" },
   { type = "trigger", ability = "windfury_proc", chance_expr = "1.0" },   # Stormwell [db2 1264762]
   { type = "trigger", ability = "thorims_invocation" },
   { type = "trigger", ability = "flametongue_attack" },
-  { type = "if", if = "buff.storm_unleashed.up", then = [ { type = "consume", buff = "storm_unleashed" }, { type = "trigger", ability = "crash_lightning_unleashed" }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 1 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 2 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 3 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 4 }, { type = "trigger", ability = "crash_lightning_unleashed", delay = 5 }, ] },
+  { type = "consume", buff = "storm_unleashed" },
+  { type = "trigger", ability = "crash_lightning_unleashed", delay = 1, chance = 0.9 },
+  { type = "trigger", ability = "crash_lightning_unleashed", delay = 2, chance = 0.9 },
 ]
 
 [[abilities]]
@@ -989,8 +988,20 @@ action = "voltaic_blaze"
 if = "buff.doom_winds.up&buff.maelstrom_weapon.stack>=7&buff.maelstrom_weapon.stack<10"
 
 [[rotation]]
+action = "stormstrike"
+if = "buff.ascendance.up&buff.maelstrom_weapon.stack>0"
+
+[[rotation]]
 action = "ascendance"
 if = "!buff.doom_winds.up"
+
+[[rotation]]
+action = "stormstrike"
+if = "buff.doom_winds.up"
+
+[[rotation]]
+action = "crash_lightning"
+if = "buff.doom_winds.up"
 
 [[rotation]]
 action = "tempest"
