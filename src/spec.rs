@@ -257,6 +257,12 @@ pub struct AbilityDef {
     pub cooldown_on_start: bool,
     #[serde(default = "one_u32")]
     pub charges: u32,
+    /// Use another ability's cooldown and charges as one pool (an ability that
+    /// changes form but shares a cooldown). The cooldown, hasted and charges
+    /// fields are taken from that ability; resets and reductions of either
+    /// side hit the shared pool.
+    #[serde(default)]
+    pub shares_cooldown: Option<String>,
     /// Cast time in seconds (0 = instant). The ability resolves when the cast
     /// finishes; the player can't start anything else meanwhile.
     #[serde(default)]
@@ -753,6 +759,10 @@ pub struct BuffDef {
     /// Per-ability recharge speed-up while up (percent; 50 = recharges 1.5x faster).
     #[serde(default)]
     pub cooldown_rate_pct: HashMap<String, f64>,
+    /// While up, every unit of a resource gained (before the cap) adds this
+    /// many seconds to the buff: a window that a drain on the resource ends.
+    #[serde(default)]
+    pub extend_per_gain: HashMap<String, f64>,
     /// Per-DoT tick rate increase while up, keyed by DoT name (percent per
     /// stack; 40 = ticks 1.4x as often). Takes effect from the next tick.
     #[serde(default)]

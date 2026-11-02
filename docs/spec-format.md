@@ -282,6 +282,15 @@ charge is back, 0 at full charges). A `gain` with `amount_expr` may subtract res
 A trigger may use `count = "<expression>"` and `interval` to schedule repeated
 activations; the count is evaluated at the trigger and limited to 1000.
 
+`shares_cooldown = "reap"` on an ability makes it use another ability's cooldown and charges
+as one pool (a form change that keeps the cooldown, like Reap and Cull). It takes that ability's
+`cooldown`, `cooldown_hasted` and `charges`, and `reset_cooldown`, `reduce_cooldown` and
+`cooldown.X.*` on either name act on the pool. The target must have its own cooldown.
+
+A buff's `extend_per_gain = { fury = 0.0455 }` adds that many seconds for every unit of the
+resource gained (counted before the resource's cap, only through `gain` effects) while the
+buff is up: a window that a drain on the resource ends, without modelling the drain.
+
 ## Additional effect timing and selection
 
 `on_begin` runs for an owner action after its cast time is determined and

@@ -13,10 +13,10 @@
 # The spec runs on fury (140) and soul fragments (10). About a quarter of the
 # direct hits shatter a fragment (Shattered Souls + Sweet Release [simc]);
 # Consume/Devour add two and Soul Immolation one every other tick. Reap and
-# Cull eat up to 4 fragments (10 while Moment of Craving is up), each giving one
-# Void Metamorphosis stack (outside Meta) or one Collapsing Star stack (inside).
-# 35 stacks open Void Metamorphosis, which drains fury and ends at 0 (modelled
-# as a fixed 25s window [obs]); inside it Consume becomes Devour, Reap becomes Cull,
+# Cull eat 4 fragments (10 while Moment of Craving is up, or what is there), each
+# giving one Void Metamorphosis stack (outside Meta) or one Collapsing Star stack (inside),
+# and 8% more damage (Soulshaper). 35 stacks open Void Metamorphosis, which drains fury and
+# ends at 0 (modelled as a base window plus time per fury gained); inside it Consume becomes Devour, Reap becomes Cull,
 # Voidblade becomes Pierce the Veil and Hungering Slash becomes Reaper's Toll.
 # 30 Collapsing Star stacks open Collapsing Star.
 
@@ -112,8 +112,14 @@ max_stacks = 35
 flat = true
 
 [[buffs]]
-name = "metamorphosis"       # [obs] 25.18s average window (200 starting Fury drained to 0)
-duration = 25
+name = "metamorphosis"       # [simc] ends when Fury drains to 0
+# SimC starts the window with Fury and drains it at 15/s plus 1.4*exp(0.0775*s), a tenth of
+# that while channelling Void Ray or casting Collapsing Star (devourer_fury_state), so every
+# Fury gained buys 1/drain seconds. The engine has no drain: the window is a base length plus
+# 1/22 s per Fury gained while it is up (`extend_per_gain`, 22/s is the drain averaged over
+# a window). The base [obs] puts the average window on SimC's 26.7s and 6.6 per fight.
+duration = 9.5
+extend_per_gain = { fury = 0.0455 }
 # [db2 1217607 #4] +0.4 x mastery (44.37% x 1.2 Enduring Torment) = +21.3%
 damage_pct = 21.3
 # [simc] Metamorphosis ends at 0 Fury: the drain eats everything gained in the
@@ -290,26 +296,25 @@ on_cast = [
 ]
 
 # Reap and Cull share an 8s cooldown with two charges (Second Helping) and the
-# recharge is hasted (Umbral Blade) [db2 1239537, 1272842]. A Void Ray's last
-# tick gives one charge back (Reap's outside, Cull's inside Metamorphosis) and
-# Devour knocks a second off the Cull recharge [simc].
+# recharge is hasted (Umbral Blade) [db2 1239537, 1272842]: one pool, Cull's
+# `shares_cooldown`. A Void Ray's last tick gives one charge back and Devour
+# knocks a second off the recharge [simc].
 [[abilities]]
 name = "reap"
 spell_id = 1226019
-cooldown = 16               # [db2] Reap and Cull share one 8s, 2-charge pool; the engine
-cooldown_hasted = true      # [db2 1272842 Umbral Blade] has per-ability cooldowns, so each
-charges = 2                 # [db2 1239537 Second Helping] side gets half the throughput
+cooldown = 8                # [db2] the pool Cull shares
+cooldown_hasted = true      # [db2 1272842 Umbral Blade]
+charges = 2                 # [db2 1239537 Second Helping]
 gcd = 1.24                  # [obs] 1.027s at 20.86% haste (SimC's double-hasted GCD)
+# Reap and Cull gather 4 souls, 10 with Moment of Craving, or what is there [db2 1238495].
 cost = { soul_fragment = 4 }
-damage = { sp_coeff = 6.0156, school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
+cost_expr = { soul_fragment = "4+buff.moment_of_craving.up*((soul_fragment>=10)*6+(soul_fragment<10)*(soul_fragment-4))" }
+# Soulshaper: each soul gathered adds 8% damage [db2 1238739 #1].
+damage = { sp_coeff = 6.0156, scale = "1+0.08*spent.soul_fragment", school = "cosmic", mastery = true, mastery_scale = 1.2 }   # [db2]
 source = "reap_damage"
 on_cast = [
   { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+spent.soul_fragment" },
-  # Moment of Craving: the Reap eats up to 6 more souls [db2 1238495]
-  { type = "if", if = "buff.moment_of_craving.up", then = [
-    { type = "buff", buff = "void_souls", set = "buff.void_souls.stack+6" },
-    { type = "consume", buff = "moment_of_craving", all = true },
-  ] },
+  { type = "consume", buff = "moment_of_craving", all = true },
 ]
 
 [[abilities]]
@@ -452,20 +457,17 @@ on_cast = [
 name = "cull"
 spell_id = 1245453
 requires_buff = "metamorphosis"
-cooldown = 8                # [db2] the whole pool is Cull's while Reap is unusable
-cooldown_hasted = true      # [db2 1272842 Umbral Blade]
-charges = 2                 # [db2 1239537 Second Helping]
+shares_cooldown = "reap"    # [simc] cooldown.reap: one pool for Reap and Cull
 gcd = 1.24                  # [obs]
+# Reap and Cull gather 4 souls, 10 with Moment of Craving, or what is there [db2 1238495].
 cost = { soul_fragment = 4 }
-damage = { sp_coeff = 7.736, school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
+cost_expr = { soul_fragment = "4+buff.moment_of_craving.up*((soul_fragment>=10)*6+(soul_fragment<10)*(soul_fragment-4))" }
+# Soulshaper: each soul gathered adds 8% damage [db2 1238739 #1].
+damage = { sp_coeff = 7.736, scale = "1+0.08*spent.soul_fragment", school = "cosmic", mastery = true, mastery_scale = 1.6 }   # [db2]
 source = "cull_damage"
 on_cast = [
   { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+spent.soul_fragment" },
-  # Moment of Craving: the Cull eats up to 6 more souls [db2 1238495]
-  { type = "if", if = "buff.moment_of_craving.up", then = [
-    { type = "buff", buff = "collapsing_star_stacks", set = "buff.collapsing_star_stacks.stack+6" },
-    { type = "consume", buff = "moment_of_craving", all = true },
-  ] },
+  { type = "consume", buff = "moment_of_craving", all = true },
 ]
 
 [[abilities]]
@@ -684,7 +686,6 @@ if = "!buff.metamorphosis.up"
 # The rotation takes the instant cast before anything else (SimC's APL: `consume,if=
 # buff.soulburst.up` and `devour,if=buff.soulburst.up`, and no Reap/Cull while it is up).
 # The instant casts repeat Consume's and Devour's numbers; they report under their sources.
-# Soulburst's own hit shatters a fragment on ~9.5% of hits in SimC; not modelled.
 [[gear.effects]]
 spell = 1296615
 text = '''
@@ -706,6 +707,14 @@ on_cast = [
   { type = "buff", buff = "soulburst" },
   { type = "buff", buff = "soulburst_rolls", set = "0" },
 ]
+
+# Soulburst's hit shatters a fragment on 9.5% of its hits [obs: 1.2 of 13 a fight in SimC; its
+# ability is aoe, and SimC's chance for the other direct hits is 26%].
+[[procs]]
+ability = "shatter_soul"
+on_hit = true
+chance = 0.095
+sources = ["soulburst_consume", "soulburst_devour"]
 
 # per-hit multipliers [obs]: the residual that puts azsim's non-crit hit on SimC's own
 # (soulburst_consume 87,754 and soulburst_devour 97,767 on the full sample profile; these

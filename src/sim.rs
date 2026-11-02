@@ -260,6 +260,10 @@ pub struct Compiled {
     auto_src: usize,
     oh_src: Option<usize>,
     abilities: Vec<CAbility>,
+    /// Per ability: the ability whose cooldown and charges it uses.
+    cd_head: Vec<usize>,
+    /// Per resource: (buff, seconds per unit gained) extensions.
+    gain_extend: Vec<Vec<(usize, f64)>>,
     buffs: Vec<BuffDef>,
     dots: Vec<CDot>,
     pets: Vec<CPet>,
@@ -300,6 +304,8 @@ pub struct Compiled {
 struct Names<'a> {
     res: &'a HashMap<String, usize>,
     ab: &'a HashMap<String, usize>,
+    /// Per ability: the ability whose cooldown and charges it uses (itself unless it shares).
+    cd_head: &'a [usize],
     buff: &'a HashMap<String, usize>,
     dot: &'a HashMap<String, usize>,
     pet: &'a HashMap<String, usize>,
@@ -317,6 +323,8 @@ impl Names<'_> {
         get(m, kind, n)
     }
     fn ab(&self, n: &str) -> Result<usize, String> { self.scoped(self.ab, "ability", n) }
+    /// The ability holding `n`'s cooldown state.
+    fn cd(&self, n: &str) -> Result<usize, String> { self.ab(n).map(|i| self.cd_head[i]) }
     fn dot(&self, n: &str) -> Result<usize, String> { self.scoped(self.dot, "dot", n) }
 }
 
@@ -345,7 +353,7 @@ impl<'a> Resolver for Names<'a> {
             ["active_enemies"] => Var::Const(1.0),
             ["spent", r] => Var::Spent(get(self.res, "resource", r)?),
             ["cooldown", a, f] => {
-                let i = self.ab(a)?;
+                let i = self.cd(a)?;
                 match *f {
                     "ready" | "up" => Var::CdReady(i),
                     "remains" => Var::CdRemains(i),
@@ -439,10 +447,10 @@ fn compile_effect(e: &Effect, n: &Names, site: &str, rolls: &mut Vec<String>) ->
         },
         Effect::Consume { buff: b, all } => CEffect::Consume { buff: get(n.buff, "buff", b)?, all: *all },
         Effect::ResetCooldown { ability, chance, keep_recharge } => {
-            CEffect::Reset { ab: n.ab(ability)?, chance: *chance, keep: *keep_recharge, rid: rid() }
+            CEffect::Reset { ab: n.cd(ability)?, chance: *chance, keep: *keep_recharge, rid: rid() }
         }
         Effect::ReduceCooldown { ability, seconds, seconds_expr, chance } => CEffect::Reduce {
-            ab: n.ab(ability)?,
+            ab: n.cd(ability)?,
             secs: *seconds,
             expr: seconds_expr.as_ref().map(|e| expr::parse(e, n).map_err(|err| format!("reduce_cooldown seconds '{e}': {err}"))).transpose()?,
             chance: *chance,
@@ -537,6 +545,22 @@ impl Compiled {
         if ab.len() != all.len() {
             return Err("duplicate ability names".into());
         }
+        // Abilities sharing a cooldown take the head's cooldown fields and its state.
+        let mut cd_head: Vec<usize> = (0..all.len()).collect();
+        for i in 0..all.len() {
+            if let Some(h) = all[i].0.shares_cooldown.clone() {
+                let hi = *ab.get(&h).ok_or_else(|| format!("ability '{}': shares_cooldown with unknown '{h}'", all[i].0.name))?;
+                if all[hi].0.shares_cooldown.is_some() || hi == i {
+                    return Err(format!("ability '{}': shares_cooldown must name an ability with its own cooldown", all[i].0.name));
+                }
+                let head = all[hi].0.clone();
+                let d = &mut all[i].0;
+                d.cooldown = head.cooldown;
+                d.cooldown_hasted = head.cooldown_hasted;
+                d.charges = head.charges;
+                cd_head[i] = hi;
+            }
+        }
         let pet: HashMap<String, usize> = spec.pets.iter().enumerate().map(|(i, p)| (p.name.clone(), i)).collect();
         if pet.len() != spec.pets.len() {
             return Err("duplicate pet names".into());
@@ -559,7 +583,14 @@ impl Compiled {
                 dot.insert(d.name.clone(), n);
             }
         }
-        let names = Names { res: &res, ab: &ab, buff: &buff, dot: &dot, pet: &pet, scope: "" };
+        let mut gain_extend: Vec<Vec<(usize, f64)>> = vec![vec![]; res_names.len()];
+        for (bi, b) in spec.buffs.iter().enumerate() {
+            for (rn, secs) in &b.extend_per_gain {
+                let r = *res.get(rn).ok_or_else(|| format!("buff '{}': extend_per_gain names unknown resource '{rn}'", b.name))?;
+                gain_extend[r].push((bi, *secs));
+            }
+        }
+        let names = Names { res: &res, ab: &ab, cd_head: &cd_head, buff: &buff, dot: &dot, pet: &pet, scope: "" };
         let scoped = |pi: Option<usize>| Names { scope: pi.map_or("", |i| spec.pets[i].name.as_str()), ..names };
 
         let rolls = std::cell::RefCell::new(Vec::<String>::new());
@@ -1017,6 +1048,8 @@ impl Compiled {
             auto_mods: buff_mods(&spec.buffs, "auto_attack", "auto_attack", "physical", None),
             buffs: spec.buffs.clone(),
             abilities,
+            cd_head,
+            gain_extend,
             dots,
             pets,
             pet_names: spec.pets.iter().map(|p| p.name.clone()).collect(),
@@ -1577,6 +1610,7 @@ impl<'a> State<'a> {
     }
 
     fn charges_now(&self, i: usize) -> u32 {
+        let i = self.c.cd_head[i];
         let max = self.c.abilities[i].def.charges;
         let mut n = self.charges[i];
         let mut t = self.recharge_at[i];
@@ -1597,6 +1631,7 @@ impl<'a> State<'a> {
     }
 
     fn sync_cd(&mut self, i: usize) {
+        let i = self.c.cd_head[i];
         let max = self.c.abilities[i].def.charges;
         while self.charges[i] < max && self.recharge_at[i] <= self.now + self.c.spec.fight.ready_tolerance {
             self.charges[i] += 1;
@@ -1611,10 +1646,12 @@ impl<'a> State<'a> {
     }
 
     fn cd_remains(&self, i: usize) -> f64 {
+        let i = self.c.cd_head[i];
         if self.charges_now(i) > 0 { 0.0 } else { (self.recharge_at[i] - self.now).max(0.0) }
     }
 
     fn start_cd(&mut self, i: usize) {
+        let i = self.c.cd_head[i];
         let d = &self.c.abilities[i].def;
         if d.cooldown <= 0.0 {
             return;
@@ -1663,6 +1700,12 @@ impl<'a> State<'a> {
         self.settle();
         let before = self.res[r];
         self.res[r] = (before + amt).clamp(0.0, self.c.res_max[r]);
+        if amt > 0.0 {
+            for k in 0..self.c.gain_extend[r].len() {
+                let (buff, secs) = self.c.gain_extend[r][k];
+                self.apply(&CEffect::ExtendBuff { buff, secs: amt * secs });
+            }
+        }
         if let Some(&src) = self.cur.last() {
             self.out.res_gain[src] += amt;
             self.out.res_waste[src] += amt - (self.res[r] - before);
@@ -3242,6 +3285,76 @@ action = "storm"
         st2.recharge_at[slow] = st2.now + 5e-6;
         st2.charges[slow] = 0;
         assert_eq!(st2.charges_now(slow), 1);
+    }
+
+    const SHARED_POOL: &str = r#"
+name = "shared pool test"
+rotation = []
+[player]
+attack_power = 1000
+crit = 0.0
+haste = 0.0
+versatility = 0.0
+[fight]
+duration = 100
+variance = 0
+[resources.focus]
+max = 100
+start = 0
+[[buffs]]
+name = "window"
+duration = 5
+extend_per_gain = { focus = 0.1 }
+[[abilities]]
+name = "reap"
+cooldown = 10
+charges = 2
+[[abilities]]
+name = "cull"
+shares_cooldown = "reap"
+[[abilities]]
+name = "refill"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "reset_cooldown", ability = "cull" }]
+[[abilities]]
+name = "open"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "window" }]
+[[abilities]]
+name = "feed"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "gain", resource = "focus", amount = 30 }]
+"#;
+
+    #[test]
+    fn shared_cooldown_is_one_pool_and_gains_extend_a_window() {
+        let c = compile(SHARED_POOL);
+        let mut st = state(&c);
+        let (reap, cull) = (ab(&c, "reap"), ab(&c, "cull"));
+        let window = c.buffs.iter().position(|b| b.name == "window").unwrap();
+        assert_eq!((st.charges_now(reap), st.charges_now(cull)), (2, 2));
+        cast(&mut st, "reap");
+        cast(&mut st, "cull");
+        // two charges spent between them, whichever side paid
+        assert_eq!((st.charges_now(reap), st.charges_now(cull)), (0, 0));
+        assert!(!st.usable(cull));
+        // a reset through either name gives the pool one charge back
+        cast(&mut st, "refill");
+        assert_eq!((st.charges_now(reap), st.charges_now(cull)), (1, 1));
+        assert!(st.usable(reap));
+        // 30 focus a gain, 0.1s each: the 5s window ends at 5, then at 8 after one gain
+        cast(&mut st, "open");
+        cast(&mut st, "feed");
+        advance(&mut st, 7.9);
+        assert!(st.buff_up(window));
+        advance(&mut st, 8.1);
+        assert!(!st.buff_up(window));
+        // a gain with the window down changes nothing
+        cast(&mut st, "feed");
+        assert!(!st.buff_up(window));
     }
 
     #[test]

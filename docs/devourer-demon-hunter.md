@@ -23,17 +23,21 @@ The spec runs on two resources and one counter:
   adds one; 35 stacks open Void Metamorphosis. Inside it fragments build
   Collapsing Star stacks instead, and 30 of those open Collapsing Star.
 
-Void Metamorphosis drains fury and ends at zero; the spec models the window as
-a fixed 25s buff (the log averages 25.2s of uptime) and empties fury when it
-ends, with Rolling Torment paying 5 Fury per leftover Collapsing Star stack.
+Void Metamorphosis drains fury and ends at zero. The engine has no drain, so the
+window is a base length (9.5s) plus 1/22 s for every Fury gained while it is up
+(`extend_per_gain`; SimC drains 15/s plus 1.4·exp(0.0775·s), a tenth of that while
+channelling Void Ray or casting Collapsing Star, 22/s on average over a window).
+That puts the average window on SimC's 26.7s, and lets a window shrink when a Reap
+takes the place of a Devour (24 Fury) as it does in SimC. The window empties fury
+when it ends, with Rolling Torment paying 5 Fury per leftover Collapsing Star stack.
 Inside it Consume becomes Devour, Reap becomes Cull, Voidblade becomes Pierce
 the Veil and Hungering Slash becomes Reaper's Toll, so the two pairings share
-one cast, with the damage row chosen by the buff. Reap and Cull share one 8s,
-2-charge, hasted cooldown in SimC; azsim has per-ability cooldowns, so Cull
-keeps the full 8s (it is the only spender while Metamorphosis is up) and Reap
-uses 16s, which keeps the pool's throughput. The Void Ray's last tick gives a
-charge back, Devour knocks a second off the recharge and Collapsing Star
-reduces Voidblade's cooldown by 10s (Voidrush). Each hero ability triggers one
+one cast, with the damage row chosen by the buff. Reap and Cull are one 8s,
+2-charge, hasted cooldown (`shares_cooldown`), and they gather 4 souls, 10 with
+Moment of Craving, or the fragments there are; Soulshaper adds 8% damage per soul
+gathered. The Void Ray's last tick gives a charge back, Devour knocks a second off
+the recharge and Collapsing Star reduces Voidblade's cooldown by 10s (Voidrush).
+Each hero ability triggers one
 Voidsurge per Metamorphosis (the first also repeats through Volatile
 Instinct); Voidsurge is a +10%-per-stack, 12s buff. Hungering Slash windows
 come from Voidblade/Pierce The Veil and The Hunt/Predator's Wake, and
@@ -57,8 +61,8 @@ only (no trinkets, tier set, consumables or Bloodlust), 300s Patchwerk,
 | | DPS |
 |---|---:|
 | reference | 164,261 |
-| azsim | 164,308 (±101) |
-| difference | **+0.03%** |
+| azsim | 164,254 (±158) |
+| difference | **-0.00%** |
 
 ## Gear
 
@@ -78,9 +82,8 @@ back.
 Blooming Feast, the Void-Touched rune, Flask of the Magisters, Thalassian
 Phoenix Oil, a primary-stat potion used inside Metamorphosis or the last 30s,
 and Bloodlust at the pull. `--set gear.kit.enabled=0` gives the core-kit run.
-With gear lines and no kit, azsim gives 164,350 DPS against SimC's 164,317
-(+0.02%, 5,000 iterations, seed 42), which is +0.01% against the spec-stats
-run.
+With gear lines and no kit, azsim gives 164,331 DPS against SimC's 164,322
+(+0.01%, `tools/check_gear.py ... --no-trinkets --dps`).
 
 ## Tier set (set 2056, 2pc and 4pc)
 
@@ -96,49 +99,67 @@ SimC's `sc_demon_hunter.cpp`.
 | 4pc | Reap and Cull +10% | `ability_pct` on both |
 | 4pc | the Soulburst cast grants Moment of Craving, gives back a Reap/Cull charge and spawns 2 fragments | `on_cast` effects on the Soulburst hit |
 
-Measured on the sample profile (SimC 20,000 iterations at 0.14% error, azsim 20,000
+Measured on the sample profile (SimC 20,000 iterations at 0.06% error, azsim 20,000
 iterations, seed 1, raid buffs on, kit on, trinkets as in the profile):
 
 | | SimC | azsim |
 |---|---:|---:|
-| set bonuses off | 230,132 | 232,398 |
-| 2pc only | 236,655 (+2.83%) | 240,205 (+3.36%) |
-| full set | 254,165 (+10.44%) | 271,130 (+16.67%) |
-| 4pc over the 2pc | +7.40% | +12.87% |
+| set bonuses off | 229,226 | 225,691 |
+| 2pc only | 236,880 (+3.34%) | 233,251 (+3.35%) |
+| full set | 253,768 (+10.71%) | 251,375 (+11.38%) |
+| 4pc over the 2pc | +7.13% | +7.77% |
 
-The 2pc matches (Soulburst procs 14.0 a fight with the 2pc alone against SimC's 13.9 for the full set; 15.7
-in azsim's full set; the hit 87,850 / 99,474 non-crit against 87,754 / 97,767). The 4pc overshoots by about 5 points: the spec's Reap and Cull are throttled by
-their cooldowns (the shared 8s pool is split, see Known gaps), so the charge the 4pc gives back is worth a
-cast each time (about +5% on its own), while in SimC the fragment supply is the limit and the same procs add
-only 5.4 casts (the 2 fragments a proc spawns add 0.3% here). Moment of Craving's +6 stacks are
-unconstrained by the fragments left, as for the Void Ray's, and are worth +2% of that. The set's
-Soulburst hit does not shatter fragments (SimC: 9.5% of its hits); not modelled. The Reap/Cull split and
-the fragment economy are the base spec's and are left alone, so the 4pc's gain is not tuned to SimC's.
+The tier gain is within 0.7 points of SimC and the full profile within 1%. Soulburst procs
+13.0 a fight with the 2pc alone in SimC and 14.0 with the full set; azsim 14.0 and 15.0.
+
+What it took to get there, each checked against SimC with an instrumented build that
+switches the 4pc effects off one at a time (full set 253,884; charge back off 251,712, Moment of
+Craving off 253,656, the two spawned fragments off 246,816, all three off 245,233; the +10%
+Reap/Cull damage is the rest). The charge was the 4pc's biggest lever in azsim (+3.9 points of
+the +14.4 it showed before) and is worth +0.9% in SimC:
+
+- **One Reap/Cull pool** (`shares_cooldown`). Reap and Cull had a cooldown each (16s and
+  8s) and the engine could not share them, so a charge given back was worth a full extra cast.
+- **Moment of Craving gathers what is there.** Reap and Cull cost 4 fragments, 10 with the
+  buff, capped by the fragments in hand (the extra 6 used to be free stacks), so the casts
+  after one wait for fragments as they do in SimC.
+- **Soulshaper**: +8% Reap/Cull damage per soul gathered (the talent the fitted Reap
+  multiplier of 1.9 was standing in for). A Reap that eats 10 is worth 1.37 times one that eats
+  4, so an extra cast that comes at the cost of the next one's fragments adds little.
+- **The Metamorphosis window follows Fury income.** In SimC a Reap or Cull in the place of a
+  Devour (24 Fury) shortens the window: with the pool at 6 charges (8.5 more casts) the
+  window falls from 26.7s to 25.6s and the DPS gain is +0.4%. A fixed 25s window made every
+  extra cast pure gain, which is most of the old overshoot.
+- Soulburst's hit shatters a fragment on 9.5% of hits (SimC: 1.2 of 13 a fight).
+
+The Soulburst hit multipliers (1.84 and 1.23) are still the fitted ones: no source for them
+turned up. They put the non-crit hit on SimC's (87,754 and 97,767), about two thirds of
+what Consume and Devour get per coefficient point.
 
 ## Structure: hit counts per fight
 
 | source | reference DPS | azsim DPS | diff | ref hits | azsim hits |
 |---|---:|---:|---:|---:|---:|
-| cull_damage | 35,054 | 35,247 | +0.5% | 34.7 | 34.9 |
-| reap_damage | 23,116 | 22,114 | -4.3% | 30.9 | 29.6 |
-| voidsurge | 15,501 | 17,117 | +10.4% | 24.8 | 27.4 |
-| devour | 15,481 | 12,915 | -16.6% | 46.1 | 38.5 |
-| reapers_toll_damage | 12,657 | 14,885 | +17.6% | 17.0 | 20.0 |
-| consume | 10,207 | 13,248 | +29.8% | 32.7 | 42.5 |
-| void_ray_tick_meta | 12,935 | 12,058 | -6.8% | 293.6 | 273.9 |
-| void_ray_tick | 9,914 | 5,720 | -42.3% | 313.6 | 181.1 |
-| pierce_the_veil_damage | 6,378 | 7,679 | +20.4% | 10.3 | 12.5 |
-| burning_blades | 7,429 | 7,467 | +0.5% | 61.3 | 61.7 |
-| collapsing_star_damage | 4,583 | 5,425 | +18.4% | 5.6 | 6.6 |
-| predators_wake_damage | 3,107 | 3,878 | +24.8% | 5.3 | 6.6 |
-| the_hunt_dot | 3,017 | 3,379 | +12.0% | 26.7 | 30.0 |
-| voidblade_damage | 1,363 | 394 | -71.1% | 3.5 | 1.0 |
-| hungering_slash_damage | 1,055 | 498 | -52.8% | 2.1 | 1.0 |
-| the_hunt_damage | 834 | 612 | -26.6% | 1.4 | 1.0 |
-| rune_of_unleashed_fire | 800 | 801 | +0.1% | 38.9 | 39.0 |
-| voidstep | 517 | 566 | +9.4% | 19.1 | 20.9 |
-| rune_of_unleashed_fire_lingering | 268 | 256 | -4.5% | 208.6 | 199.3 |
-| vengeful_retreat_damage | 13 | 14 | +2.1% | 20.5 | 20.9 |
+| cull_damage | 35,054 | 36,710 | +4.7% | 34.7 | 36.3 |
+| reap_damage | 23,116 | 22,398 | -3.1% | 30.9 | 29.9 |
+| voidsurge | 15,501 | 16,672 | +7.6% | 24.8 | 26.6 |
+| devour | 15,481 | 14,003 | -9.5% | 46.1 | 41.7 |
+| void_ray_tick_meta | 12,935 | 12,246 | -5.3% | 293.6 | 278.1 |
+| reapers_toll_damage | 12,657 | 12,154 | -4.0% | 17.0 | 16.3 |
+| consume | 10,207 | 11,294 | +10.6% | 32.7 | 36.3 |
+| void_ray_tick | 9,914 | 6,955 | -29.8% | 313.6 | 220.1 |
+| burning_blades | 7,429 | 7,701 | +3.7% | 61.3 | 63.7 |
+| pierce_the_veil_damage | 6,378 | 6,022 | -5.6% | 10.3 | 9.8 |
+| collapsing_star_damage | 4,583 | 5,357 | +16.9% | 5.6 | 6.5 |
+| predators_wake_damage | 3,107 | 3,549 | +14.2% | 5.3 | 6.1 |
+| the_hunt_dot | 3,017 | 3,321 | +10.1% | 26.7 | 29.5 |
+| voidblade_damage | 1,363 | 1,337 | -1.9% | 3.5 | 3.4 |
+| hungering_slash_damage | 1,055 | 2,130 | +101.8% | 2.1 | 4.3 |
+| the_hunt_damage | 834 | 871 | +4.4% | 1.4 | 1.4 |
+| rune_of_unleashed_fire | 800 | 801 | +0.1% | 38.9 | 38.9 |
+| voidstep | 517 | 555 | +7.3% | 19.1 | 20.5 |
+| rune_of_unleashed_fire_lingering | 268 | 256 | -4.6% | 208.6 | 199.3 |
+| vengeful_retreat_damage | 13 | 14 | +0.1% | 20.5 | 20.5 |
 
 ## Validation: stat probes
 
@@ -148,9 +169,9 @@ probe's stat delta to that base.
 
 | stat probe | reference DPS gain | azsim DPS gain | difference |
 |---|---:|---:|---:|
-| +500 crit | +11.56% | +11.30% | -0.26 pts |
-| +500 haste | +12.84% | +11.71% | -1.13 pts |
-| +500 mastery | +8.94% | +8.81% | -0.13 pts |
+| +500 crit | +11.56% | +11.32% | -0.25 pts |
+| +500 haste | +12.84% | +14.26% | +1.42 pts |
+| +500 mastery | +8.94% | +8.78% | -0.16 pts |
 | +500 versatility | +8.74% | +8.79% | +0.06 pts |
 | +200 intellect | +5.86% | +6.00% | +0.13 pts |
 
@@ -160,16 +181,17 @@ go through 1.2× (Enduring Torment) and the Metamorphosis window's extra
 
 ## Known gaps
 
-- **Metamorphosis is a fixed 25s buff, not a fury drain.** SimC starts the
-  window with 200 Fury and drains it to zero; the spec empties fury at expiry
-  and pays Rolling Torment's 5 Fury per leftover stack, but the window length
-  does not react to fury generation.
-- **The shared Reap/Cull cooldown is split.** Reap and Cull are one 8s,
-  2-charge, hasted cooldown in SimC; the engine's cooldowns are per ability, so
-  Cull keeps 8s (it is the only spender while Metamorphosis is up) and Reap
-  takes 16s. The total lands right (65 casts against 65.6) but the split
-  between Cull (-0%) and Devour (-17%) inside the window, and between Reap and
-  Consume outside it, is off by ~15-30%.
+- **Metamorphosis is a base length plus Fury income, not a drain.** SimC starts the window
+  with Fury and drains it at a rate that grows with time and drops to a tenth while
+  channelling Void Ray; the spec uses one average rate (22/s), so the window does not
+  shorten when the Void Ray channel comes late, and Fury sits at its cap in the window
+  (gains count toward the window even when the cap wastes them).
+- **Fragments are not objects.** SimC picks a fragment up 0.23s after it spawns, consumes the
+  oldest when more than 10 exist (giving its Fury and stack), and picks some up by
+  proximity (24 a fight) and with `pick_up_fragment` (19); azsim keeps a count, credits Fury at
+  creation and loses the fragments above 10 (36 a fight, stacks included). A Reap needs 4 here
+  (SimC takes what is there, 2 of 73 casts had fewer).
+- **Soul Splitter** (14.6 extra fragments a fight in SimC) is not modelled.
 - **Outside Void Ray runs low** (181 ticks against 314, -42%): the spec's
   outside Fury economy is smaller than SimC's, mostly because fragments are
   four Fury each credited at creation while SimC's pickup heals also pace the
