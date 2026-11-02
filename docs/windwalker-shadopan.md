@@ -141,3 +141,50 @@ flushes.
 - Not modelled: movement, multi-target (Spinning Crane Kick's Mark of the
   Crane stacks), Invoke Xuen and Strike of the Windlord (not talented in this
   profile).
+
+## Gear
+
+`[gear]`, `[gear.kit]` and `[gear.omnium]` let the spec take `--gear profile.simc`
+(the layer is in [gear.md](gear.md)). Measured from SimC on
+`profiles/MID2_Monk_Windwalker.simc` without trinkets and tier set:
+
+| constant | value | how |
+|---|---:|---|
+| base agility | 622 | SimC `gear_agility=0` gives 679 = 622 x 1.092 |
+| agility multiplier | 1.092 | `gear_agility` +1000 gives +1092 |
+| attack power multiplier | 1.05 | 2555 agility -> 2682 AP (Battle Shout; 2555 AP with `optimal_raid=0`) |
+| crit bonus | +14% | 27.48% at 620 rating = 13.48% + 14% |
+| haste multiplier | x1.05 | 29.44% at 1,024 rating (23.27%) |
+| mastery | 10 points x 2.32875 | 83.13% unbuffed, 87.78% buffed at 1,274 rating (2 points from Skyfury) |
+| versatility bonus | +3% | Mark of the Wild |
+| weapon attack power | 6.8809 per DPS | 1,072 at 155.80 two-hander DPS |
+| spec id | 269 | ChrSpecialization Windwalker |
+
+Kit (SimC buffed stats with and without each consumable): Harandar Celebration
++54 agility, Void-Touched augment rune +27, Flask of the Blood Knights +165
+haste, Thalassian Phoenix Oil +16 crit and +16 haste (the two-hander takes one),
+together +82 agility (+86 attack power), +181 haste, +16 crit. Bloodlust at the
+pull. Potion of Recklessness (+1,725 mastery, the highest rating, and -232
+versatility, the lowest) is used at the pull, as the APL does for Flurry Strikes
+without Xuen (`potion,if=talent.flurry_strikes&chi>2&time<5`). Omnium traits
+(20,000 iterations, core kit): 169,345 with all five, 164,187 with none (+3.14%);
+Unleashed Fire 1.01651, Self-Mending 1.00015, Lingering 1.00120, Critical Power
+1.01150, Overload 1.00179.
+
+Against SimC (`tools/check_gear.py`, no trinkets), every item level and rating
+matches, and buffed stats match to rounding (with kit: attack power 2,768, crit
+27.83%, haste 33.76%, mastery 87.78%, versatility 5.28%). DPS, 300s Patchwerk,
+SimC 5,000 iterations and azsim 5,000, seed 42, kit off: 169,360 vs 167,114
+(-1.33%, the spec's own calibration gap; hand-entered stats give 167,122).
+With the kit on (SimC 20,000 iterations, azsim 10,000, seed 1): SimC 192,139
+vs azsim 187,757 (-2.28%). Split out, consumables only 178,138 vs 176,775
+(-0.77%), consumables plus Bloodlust 184,678 vs 182,984 (-0.92%), consumables
+plus potion 183,055 vs 180,831 (-1.21%). The extra 0.95 points over the core-kit gap sit in how
+the rotation responds to Bloodlust and the potion together (SimC times Zenith
+off them; the spec casts it on cooldown). Mastery above about 1,500 rating also
+reads lower in azsim than SimC (2,999 rating: 153.97% vs 156.30%; 4,000: 179.50%
+vs 185.09%), which touches only the potion window.
+
+Not modelled with the full profile: the Midnight season 2 tier set (2pc and 4pc,
+set 2061). Both trinkets (Voracious Heart of Ula'tek, Zul'jin's Guillotine
+Technique) are in the effect library.

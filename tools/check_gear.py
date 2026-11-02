@@ -40,6 +40,7 @@ SPEC_BY_PROFILE = {
     "unholy": "unholy_rider",
     "protection": "protection_colossus",
     "blood": "blood_deathbringer",
+    "windwalker": "windwalker_shadopan",
 }
 DEFAULT_TALENTS = (
     "CYEAAAAAAAAAAAAAAAAAAAAAAAAAAAANbbzMzywMDAAAAAAjyYGmZsNmthZ2mxYMGmxCbDD"
