@@ -63,6 +63,9 @@ mastery_coeff = 0.625         # [obs] Sniper Training, % per mastery point (SimC
 versatility_bonus = 0.03      # [obs] Mark of the Wild
 weapon_ap_per_dps = 6.0       # [db2] weapon attack power 934.77 at 155.8 bow DPS x 6, as in [player]
 spec_id = 254                 # [db2] ChrSpecialization Marksmanship
+use_after = "trueshot"   # [simc] APL actions.trinkets: use_items right behind Trueshot
+use_items = { buff = "buff.trueshot.up|fight_remains<21", other = "cooldown.trueshot.remains>20" }   # [simc] buff trinkets with Trueshot, damage trinkets with Trueshot 20s+ away
+effect_mult = { physical = 1.0815, magic = 1.0609 }   # [simc] raid debuffs (Mystic Touch, Chaos Brand, Hunter's Mark) for library gear procs
 
 # Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
 # calibration reference has these on, so their worth is inside the fitted
