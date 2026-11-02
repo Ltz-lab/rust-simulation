@@ -95,3 +95,28 @@ DPS (300s Patchwerk, no trinkets, tier set off):
 |---|---:|---:|
 | core kit (`check_gear.py --dps --no-trinkets`, 5,000) | 155,380 | 157,037 (+1.07%) |
 | full kit (SimC 20,000, azsim 10,000, seed 1) | 180,080 | 177,053 (-1.68%) |
+
+## Tier set (Midnight season 2, set 2059)
+
+Modelled with gear lines, as the spec's `[[gear.effects]]` (`--set gear.set_bonuses=0`
+turns it off); numbers from the set spells through the game data.
+
+| piece | what it does | modelled as |
+|---|---|---|
+| 2pc (1296633) | Explosive Shot lasts 1s longer, its ticks (and direct damage) +5% | `add = { duration = 1 }` on its DoT, `ability_pct` buff (the direct +5% has nothing to act on) |
+| 4pc (1296634) | Aimed Shot and Rapid Fire +5%; each Explosive Shot tick takes 0.5s off Aimed Shot's and Rapid Fire's cooldowns | `ability_pct` buff, `reduce_cooldown` on the DoT's tick |
+
+Profile `MID2_Hunter_Marksmanship` (300s Patchwerk, one target, full kit, seed 1; SimC 600,000 iterations
+cap with target error 0.1%, azsim 100,000):
+
+| | SimC | azsim |
+|---|---:|---:|
+| tier gain (full / set bonuses off) | +7.13% | +7.24% |
+| 2pc alone / 4pc on top (partial runs, +-0.2) | +3.52% / +3.46% | +2.69% / +4.40% |
+| full-profile DPS | 242,273 | 231,896 (-4.28%; off: -4.38%) |
+
+The two pieces are off by about 0.8 points each, in opposite directions. In SimC the 2pc's extra
+Explosive Shot tick is worth more than an average tick: per-tick damage rises 12.7% (azsim +5.7%, the spell's
+5%), and its debug log shows a per-tick multiplier that grows along a cast (1.0, 1.4, 1.92 in one sample), which
+azsim's flat per-tick calibration can't follow. The 4pc's cooldown reduction buys azsim more Rapid Fire casts than
+SimC (+10.8% against +8.4%).
