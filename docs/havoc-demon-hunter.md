@@ -40,12 +40,43 @@ level and every rating against SimC, with and without trinkets: attack power
 versatility 8.98%. `--gear` gives 158,809 DPS against 158,811 from the
 hand-entered final stats (same seed, 5,000 iterations).
 
-Full-gear DPS is not validated: the Fel-Scarred tier set's bonuses (about 10%
-in SimC) are not in the effect library and the weapon oil's damage proc is not
-modelled, so SimC's full MID2 profile gives 261,044 against azsim's 224,740.
+Full-gear DPS: the Fel-Scarred tier set (set 2056) is modelled, see below; the weapon
+oil's damage proc is not. SimC's full MID2 profile gives 261,173 against azsim's 246,646
+(-5.6%; 225,732 / -13.5% before the set). The remaining gap is in the set-free character
+(224,745 against SimC's 235,185, -4.4%), as before.
 The potion is modelled as +1,725 crit rating and -232 versatility rating for
 30s, the highest and lowest secondaries on this gear set; other gear with
 different highest/lowest stats would need its own buff.
+
+## Tier set (set 2056, 2pc and 4pc)
+
+With gear lines the spec reads the Fel-Scarred class set from `[[gear.effects]]`
+(`--set gear.set_bonuses=0` turns it off; `--gear-stats` lists both bonuses as
+`modelled`). Numbers are DB2 spell data (1296611, 1296612, 258887, 1214887) and SimC's
+`sc_demon_hunter.cpp`.
+
+| bonus | effect | modelled as |
+|---|---|---|
+| 2pc | +12% damage to Chaos Strike/Annihilation, Blade Dance/Death Sweep, Essence Break and its echo (spell mod by class flags; SimC's per-hit damage rises 12.0% on each) | `ability_pct` on every hit source of those spells |
+| 4pc | Essence Break +35% (the cast, not the echo) and its debuff +2s (4s to 6s) | `ability_pct`; `extend_buff` on the cast |
+| 4pc | SimC's script: Essence Break joins Cycle of Hatred: its cooldown is cut 2.5s a stack (4 at most), each Eye Beam or Essence Break adds a stack, and at 1-3 stacks each takes a further 2.5s off the other | a `cycle_of_hatred` stack buff, `reduce_cooldown` on Essence Break, a shorter Eye Beam lockout |
+
+Measured on the sample profile (SimC 20,000 iterations at 0.14% error, azsim 20,000
+iterations, seed 1, raid buffs on, kit on, trinkets as in the profile; the "off" runs also
+switch off Bite of Zul'jan's 2pc, which is worth +0.65% in SimC and +0.45% here):
+
+| | SimC | azsim |
+|---|---:|---:|
+| set bonuses off | 235,185 | 224,745 |
+| 2pc only (no Bite) | 249,414 (+6.05%) | 239,593 (+6.61%) |
+| set 2056 (no Bite) | 259,493 (+10.34%) | n/a |
+| everything on | 261,173 (+11.05%) | 246,646 (+9.74%) |
+| 4pc over the 2pc | +4.04% | +2.94% |
+
+Essence Break casts 7.8 to 9.9 a fight (SimC 7.7 to 9.8), echoes 20.5 to 38.8 (23.0 to 45.0), cast hit
+74,650 to 111,253 (SimC 69,381 to 106,333). Cycle of Hatred's stacks start at zero at the pull, but
+the Eye Beam lockout is the spec's fixed 20s (the talent's own four-stack steady state), so only the
+cross terms shorten it (the ramp-up before four stacks is not modelled for Eye Beam's own cooldown).
 
 ## What is modelled
 
