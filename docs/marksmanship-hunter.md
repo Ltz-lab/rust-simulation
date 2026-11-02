@@ -47,6 +47,26 @@ agility +0.40. Probe references are `reference/mm_probe_*.json`.
   Blood Fletching procs on every hit. Crit multiplier 2.41, from the
   reference's own crit/noncrit ratio.
 
+## Gear: trinket timing and raid debuffs
+
+With `--gear` the spec follows SimC's trinket lines (`use_after = "trueshot"`,
+`use_items`): Voracious Heart goes up with Trueshot and Font of Venomous Rage
+only when Trueshot is 20s+ away. Left on cooldown, Font landed outside
+Trueshot's crit window (49.7% crit against SimC's 68.8%) and Voracious Heart
+was used 2.0 times a fight against 2.8. Library gear procs also take the raid
+debuffs (`effect_mult`, as the caster specs do), which calibrated sources
+already carry in their fitted multipliers. Sample profile, SimC 20,000
+iterations, azsim 10,000 (seed 1):
+
+| | SimC | azsim before | azsim after |
+|---|---:|---:|---:|
+| full profile, tier set off | 226,199 | 216,241 (-4.40%) | 222,670 (-1.56%) |
+| full profile, tier set on (needs the Hunter tier branch) | 242,381 | 231,842 (-4.35%) | 238,016 (-1.80%) |
+
+Font of Venomous Rage now reads high (23.9k against 19.3k DPS, crit 74% against
+69%), covering a shortfall elsewhere (Aimed Shot, Master Marksman, Moonlight
+Chakram and Lunar Storm are each 5-15% light, Steady Shot 40% heavy).
+
 ## Known gaps
 
 - Steady Shot is cast ~35 times a fight against the reference's ~25. The

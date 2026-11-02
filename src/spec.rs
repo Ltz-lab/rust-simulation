@@ -158,6 +158,15 @@ pub struct PlayerStats {
     pub mastery: f64,
     #[serde(default = "default_crit_mult")]
     pub crit_multiplier: f64,
+    /// Crit damage that grows with crit chance (Know Your Enemy: 0.8 = "crit
+    /// damage increased by 80% of your crit chance"), added to every hit as
+    /// `crit_damage_per_crit * (crit chance - crit_damage_pivot)`. `crit_multiplier`
+    /// is the multiplier at the pivot chance, so a spec calibrated at one crit
+    /// level follows the scaling when gear moves it. Zero leaves it flat.
+    #[serde(default)]
+    pub crit_damage_per_crit: f64,
+    #[serde(default)]
+    pub crit_damage_pivot: f64,
     /// Multiplier on all damage (racials, raid buffs, generic auras).
     #[serde(default = "one")]
     pub global_mult: f64,

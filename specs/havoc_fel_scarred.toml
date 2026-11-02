@@ -35,6 +35,13 @@ haste = 0.1686               # [obs] buffed snapshot; Metamorphosis and Furious 
 versatility = 0.0898         # [obs] buffed snapshot
 mastery = 0.877              # [obs] Mastery: Demonic Presence [db2 185164], all chaos-school abilities
 crit_multiplier = 2.4        # [obs] crit/non-crit of Chaos Strike; Know Your Enemy + Critical Chaos [db2 388118, 320413]
+# Know Your Enemy scales the crit multiplier with crit chance: x(1 + 0.4 x crit) [simc
+# demon_hunter_t::composite_player_critical_damage_multiplier, 0.8 x 0.5 at rank 2], a slope of
+# about 0.8 on a 2.05 base [obs: SimC full profile, 2.52 at 57% crit to 2.67 at 71%]. The flat 2.4
+# above is the multiplier at the reference's average crit chance, so the core kit stays put and
+# gear that stacks crit follows the slope.
+crit_damage_per_crit = 0.8
+crit_damage_pivot = 0.52
 # [db2] 2.6s warglaives. [obs] The effective cadence is slower: Vengeful Retreat
 # leaps out of melee range and cancels a swing or two each cast, so the reference
 # sees 139.8 landed main-hand hits a fight where a pure 2.6s cadence gives ~159.
@@ -57,6 +64,7 @@ spec_id = 577                 # [db2] ChrSpecialization
 # the calibrated sources carry in their fitted multipliers, Chaos Brand (+3%
 # magic), Mystic Touch (+5% physical) and Hunter's Mark (+3%). [simc]
 effect_mult = { physical = 1.0815, magic = 1.0609 }
+use_items = { other = "buff.initiative.up&buff.initiative.remains>2&!buff.metamorphosis.up&!buff.essence_break.up|fight_remains<19" }   # [simc] APL actions.items: Font of Venomous Rage
 
 # Omnium traits (omnium_talents= in the profile; docs/gear.md#omnium-traits). The
 # calibration reference has these on, so their worth is inside the fitted
@@ -503,7 +511,7 @@ ability = "essence_break_proc_damage"
 on_hit = true
 chance = 1.0
 icd = 1.0                                            # [obs] one proc a second while the debuff is up
-sources = ["chaos_strike_damage_1", "chaos_strike_damage_2", "annihilation_damage_1", "annihilation_damage_2", "blade_dance_first_blood", "blade_dance_first_blood_2", "blade_dance_first_blood_3", "blade_dance_first_blood_4", "death_sweep_first_blood", "death_sweep_first_blood_2", "death_sweep_first_blood_3", "death_sweep_first_blood_4"]
+sources = ["chaos_strike_damage_1", "chaos_strike_damage_2", "annihilation_damage_1", "annihilation_damage_2", "blade_dance_first_blood", "blade_dance_first_blood_2", "blade_dance_first_blood_3", "blade_dance_first_blood_4", "death_sweep_first_blood", "death_sweep_first_blood_2", "death_sweep_first_blood_3", "death_sweep_first_blood_4", "chaos_strike_onslaught_damage_1", "chaos_strike_onslaught_damage_2", "annihilation_onslaught_damage_1", "annihilation_onslaught_damage_2"]   # Relentless Onslaught's free cast echoes too [simc relentless_onslaught_t::impact]
 
 [[abilities]]
 name = "essence_break_proc_damage"
@@ -682,7 +690,7 @@ crit_pct = 10                                        # [db2 391215 #0]
 
 [[buffs]]
 name = "essence_break"
-duration = 4                                         # [obs] applied 0.25s after the cast, gone 4s later
+duration = 4.25                                      # [obs] applied 0.25s after the cast, gone 4s later: 4.25s from the cast
 
 [[buffs]]
 name = "eternal_hunt"
