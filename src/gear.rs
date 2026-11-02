@@ -1064,7 +1064,9 @@ fn apply_effects(doc: &mut toml::Value, eq: &[Equipped], gems: &[i64], cfg: &Gea
 /// `[[patch]]`: append lists to an existing ability's, buff's or pet's (`ability =` /
 /// `buff =` / `pet =`), e.g. `on_cast`; skipped when the target or anything in
 /// `requires` (ability names) isn't in the spec. `set = { field = value }`
-/// overwrites scalar fields instead.
+/// overwrites scalar fields instead, `dot = { on_tick = [..] }` appends to
+/// the lists of the ability's DoT and `prepend = { on_cast = [..] }` inserts
+/// at the front of a list.
 fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
     let mut p = p.as_table().cloned().ok_or("patch entries are tables")?;
     let (kind, name) = match (p.remove("ability"), p.remove("buff"), p.remove("pet")) {
@@ -1099,6 +1101,32 @@ fn patch(root: &mut toml::Table, p: toml::Value) -> Result<(), String> {
             let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'set' must be a table")) };
             for (f, x) in fields {
                 target.insert(f, x);
+            }
+            continue;
+        }
+        // `prepend = { on_cast = [..] }` puts the items in front of the ability's own, so they run first
+        if k == "prepend" {
+            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'prepend' must be a table of lists")) };
+            for (f, items) in fields {
+                let toml::Value::Array(mut items) = items else { return Err(format!("patch '{name}': prepend '{f}' must be a list")) };
+                let list = target.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                let old = list.as_array_mut().ok_or_else(|| format!("patch '{name}': '{f}' is not a list"))?;
+                items.append(old);
+                *old = items;
+            }
+            continue;
+        }
+        // `dot = { on_tick = [..] }` appends lists to the ability's own DoT (not the ability)
+        if k == "dot" {
+            let toml::Value::Table(fields) = v else { return Err(format!("patch '{name}': 'dot' must be a table of lists")) };
+            let dot = target
+                .get_mut("dot")
+                .and_then(|d| d.as_table_mut())
+                .ok_or_else(|| format!("patch '{name}': the ability has no dot"))?;
+            for (f, items) in fields {
+                let toml::Value::Array(items) = items else { return Err(format!("patch '{name}': dot '{f}' must be a list")) };
+                let list = dot.entry(f.as_str()).or_insert_with(|| toml::Value::Array(vec![]));
+                list.as_array_mut().ok_or_else(|| format!("patch '{name}': dot '{f}' is not a list"))?.extend(items);
             }
             continue;
         }
@@ -1542,5 +1570,40 @@ main_hand=mazeroa_warlords_fury,id=268213,ilevel=344,enchant_id=8689
                 assert!((b[k].as_f64().unwrap() - want).abs() < 6e-4, "{name} {k}: {} vs {want}", b[k]);
             }
         }
+    }
+
+    #[test]
+    fn patch_dot_prepend_and_pet_lists() {
+        let mut root: toml::Table = toml::from_str(
+            r#"
+            [[abilities]]
+            name = "cast"
+            on_cast = [{ type = "buff", buff = "b" }]
+            [abilities.dot]
+            name = "d"
+            on_tick = [{ type = "buff", buff = "x" }]
+            [[pets]]
+            name = "p"
+            [[pets.abilities]]
+            name = "old"
+            [[pets.rotation]]
+            action = "old"
+            "#,
+        )
+        .unwrap();
+        let p = |t: &str| toml::from_str::<toml::Value>(t).unwrap();
+        patch(&mut root, p("ability = \"cast\"\ndot = { on_tick = [{ type = \"buff\", buff = \"y\" }] }\nprepend = { on_cast = [{ type = \"consume\", buff = \"z\" }] }")).unwrap();
+        patch(&mut root, p("pet = \"p\"\nabilities = [{ name = \"new\" }]\nset = { rotation = [{ action = \"new\" }] }")).unwrap();
+        let a = &root["abilities"][0];
+        let ticks: Vec<&str> = a["dot"]["on_tick"].as_array().unwrap().iter().map(|e| e["buff"].as_str().unwrap()).collect();
+        assert_eq!(ticks, ["x", "y"]);
+        let cast: Vec<&str> = a["on_cast"].as_array().unwrap().iter().map(|e| e["type"].as_str().unwrap()).collect();
+        assert_eq!(cast, ["consume", "buff"]);
+        let pet = &root["pets"][0];
+        assert_eq!(pet["abilities"].as_array().unwrap().len(), 2);
+        assert_eq!(pet["rotation"][0]["action"].as_str(), Some("new"));
+        // a dot patch on an ability without a DoT is an error, not a silent skip
+        root.get_mut("abilities").unwrap().as_array_mut().unwrap().push(p("name = \"plain\"").clone());
+        assert!(patch(&mut root, p("ability = \"plain\"\ndot = { on_tick = [] }")).is_err());
     }
 }

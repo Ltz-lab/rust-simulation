@@ -96,5 +96,32 @@ at 1 µs) is unchanged and every existing spec still gives identical DPS.
   grow faster with haste than a fixed uptime allows (magi are consumed into
   Lords more often, and the Lord's consecutive summons overlap less), which
   the permanent-Lord stand-in cannot reproduce.
-- No `[gear]` table, trinkets, tier set (the reference is the core kit) and
+- No trinkets and (the reference is the core kit; the tier set is under Tier set below) and
   no multi-target APL.
+
+## Tier set (Midnight season 2, set 2055)
+
+`[[gear.effects]]` in the spec, applied with gear lines; `--set gear.set_bonuses=0` turns it off. Tier gain is the
+sample profile with the set against the same profile without it (SimC: `set_bonus=midnight_season_2_{2,4}pc=0`;
+SimC about 400 iterations to 0.3% error, azsim 20,000 iterations, seed 1):
+
+| bonus | what it does | modelled as | SimC | azsim |
+|---|---|---|---:|---:|
+| 2pc (1296654) | Magus and Lord of the Dead cast Necrotic Bolt instead of Frostbolt, the Magus Withering Grasp instead of Shadow Bolt | the pets' rotations replaced (new `set = { rotation = .. }` on a pet patch); coefficients from the new spells' DB2 values, scaled like the spells they replace; Withering Grasp as one hit a cast (2.089 ticks) | +5.09% | +4.98% |
+| 4pc (1296655) | Necrotic Bolt +130% and Withering Grasp +130% against enemies at or below 35% health | a health buff (`below_health = 35`) with `pet_pct` 130 on the Magus and the Lord | +5.73% (on the 2pc) | +5.62% |
+| both | | | **+11.11%** | **+10.88%** |
+
+Full profile: SimC 240,022, azsim 240,936 (+0.38%); set off: SimC 216,029, azsim 217,293 (+0.59%). The bolt
+coefficients: Magus Necrotic Bolt 1.71594 x 1.8672 (the spec's Frostbolt 1.831113 over spell 317792's 0.980671,
+which already holds Lord of the Dead's +25%) = 3.2040; Lord Necrotic Bolt 1.51406 x 2.1260 (the spec's 2.299522
+over spell 1292107's 0.865297 x 1.25; the new spell has no +25% label) = 3.2189. SimC's non-crit hits against its
+Frostbolt are 1.758x (Magus) and 1.397x (Lord); the coefficients give 1.750x and 1.400x. Per source, SimC / azsim
+pDPS with the 2pc: Lord's bolt 30,152 / 22,380 (Frostbolt 21,562 / 15,994), Magus' bolt 4,804 / 5,394, Withering Grasp
+5,405 / 3,003. The Lord's absolute damage is the existing gap in the spec's pets (-26% with the set off as well); the
+gain it adds is +39.9% in both.
+
+Withering Grasp is a rolling DoT in SimC (0.384306 a 1s tick, refreshed by each cast, outliving its Magus); azsim has
+one DoT per pet ability shared by every instance, so the 2.089 ticks a cast SimC lands (220 on 105.3 casts) are dealt as
+the cast's hit. The Magus' Frostbolt cooldown of 15 (one cast per Magus, as the spec has it) is kept for Necrotic Bolt:
+SimC casts 44.6 of either with and without the set.
+
