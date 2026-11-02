@@ -536,3 +536,59 @@ if = "charges<3"
 [[rotation]]
 action = "arcane_blast"
 if = "!buff.prismatic_bolt.up"
+
+# ---------------------------------------------------------------- Midnight season 2 tier set (set 2060), gear lines only
+# 2pc (1296581) [db2]: Arcane Missiles +5% damage (e2), one more missile (e1), and a 15% shorter
+# tick interval (e3: a spell-data modifier SimC applies, parse_all_passive_sets, though the tooltip
+# omits it). The channel's ticks are its intervals, round(2 s / 0.2975 s) = 7, plus tick zero.
+[[gear.effects]]
+spell = 1296581
+text = '''
+precombat = ["set_arcane_2pc"]
+
+[[buffs]]
+name = "set_arcane_2pc"
+duration = 1e9
+ability_pct = { arcane_missiles = ${e2} }
+
+[[abilities]]
+name = "set_arcane_2pc"
+triggered_only = true
+gcd = 0
+on_cast = [{ type = "buff", buff = "set_arcane_2pc" }]
+
+[[patch]]
+ability = "arcane_missiles"
+set = { channel = { ticks_expr = "7+${e1}" }, dot = { tick_time_expr = "0.35*(100+(${e3}))/100" } }
+'''
+
+# 4pc (1296582) [db2 1296930, simc sc_mage.cpp arcane_missiles_tick_t::execute]: every Arcane Missiles
+# tick adds a stack of Cumulative Power (+3% each, 8 stacks, 12 s), spent by the next Arcane Blast or
+# Prismatic Bolt (Arcane Pulse isn't in the spec). SimC's APL then holds the salvo-driven Prismatic
+# Bolt until 6 stacks [simc apl/mage.cpp spellslinger]: the one rotation condition this set needs.
+[[gear.effects]]
+spell = 1296582
+text = '''
+[[buffs]]
+name = "cumulative_power"
+duration = ${1296930.duration}
+max_stacks = ${1296930.stacks}
+ability_pct = { arcane_blast = ${1296930.e1}, prismatic_bolt = ${1296930.e1} }
+
+[[patch]]
+ability = "arcane_missiles"
+dot = { on_tick = [{ type = "buff", buff = "cumulative_power" }] }
+
+[[patch]]
+ability = "arcane_blast"
+on_cast = [{ type = "consume", buff = "cumulative_power", all = true }]
+
+[[patch]]
+ability = "prismatic_bolt"
+on_cast = [{ type = "consume", buff = "cumulative_power", all = true }]
+
+[[patch]]
+rotation = "prismatic_bolt"
+match_if = "buff.arcane_salvo.stack>13"
+and = "buff.cumulative_power.stack>=6"   # [simc] APL: !set_bonus.midnight_season_2_4pc|buff.cumulative_power.stack>=6
+'''

@@ -602,3 +602,26 @@ if = "buff.combustion.up|target.health.pct<30"
 
 [[rotation]]
 action = "fireball"
+
+# ---------------------------------------------------------------- Midnight season 2 tier set (set 2060), gear lines only
+# 2pc (1296583): while Pyroclasm is up, a hardcast Pyroblast always crits. The spell has no value
+# (a dummy); SimC hardcodes +100% crit chance on Pyroclasm's hardcasts [simc sc_mage.cpp
+# hot_streak_spell_t::composite_crit_chance]. Flamestrike is not in this spec.
+[[gear.effects]]
+spell = 1296583
+text = '''
+[[patch]]
+buff = "pyroclasm"
+set = { ability_crit_pct = { pyroblast_hardcast = 100 } }
+'''
+
+# 4pc (1296584) [db2]: Pyroclasm's cast time modifier gets -20% (e1: its cast time is 20% shorter) and
+# its damage effect +25 (e2): 230 + 20 (Sunfury Execution) + 25 = 275%, which is the buff value in
+# SimC's debug log with the set (2.5 without). `cast_time_pct` is a reduction, so +20.
+[[gear.effects]]
+spell = 1296584
+text = '''
+[[patch]]
+buff = "pyroclasm"
+set = { ability_pct = { pyroblast_hardcast = 275 }, cast_time_pct = { pyroblast_hardcast = 20 } }
+'''

@@ -332,3 +332,16 @@ on_cast = [{ type = "apply_dot", dot = "shadow_word_madness", strength = 0.25 }]
   ability had been cast, without its direct damage, cost or cooldown.
   `strength` (default 1) scales the new ticks and needs a `rolling` DoT.
   Channel DoTs can't be applied this way.
+
+## Patches in gear fragments
+
+An item or set-bonus fragment (`data/item_effects.toml`, `[[gear.effects]]`) can change what the spec already
+defines with `[[patch]]`. The target is one `ability =`, `buff =` or `pet =`, skipped when the spec lacks it (or
+lacks an ability named in `requires`). Lists are appended (`on_cast = [..]`), a nested table is entered
+(`dot = { on_tick = [..] }` appends to the dot's `on_tick`), and `set = { field = value }` overwrites fields, merging
+nested tables (`set = { channel = { ticks_expr = ".." }, dot = { tick_time_expr = ".." } }` leaves the rest of the
+channel and the dot alone).
+
+`[[patch]] rotation = "action"` with `and = "condition"` ANDs the condition onto the `if` of the rotation entries for
+that action, or only those whose `if` is exactly `match_if`. It is skipped when the rotation doesn't use the action
+and an error when it does but no entry matches, so a rotation change can't silently drop a set bonus's condition.

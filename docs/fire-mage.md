@@ -111,6 +111,41 @@ All generic, data-driven, and Ret's results are bit-for-bit unchanged:
   Pyroblast) report under one result row and share one calibration entry.
 
 
+## Tier set (Midnight season 2, set 2060)
+
+With gear lines, `[[gear.effects]]` at the end of the spec model both bonuses (`--set gear.set_bonuses=0`
+removes them; runs without gear lines never see them). Both act on the Pyroclasm buff:
+
+| bonus | what it does | modelled as |
+|---|---|---|
+| 2pc (1296583) | Pyroclasm makes Flamestrike and Pyroblast always crit | `ability_crit_pct` +100 on the hardcast Pyroblast while Pyroclasm is up [simc `hot_streak_spell_t::composite_crit_chance`: hardcoded, the spell has no value] |
+| 4pc (1296584) | Pyroclasm: -20% cast time, damage bonus +25 points | `cast_time_pct` 20, `ability_pct` 250 to 275 [db2 e1, e2; SimC's debug log shows the buff value 2.5 become 2.75, and the hardcast Pyroblast 1.577 s become 1.262 s] |
+
+Measured on `profiles/MID2_Mage_Fire.simc` as it is (trinkets included), against the same profile with the set bonuses off (SimC: `set_bonus=midnight_season_2_2pc=0`, `..._4pc=0`, `bite_of_zuljan_2pc=0`; azsim: `--set gear.set_bonuses=0`). SimC at target error 0.3%, seed 1; azsim 10,000 iterations, seed 1 (95% error about 0.1%). Tier gain = full / off - 1.
+
+| | SimC | azsim | diff |
+|---|---:|---:|---:|
+| 2pc alone | +8.28% | +10.74% | +2.46 pts |
+| 4pc on top of the 2pc | +5.34% | +6.50% | +1.16 pts |
+| **tier gain** | **+14.06%** | **+17.94%** | **+3.88 pts** |
+| full-profile DPS | 234,033 | 245,211 | +4.78% |
+| set bonuses off, DPS | 205,179 | 207,913 | +1.33% |
+
+**The tier gain is 3.9 points over SimC's, and the cause is not the bonuses.** The spec's `pyroclasm` buff
+has `max_stacks = 2` and a per-stack `ability_pct`, so with both stacks up a hardcast Pyroblast gets
+1 + 2 x 2.5 = 6.0x, where SimC's buff value is 2.5 whatever the stacks (3.5x). Hardcasts therefore carry
+too large a share of Pyroblast's damage, and anything that changes them (always crit, a damage bonus 7% larger,
+a faster cast) is overstated. With `flat = true` on that buff (one line, tried on a copy of the spec, not committed) the
+same fragments give 2pc alone +9.32% (SimC +8.28%), 4pc alone +4.70% (SimC +5.04%) and +14.69% in all (SimC
++14.06%). But
+`flat = true` also moves the no-gear Fire run (`--calib`, -n 2000, seed 1) by -3.14% (148,221 to 143,573), and
+the base spec and its calibration were left as they are, so this bonus is not within 1.5 points until
+Pyroclasm's stacking is fixed and Fire recalibrated.
+
+Not modelled: Flamestrike (not in the spec), and the Fire Blast SimC's APL spends while hardcasting a Pyroclasm
+Pyroblast in the execute phase with the 2pc (`apl/mage.cpp`, `fireblast` list; this spec casts Fire Blast between
+casts).
+
 ## Known gaps
 
 - **Haste over-response (+2.2 pts).** Fire Blast's charge economy reacts too
