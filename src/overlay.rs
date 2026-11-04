@@ -63,6 +63,23 @@ pub struct SpellDef {
     /// Auras the cast puts up (name -> seconds): look-ahead only.
     #[serde(default)]
     pub applies: HashMap<String, f64>,
+    /// Name to show (default: the action name in title case).
+    #[serde(default)]
+    pub label: Option<String>,
+    /// Keybind to draw on the icon, if known.
+    #[serde(default)]
+    pub key: Option<String>,
+}
+
+impl SpellDef {
+    pub fn label(&self) -> String {
+        self.label.clone().unwrap_or_else(|| {
+            self.name.split('_').map(|w| {
+                let mut c = w.chars();
+                c.next().map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
+            }).collect::<Vec<_>>().join(" ")
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -297,7 +314,11 @@ pub struct Tracker<'a> {
     pub haste: f64,
     start: Option<f64>,
     gcd_end: f64,
-    recharge: Vec<Vec<f64>>,            // per group: when each spent charge comes back
+    recharge: Vec<Vec<f64>>,            // per group: when each spent charge comes back (own timers)
+    last_cast: Vec<Option<u64>>,        // per group: sequence number of the player's last cast of it
+    casts: u64,                         // casts seen so far (live and looked ahead)
+    srv: Vec<Option<(f64, u32, u32)>>,  // per group, from the feed: next charge at, charges now, max
+    snap_casts: u64,                    // `casts` when the last feed cooldown snapshot arrived
     slots: Vec<AuraState>,              // player auras, then markers
     units: HashMap<String, Vec<AuraState>>, // target auras by unit
     target: Option<String>,
@@ -319,6 +340,7 @@ impl<'a> Tracker<'a> {
         Tracker {
             o, feed_cooldowns: false, now: 0.0, player: None, resource: 0.0, haste: o.spec.haste, start: None, gcd_end: 0.0,
             recharge: vec![vec![]; o.groups.len()],
+            last_cast: vec![None; o.groups.len()], srv: vec![None; o.groups.len()], casts: 0, snap_casts: 0,
             slots: vec![AuraState::default(); o.spec.auras.len() + o.spec.markers.len()],
             units: HashMap::new(), target: None, enemies: HashMap::new(),
         }
@@ -368,14 +390,48 @@ impl<'a> Tracker<'a> {
         }
     }
 
-    fn avail(&self, g: usize, t: f64) -> u32 {
+    fn own_avail(&self, g: usize, t: f64) -> u32 {
         let spent = self.recharge[g].iter().filter(|&&r| r > t).count() as u32;
         self.o.groups[g].1.saturating_sub(spent)
     }
 
+    fn own_remains(&self, g: usize, t: f64) -> f64 {
+        if self.own_avail(g, t) > 0 { return 0.0; }
+        self.recharge[g].iter().filter(|&&r| r > t).fold(f64::INFINITY, |a, &r| a.min(r)) - t
+    }
+
+    /// How the feed's cooldown snapshot combines with the own timers: the snapshot holds the
+    /// base cooldowns (no talent resets or cuts), the own timers know the talents but only from
+    /// casts seen. A cast after the snapshot makes the snapshot stale for that cooldown; a cast
+    /// before it means both apply, and the earlier ready time wins (talents only shorten).
+    fn source(&self, g: usize) -> (bool, bool) {
+        let fresh = self.feed_cooldowns && !self.last_cast[g].is_some_and(|c| c > self.snap_casts);
+        (!fresh || self.last_cast[g].is_some(), fresh)
+    }
+
+    fn srv_avail(&self, g: usize, t: f64) -> u32 {
+        match self.srv[g] {
+            None => self.o.groups[g].1,
+            Some((at, have, max)) => (have + u32::from(t >= at)).min(max.max(1)),
+        }
+    }
+
+    fn avail(&self, g: usize, t: f64) -> u32 {
+        match self.source(g) {
+            (true, false) => self.own_avail(g, t),
+            (false, _) => self.srv_avail(g, t),
+            (true, true) => self.own_avail(g, t).max(self.srv_avail(g, t)),
+        }
+    }
+
     fn cd_remains(&self, g: usize, t: f64) -> f64 {
         if self.avail(g, t) > 0 { return 0.0; }
-        self.recharge[g].iter().filter(|&&r| r > t).fold(f64::INFINITY, |a, &r| a.min(r)) - t
+        let srv = || self.srv[g].map_or(0.0, |(at, _, _)| (at - t).max(0.0));
+        match self.source(g) {
+            (true, false) => self.own_remains(g, t),
+            (false, _) => srv(),
+            (true, true) => self.own_remains(g, t).min(srv()),
+        }
     }
 
     fn ready(&self, spell: usize, t: f64) -> bool {
@@ -462,6 +518,8 @@ impl<'a> Tracker<'a> {
         self.resource = (self.resource - s.cost).max(0.0);
         if let Some(g) = o.spell_group[i] && s.cooldown > 0.0 {
             let len = if s.hasted { s.cooldown / (1.0 + h) } else { s.cooldown };
+            self.casts += 1;
+            self.last_cast[g] = Some(self.casts);
             let q = &mut self.recharge[g];
             q.retain(|&r| r > t);
             let from = q.iter().copied().fold(t, f64::max);
@@ -723,20 +781,23 @@ impl Tracker<'_> {
             }
             "cooldowns" => {
                 self.feed_cooldowns = true;
-                self.gcd_end = t + f("gcd_ms") / 1000.0;
-                let mut fresh: Vec<Option<Vec<f64>>> = vec![None; self.recharge.len()];
+                self.snap_casts = self.casts;
+                // the feed's GCD is unhasted: keep the own one once a cast has been seen
+                if self.start.is_none() { self.gcd_end = t + f("gcd_ms") / 1000.0; }
+                self.srv = vec![None; self.recharge.len()];
                 for c in v.get("cooldowns").and_then(|x| x.as_array()).cloned().unwrap_or_default() {
                     let mut ids: Vec<i64> = c.get("spells").and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|x| x.as_i64()).collect()).unwrap_or_default();
                     if let Some(id) = c.get("spell").and_then(|x| x.as_i64()) { ids.push(id); }
                     let Some(g) = ids.iter().find_map(|id| self.o.spell_by_id(*id).and_then(|i| self.o.spell_group[i])) else { continue };
                     let rem = c.get("remaining_ms").and_then(|x| x.as_f64()).unwrap_or(0.0) / 1000.0;
-                    let max = c.get("max_charges").and_then(|x| x.as_u64()).map_or(self.o.groups[g].1, |m| m as u32);
+                    let max = c.get("max_charges").and_then(|x| x.as_u64()).map_or(1, |m| m as u32);
                     let have = c.get("charges").and_then(|x| x.as_u64()).map_or(0, |m| m as u32);
-                    // spent charges come back one after another; the later ones a full cooldown apart
-                    let full = self.o.spec.spells.iter().enumerate().filter(|(i, _)| self.o.spell_group[*i] == Some(g)).map(|(_, s)| s.cooldown).fold(0.0, f64::max);
-                    fresh[g] = Some((0..max.saturating_sub(have).max(1)).map(|k| t + rem + k as f64 * full).collect());
+                    self.srv[g] = Some((t + rem, have, max));
                 }
-                for (g, q) in fresh.into_iter().enumerate() { self.recharge[g] = q.unwrap_or_default(); }
+            }
+            "target" => {
+                let u = s("unit");
+                self.target = (!u.is_empty()).then_some(u);
             }
             "power" => {
                 for p in v.get("powers").and_then(|x| x.as_array()).cloned().unwrap_or_default() {
@@ -750,17 +811,23 @@ impl Tracker<'_> {
     }
 
     /// The `{"type":"next",...}` line for the current state, or None with nothing to press.
+    /// `queue[0]` is the press now; the rest is the look-ahead.
     pub fn next_line(&self, queue: usize) -> Option<serde_json::Value> {
         let picks = self.recommend(queue.max(1));
-        let (first, rest) = picks.split_first()?;
-        let spell = &self.o.spec.spells[self.o.spell_index(&first.action)?];
-        let off_gcd: Vec<_> = picks.iter().take_while(|p| self.o.spec.spells[self.o.spell_index(&p.action).unwrap()].gcd == Some(0.0)).collect();
-        Some(serde_json::json!({
-            "type": "next", "t": (self.now * 1000.0).round(), "spell": spell.ids[0], "name": first.action,
-            "in_ms": ((first.at - self.now).max(0.0) * 1000.0).round(),
-            "off_gcd": !off_gcd.is_empty(),
-            "queue": rest.iter().map(|p| serde_json::json!({ "spell": self.o.spec.spells[self.o.spell_index(&p.action).unwrap()].ids[0], "name": p.action })).collect::<Vec<_>>(),
-            "fury": self.resource, "enemies": self.active_enemies(),
-        }))
+        let first = picks.first()?;
+        let def = |a: &str| &self.o.spec.spells[self.o.spell_index(a).unwrap()];
+        let entry = |a: &str| {
+            let d = def(a);
+            let mut e = serde_json::json!({ "spell": d.ids[0], "name": d.label(), "action": a });
+            if let Some(k) = &d.key { e["key"] = k.clone().into(); }
+            e
+        };
+        let mut out = entry(&first.action);
+        out["type"] = "next".into();
+        out["t"] = (self.now * 1000.0).round().into();
+        out["in_ms"] = ((first.at - self.now).max(0.0) * 1000.0).round().into();
+        out["off_gcd"] = (def(&first.action).gcd == Some(0.0)).into();
+        out["queue"] = picks.iter().map(|p| entry(&p.action)).collect::<Vec<_>>().into();
+        Some(out)
     }
 }

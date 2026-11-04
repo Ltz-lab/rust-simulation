@@ -24,28 +24,40 @@ combatfeed -run <capture-live run> -spelldata <wago CSV dir> -follow \
 (flushed per line), and adds one line whenever the suggestion changes:
 
 ```json
-{"type":"next","t":36032,"spell":198013,"name":"eye_beam","in_ms":0,"off_gcd":false,
- "queue":[{"spell":370965,"name":"the_hunt"},{"spell":258860,"name":"essence_break"}],"fury":42,"enemies":1}
+{"type":"next","t":36032,"spell":198013,"name":"Eye Beam","action":"eye_beam","in_ms":0,"off_gcd":false,
+ "queue":[{"spell":198013,"name":"Eye Beam","action":"eye_beam"},{"spell":370965,"name":"The Hunt","action":"the_hunt"},
+          {"spell":258860,"name":"Essence Break","action":"essence_break"},{"spell":232893,"name":"Felblade","action":"felblade"}]}
 ```
 
-`spell` is the id to show (the in-Metamorphosis form when that is what to press: Death Sweep
-210152, not Blade Dance), `in_ms` how long until it can go out (the GCD or a cooldown), `queue` the
-look-ahead. How each combatfeed line is used:
+`queue[0]` is the press now, the rest the look-ahead (`--next`, 4 for the overlay's icon row).
+`spell` is the button's id (the in-Metamorphosis form when that is what to press: Death Sweep
+210152, not Blade Dance), `name` its display name (a spell's `label`, else the action in title
+case), `key` its keybind when the spell has a `key` (none are set yet), `in_ms` how long until it
+can go out. How each combatfeed line is used:
 
 | line | used for | replaces |
 |---|---|---|
 | `event` | everything in the table below, with `mine` / `me` as the source/dest test | — |
 | `auras` `unit: player` | the player's auras with `remaining_ms` and `stacks` (a full snapshot: an aura missing from it is gone) | the event-based aura timers |
 | `auras` `unit: target` | the player's (`mine`) debuffs on the selected target | same |
-| `cooldowns` | everything recovering (`spell`, or `category` + `spells`, with `charges`); absent = ready; `gcd_ms` | the cast-started timers, including Cycle of Hatred's Eye Beam cuts |
+| `target` | the selected unit (`unit`, same names as the events' `dst`) | the swing/cast target |
+| `cooldowns` | everything recovering (`spell`, or `category` + `spells`, with `charges`); absent = ready | see below |
 | `power` type 17 | Fury | energizes minus costs |
 
-Between snapshots the estimates from events carry on, so the rules' inputs stay the same whether a
-snapshot exists or not. Run combatfeed with `-spelldata` so its cooldown list knows Havoc's
-cooldowns: once a `cooldowns` line arrives, a spell missing from it counts as ready.
+The feed's cooldowns are the base tables plus the server's corrections, without talent effects, and
+unhasted. So they are merged with the list's own timers, which know the talents (Metamorphosis'
+resets, Eternal Hunt's reset, Cycle of Hatred's 20s Eye Beam) but only from casts they saw:
+
+- a cooldown never cast since the overlay started: the feed's value;
+- cast before the latest snapshot: whichever is ready sooner (talents only shorten);
+- cast after the latest snapshot (or in the look-ahead): the own timer, the snapshot is stale for it.
+
+`gcd_ms` is used only until the first cast; after that the own hasted GCD is. Between snapshots
+the estimates from events carry on, so the rules' inputs are the same either way. Run combatfeed
+with `-spelldata` so its list knows Havoc's cooldowns.
 
 Tested on a real retail capture (a Vengeance DH on a dummy, 6,398 lines): every line passed through
-byte for byte, Fury followed the `power` lines, and the picks followed the casts. Vengeance shares
+byte for byte (16 suggestion changes added, no repeats in a queue), Fury followed the `power` lines, and the picks followed the casts. Vengeance shares
 Immolation Aura, Throw Glaive and Felblade with Havoc, so that run checks the plumbing, not Havoc's
 rules; `tests/overlay_havoc.rs` checks the rules on combatfeed-shaped lines.
 

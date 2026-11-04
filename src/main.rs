@@ -129,7 +129,7 @@ fn overlay_main(mut it: impl Iterator<Item = String>) {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
                 tr.feed_line(&v);
                 if let Some(n) = tr.next_line(next) {
-                    let key = format!("{}|{}", n["name"], n["queue"]);
+                    let key = n["queue"].to_string();
                     if key != last {
                         last = key;
                         if writeln!(out, "{n}").is_err() { return; }
