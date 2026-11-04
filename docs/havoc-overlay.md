@@ -158,9 +158,12 @@ presses): 18 were the overlay's queue[0], 13 elsewhere in its queue, and 2 came 
 the spell was on cooldown (8 before the APL, haste and talent work above). Jack isn't ground truth:
 SimC's line 50 wants Essence Break as soon as a Demonsurge window opens, he held it 12s.
 
-The one large miss left: Death Sweep 8.4s after his only Blade Dance, with the shared 15s cooldown
-(SimC models them as one) not yet back even with Metamorphosis' haste. One sample; if more fights
-show it, Blade Dance and Death Sweep have separate cooldowns in-game.
+**Shared categories.** Blade Dance and Death Sweep share cooldown category 1640 with their own
+lengths (15s / 9s, both hasted): one start, each member back after its own length, so Death
+Sweep is ready 9s after either. combatfeed sends such a category as one entry per length (an
+entry with `spell` is that spell's own). With that, the remaining "early" presses on the recording
+are a Death Sweep 0.6s before the own timer (at the pull, before the first Eye Beam taught the
+overlay Jack's haste; `--haste 0.18` covers it) and one Throw Glaive.
 
 ## What the demo and tests show
 

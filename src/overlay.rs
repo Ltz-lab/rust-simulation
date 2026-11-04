@@ -262,6 +262,17 @@ impl Overlay {
         Ok(o)
     }
 
+    /// The spell whose cooldown `cooldown.<name>` reads: the spell itself, or a group's first.
+    fn cd_spell(&self, name: &str) -> Option<usize> {
+        let g = self.group_of(name)?;
+        self.spell_by_name.get(name).copied().filter(|&i| self.spell_group[i] == Some(g))
+            .or_else(|| self.spell_group.iter().position(|&x| x == Some(g)))
+    }
+
+    fn in_group(&self, g: usize) -> impl Iterator<Item = usize> + '_ {
+        (0..self.spell_group.len()).filter(move |&j| self.spell_group[j] == Some(g))
+    }
+
     fn group_of(&self, name: &str) -> Option<usize> {
         if let Some(&i) = self.spell_by_name.get(name) {
             if let Some(g) = self.spell_group[i] { return Some(g); }
@@ -286,7 +297,7 @@ impl Resolver for Overlay {
             ["time"] => Var::Time,
             ["active_enemies"] | ["spell_targets"] => Var::ActiveEnemies,
             ["cooldown", a, f] => {
-                let g = self.group_of(a).ok_or(format!("no cooldown '{a}'"))?;
+                let g = self.cd_spell(a).ok_or(format!("no cooldown '{a}'"))?;
                 match *f {
                     "ready" | "up" => Var::CdReady(g),
                     "remains" => Var::CdRemains(g),
@@ -365,10 +376,11 @@ pub struct Tracker<'a> {
     pub haste: f64,
     start: Option<f64>,
     gcd_end: f64,
-    recharge: Vec<Vec<f64>>,            // per group: when each spent charge comes back (own timers)
+    recharge: Vec<Vec<f64>>,            // per spell: when each spent charge comes back (own timers);
+                                        // a group's casts start every member with its own length
     last_cast: Vec<Option<u64>>,        // per group: sequence number of the player's last cast of it
     casts: u64,                         // casts seen so far (live and looked ahead)
-    srv: Vec<Option<(f64, u32, u32)>>,  // per group, from the feed: next charge at, charges now, max
+    srv: Vec<Option<(f64, u32, u32)>>,  // per spell, from the feed: next charge at, charges now, max
     snap_casts: u64,                    // `casts` when the last feed cooldown snapshot arrived
     slots: Vec<AuraState>,              // player auras, then markers
     units: HashMap<String, Vec<AuraState>>, // target auras by unit
@@ -390,8 +402,8 @@ impl<'a> Tracker<'a> {
     pub fn new(o: &'a Overlay) -> Tracker<'a> {
         Tracker {
             o, feed_cooldowns: false, now: 0.0, player: None, resource: 0.0, haste: o.spec.haste, start: None, gcd_end: 0.0,
-            recharge: vec![vec![]; o.groups.len()],
-            last_cast: vec![None; o.groups.len()], srv: vec![None; o.groups.len()], casts: 0, snap_casts: 0,
+            recharge: vec![vec![]; o.spec.spells.len()],
+            last_cast: vec![None; o.groups.len()], srv: vec![None; o.spec.spells.len()], casts: 0, snap_casts: 0,
             slots: vec![AuraState::default(); o.spec.auras.len() + o.spec.markers.len()],
             units: HashMap::new(), target: None, enemies: HashMap::new(),
         }.with_talent_defaults()
@@ -465,52 +477,64 @@ impl<'a> Tracker<'a> {
             .fold(o.groups[g].1, u32::max)
     }
 
-    fn own_avail(&self, g: usize, t: f64) -> u32 {
-        let spent = self.recharge[g].iter().filter(|&&r| r > t).count() as u32;
+    fn own_avail(&self, i: usize, t: f64) -> u32 {
+        let Some(g) = self.o.spell_group[i] else { return 1 };
+        let spent = self.recharge[i].iter().filter(|&&r| r > t).count() as u32;
         self.charges(g, t).saturating_sub(spent)
     }
 
-    fn own_remains(&self, g: usize, t: f64) -> f64 {
-        if self.own_avail(g, t) > 0 { return 0.0; }
-        self.recharge[g].iter().filter(|&&r| r > t).fold(f64::INFINITY, |a, &r| a.min(r)) - t
+    fn own_remains(&self, i: usize, t: f64) -> f64 {
+        if self.own_avail(i, t) > 0 { return 0.0; }
+        self.recharge[i].iter().filter(|&&r| r > t).fold(f64::INFINITY, |a, &r| a.min(r)) - t
     }
 
     /// How the feed's cooldown snapshot combines with the own timers: the snapshot holds the
     /// base cooldowns (no talent resets or cuts), the own timers know the talents but only from
     /// casts seen. A cast after the snapshot makes the snapshot stale for that cooldown; a cast
     /// before it means both apply, and the earlier ready time wins (talents only shorten).
-    fn source(&self, g: usize) -> (bool, bool) {
+    fn source(&self, i: usize) -> (bool, bool) {
+        let Some(g) = self.o.spell_group[i] else { return (true, false) };
         let fresh = self.feed_cooldowns && !self.last_cast[g].is_some_and(|c| c > self.snap_casts);
         (!fresh || self.last_cast[g].is_some(), fresh)
     }
 
-    fn srv_avail(&self, g: usize, t: f64) -> u32 {
-        match self.srv[g] {
-            None => self.charges(g, t),
-            Some((at, have, max)) => (have + u32::from(t >= at)).min(max.max(1)),
+    fn srv_avail(&self, i: usize, t: f64) -> u32 {
+        match (self.srv[i], self.o.spell_group[i]) {
+            (_, None) => 1,
+            (None, Some(g)) => self.charges(g, t),
+            (Some((at, have, max)), _) => (have + u32::from(t >= at)).min(max.max(1)),
         }
     }
 
-    fn avail(&self, g: usize, t: f64) -> u32 {
-        match self.source(g) {
-            (true, false) => self.own_avail(g, t),
-            (false, _) => self.srv_avail(g, t),
-            (true, true) => self.own_avail(g, t).max(self.srv_avail(g, t)),
+    fn avail(&self, i: usize, t: f64) -> u32 {
+        match self.source(i) {
+            (true, false) => self.own_avail(i, t),
+            (false, _) => self.srv_avail(i, t),
+            (true, true) => self.own_avail(i, t).max(self.srv_avail(i, t)),
         }
     }
 
-    fn cd_remains(&self, g: usize, t: f64) -> f64 {
-        if self.avail(g, t) > 0 { return 0.0; }
-        let srv = || self.srv[g].map_or(0.0, |(at, _, _)| (at - t).max(0.0));
-        match self.source(g) {
-            (true, false) => self.own_remains(g, t),
+    fn cd_remains(&self, i: usize, t: f64) -> f64 {
+        if self.avail(i, t) > 0 { return 0.0; }
+        let srv = || self.srv[i].map_or(0.0, |(at, _, _)| (at - t).max(0.0));
+        match self.source(i) {
+            (true, false) => self.own_remains(i, t),
             (false, _) => srv(),
-            (true, true) => self.own_remains(g, t).min(srv()),
+            (true, true) => self.own_remains(i, t).min(srv()),
         }
     }
 
-    fn ready(&self, spell: usize, t: f64) -> bool {
-        self.o.spell_group[spell].is_none_or(|g| self.avail(g, t) > 0)
+    fn ready(&self, spell: usize, t: f64) -> bool { self.avail(spell, t) > 0 }
+
+    /// A spell's cooldown length for a cast at `t`: talents, stacks, haste.
+    fn cd_len(&self, j: usize, t: f64, h: f64) -> f64 {
+        let s = &self.o.spec.spells[j];
+        let mut base = s.talent_cooldown.iter().find(|(n, _)| self.talent_up(n, t)).map_or(s.cooldown, |(_, &c)| c);
+        if let Some(sc) = &s.stack_cooldown {
+            let a = self.aura(self.o.slot_by_name[&sc.aura], t);
+            base = (base + sc.seconds * a.stacks as f64).max(0.0);
+        }
+        if s.hasted { base / (1.0 + h) } else { base }
     }
 
     /// Feed one event.
@@ -593,19 +617,20 @@ impl<'a> Tracker<'a> {
         let h = self.haste_at(t);
         self.resource = (self.resource - s.cost).max(0.0);
         if let Some(g) = o.spell_group[i] && s.cooldown > 0.0 {
-            let mut base = s.talent_cooldown.iter()
-                .find(|(n, _)| self.talent_up(n, t)).map_or(s.cooldown, |(_, &c)| c);
-            if let Some(sc) = &s.stack_cooldown {
-                let a = self.aura(o.slot_by_name[&sc.aura], t);
-                base = (base + sc.seconds * a.stacks as f64).max(0.0);
-            }
-            let len = if s.hasted { base / (1.0 + h) } else { base };
+            // one category start; each member comes back after its own length (Blade Dance 15s,
+            // Death Sweep 9s after either)
             self.casts += 1;
             self.last_cast[g] = Some(self.casts);
-            let q = &mut self.recharge[g];
-            q.retain(|&r| r > t);
-            let from = q.iter().copied().fold(t, f64::max);
-            q.push(from + len);
+            let single = self.charges(g, t) <= 1;
+            for j in o.in_group(g).collect::<Vec<_>>() {
+                if o.spec.spells[j].cooldown <= 0.0 { continue; }
+                let len = self.cd_len(j, t, h);
+                let q = &mut self.recharge[j];
+                q.retain(|&r| r > t);
+                if single { q.clear(); } // one charge: the category restarts for every member
+                let from = q.iter().copied().fold(t, f64::max);
+                q.push(from + len);
+            }
         }
         for e in &s.on_cast {
             let hit = match &e.if_aura {
@@ -617,7 +642,9 @@ impl<'a> Tracker<'a> {
                 }
                 None => true,
             };
-            if hit && let Some(c) = &e.reset && let Some(g) = o.group_of(c) { self.recharge[g].clear(); }
+            if hit && let Some(c) = &e.reset && let Some(g) = o.group_of(c) {
+                for j in o.in_group(g) { self.recharge[j].clear(); }
+            }
         }
         let nauras = o.spec.auras.len();
         for (m, d) in o.spec.markers.iter().enumerate() {
@@ -692,7 +719,7 @@ impl<'a> Tracker<'a> {
     }
 
     pub fn cooldown_remains(&self, spell: &str) -> f64 {
-        self.o.group_of(spell).map_or(0.0, |g| self.cd_remains(g, self.now))
+        self.o.cd_spell(spell).map_or(0.0, |i| self.cd_remains(i, self.now))
     }
 }
 
@@ -713,7 +740,7 @@ impl Env for View<'_, '_> {
             Var::CdReady(g) => b(tr.avail(g, t) > 0),
             Var::CdRemains(g) => tr.cd_remains(g, t),
             Var::CdCharges(g) => tr.avail(g, t) as f64,
-            Var::CdFullRecharge(g) => tr.recharge[g].iter().fold(t, |a, &r| a.max(r)) - t,
+            Var::CdFullRecharge(i) => tr.recharge[i].iter().fold(t, |a, &r| a.max(r)) - t,
             Var::BuffUp(s) => b(tr.aura_up(s, t)),
             Var::BuffRemains(s) => if tr.aura_up(s, t) { (tr.aura(s, t).exp - t).max(0.0) } else { 0.0 },
             Var::BuffStack(s) => if tr.aura_up(s, t) { tr.aura(s, t).stacks as f64 } else { 0.0 },
@@ -869,15 +896,28 @@ impl Tracker<'_> {
                 self.snap_casts = self.casts;
                 // the feed's GCD is unhasted: keep the own one once a cast has been seen
                 if self.start.is_none() { self.gcd_end = t + f("gcd_ms") / 1000.0; }
+                // An entry with "spell" is that spell's own state (a category whose members have
+                // different lengths comes as one entry per length); one with only "spells" covers
+                // every member of that cooldown group not given its own entry.
                 self.srv = vec![None; self.recharge.len()];
-                for c in v.get("cooldowns").and_then(|x| x.as_array()).cloned().unwrap_or_default() {
-                    let mut ids: Vec<i64> = c.get("spells").and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|x| x.as_i64()).collect()).unwrap_or_default();
-                    if let Some(id) = c.get("spell").and_then(|x| x.as_i64()) { ids.push(id); }
-                    let Some(g) = ids.iter().find_map(|id| self.o.spell_by_id(*id).and_then(|i| self.o.spell_group[i])) else { continue };
+                let list = v.get("cooldowns").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+                let state = |c: &serde_json::Value| {
                     let rem = c.get("remaining_ms").and_then(|x| x.as_f64()).unwrap_or(0.0) / 1000.0;
                     let max = c.get("max_charges").and_then(|x| x.as_u64()).map_or(1, |m| m as u32);
                     let have = c.get("charges").and_then(|x| x.as_u64()).map_or(0, |m| m as u32);
-                    self.srv[g] = Some((t + rem, have, max));
+                    (t + rem, have, max)
+                };
+                for c in &list {
+                    if let Some(i) = c.get("spell").and_then(|x| x.as_i64()).and_then(|id| self.o.spell_by_id(id)) {
+                        self.srv[i] = Some(state(c));
+                    }
+                }
+                for c in list.iter().filter(|c| c.get("spell").is_none()) {
+                    let ids: Vec<i64> = c.get("spells").and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|x| x.as_i64()).collect()).unwrap_or_default();
+                    let Some(g) = ids.iter().find_map(|id| self.o.spell_by_id(*id).and_then(|i| self.o.spell_group[i])) else { continue };
+                    for j in self.o.in_group(g).collect::<Vec<_>>() {
+                        if self.srv[j].is_none() { self.srv[j] = Some(state(c)); }
+                    }
                 }
             }
             "target" => {

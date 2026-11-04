@@ -252,3 +252,23 @@ fn haste_and_talent_cooldowns_from_the_aura_list() {
     cast(&mut tr, 0.1, IMMOLATION);
     assert!((tr.cooldown_remains("immolation_aura") - 23.9).abs() < 1e-6, "24s recharge");
 }
+
+/// Blade Dance and Death Sweep share one category start with their own lengths (15s / 9s):
+/// Death Sweep is back 9s (hasted) after either.
+#[test]
+fn blade_dance_and_death_sweep_share_a_start_not_a_length() {
+    let o = overlay();
+    let mut tr = pulled(&o, 80.0);
+    cast(&mut tr, 0.0, BLADE_DANCE);
+    tr.advance(1.0);
+    assert!((tr.cooldown_remains("blade_dance") - 14.0).abs() < 1e-6);
+    assert!((tr.cooldown_remains("death_sweep") - 8.0).abs() < 1e-6);
+    cast(&mut tr, 9.0, DEATH_SWEEP);
+    tr.advance(10.0);
+    assert!((tr.cooldown_remains("blade_dance") - 14.0).abs() < 1e-6, "a Death Sweep restarts the category");
+    // the feed's per-length entries: Death Sweep's own beside the category's
+    let feed = |tr: &mut Tracker, s: &str| tr.feed_line(&serde_json::from_str(s).unwrap());
+    feed(&mut tr, r#"{"type":"cooldowns","t":10000,"gcd_ms":0,"cooldowns":[{"category":1640,"spells":[188499],"remaining_ms":14000},{"category":1640,"spell":210152,"remaining_ms":8000}]}"#);
+    assert!((tr.cooldown_remains("death_sweep") - 8.0).abs() < 1e-6);
+    assert!((tr.cooldown_remains("blade_dance") - 14.0).abs() < 1e-6);
+}
