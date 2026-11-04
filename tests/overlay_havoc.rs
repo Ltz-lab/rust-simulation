@@ -172,3 +172,32 @@ fn closed_loop_fight_is_sensible() {
     let gaps = d.presses.windows(2).map(|w| w[1].0 - w[0].0).fold(0.0, f64::max);
     assert!(gaps < 4.0, "longest gap {gaps:.1}s");
 }
+
+/// combatfeed lines (wow-forever tools/combatfeed): snapshots win over the estimates.
+#[test]
+fn combatfeed_snapshots_drive_the_picks() {
+    let o = overlay();
+    let mut tr = Tracker::new(&o);
+    let feed = |tr: &mut Tracker, s: &str| tr.feed_line(&serde_json::from_str(s).unwrap());
+    feed(&mut tr, r#"{"type":"player","guid":"0839","t":0}"#);
+    feed(&mut tr, r#"{"type":"event","t":100,"sub":"SWING_DAMAGE","src":"Player-7","dst":"Creature-1","amount":900,"mine":true,"me":false}"#);
+    feed(&mut tr, r#"{"type":"power","t":100,"powers":[{"type":17,"name":"fury","amount":60}]}"#);
+    assert_eq!(tr.resource, 60.0);
+    assert_eq!(tr.next_line(3).unwrap()["name"], "eye_beam");
+    // the server says Eye Beam is recovering (Cycle of Hatred included): not Eye Beam
+    feed(&mut tr, r#"{"type":"cooldowns","t":200,"gcd_ms":0,"cooldowns":[{"spell":198013,"remaining_ms":9000},{"spell":191427,"remaining_ms":60000},{"spell":370965,"remaining_ms":30000}]}"#);
+    assert!(tr.cooldown_remains("eye_beam") > 8.0);
+    assert_eq!(tr.next_line(3).unwrap()["name"], "essence_break");
+    // Metamorphosis from the player's aura snapshot, Essence Break mine on the target
+    feed(&mut tr, r#"{"type":"event","t":300,"sub":"SPELL_CAST_SUCCESS","src":"Player-7","dst":"Creature-1","spell":258860,"mine":true,"me":false}"#);
+    feed(&mut tr, r#"{"type":"auras","t":300,"unit":"player","auras":[{"spell":162264,"stacks":0,"duration_ms":20000,"remaining_ms":15000,"mine":true}]}"#);
+    feed(&mut tr, r#"{"type":"auras","t":300,"unit":"target","auras":[{"spell":98892,"stacks":0,"duration_ms":0,"remaining_ms":0,"mine":false},{"spell":320338,"stacks":0,"duration_ms":4000,"remaining_ms":4000,"mine":true}]}"#);
+    feed(&mut tr, r#"{"type":"cooldowns","t":300,"gcd_ms":1200,"cooldowns":[{"spell":198013,"remaining_ms":8900},{"spell":258860,"remaining_ms":40000},{"spell":191427,"remaining_ms":59900},{"spell":370965,"remaining_ms":29900}]}"#);
+    let n = tr.next_line(3).unwrap();
+    assert_eq!(n["name"], "death_sweep");
+    assert_eq!(n["spell"], 210152);
+    assert_eq!(n["in_ms"], 1200.0, "after the server's GCD");
+    // the Metamorphosis aura leaves the snapshot: back to the base forms
+    feed(&mut tr, r#"{"type":"auras","t":400,"unit":"player","auras":[]}"#);
+    assert_eq!(tr.next_line(1).unwrap()["name"], "blade_dance");
+}

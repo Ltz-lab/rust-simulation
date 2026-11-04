@@ -289,6 +289,8 @@ struct AuraState { exp: f64, stacks: u32 }
 #[derive(Debug, Clone)]
 pub struct Tracker<'a> {
     pub o: &'a Overlay,
+    /// The stream reports cooldowns itself (combatfeed `cooldowns` lines): its list is the truth.
+    pub feed_cooldowns: bool,
     pub now: f64,
     pub player: Option<String>,
     pub resource: f64,
@@ -315,7 +317,7 @@ pub struct Pick {
 impl<'a> Tracker<'a> {
     pub fn new(o: &'a Overlay) -> Tracker<'a> {
         Tracker {
-            o, now: 0.0, player: None, resource: 0.0, haste: o.spec.haste, start: None, gcd_end: 0.0,
+            o, feed_cooldowns: false, now: 0.0, player: None, resource: 0.0, haste: o.spec.haste, start: None, gcd_end: 0.0,
             recharge: vec![vec![]; o.groups.len()],
             slots: vec![AuraState::default(); o.spec.auras.len() + o.spec.markers.len()],
             units: HashMap::new(), target: None, enemies: HashMap::new(),
@@ -381,7 +383,11 @@ impl<'a> Tracker<'a> {
     }
 
     /// Feed one event.
-    pub fn ingest(&mut self, ev: &LogEvent) {
+    pub fn ingest(&mut self, ev: &LogEvent) { self.ingest_as(ev, None) }
+
+    /// `mine_me`: (the player is the source, the player is the dest) when the stream says so
+    /// itself (combatfeed's `mine` / `me`), instead of comparing GUIDs.
+    pub fn ingest_as(&mut self, ev: &LogEvent, mine_me: Option<(bool, bool)>) {
         let t = ev.time_ms / 1000.0;
         self.advance(t);
         let t = self.now;
@@ -389,15 +395,17 @@ impl<'a> Tracker<'a> {
         let sub = ev.sub.as_str();
         // Without a known player GUID, the player is whoever casts one of the overlay's spells
         // or energizes themselves with its resource.
-        if self.player.is_none()
+        if self.player.is_none() && mine_me.is_none()
             && (sub == "SPELL_CAST_SUCCESS" && self.o.spell_by_id.contains_key(&ev.spell_id)
                 || sub.ends_with("ENERGIZE") && src == dst && !src.is_empty() && ev.school == self.o.spec.resource.power_type)
         {
             self.player = Some(src.clone());
         }
-        let Some(me) = self.player.clone() else { return };
-        let by_me = src == me;
-        let on_me = dst == me;
+        let (by_me, on_me) = match (mine_me, &self.player) {
+            (Some(f), _) => f,
+            (None, Some(me)) => (src == *me, dst == *me),
+            (None, None) => return,
+        };
         match sub {
             "SPELL_CAST_SUCCESS" if by_me => {
                 if !dst.is_empty() && !on_me { self.target = Some(dst); }
@@ -675,4 +683,84 @@ impl<'a> Demo<'a> {
     }
 
     pub fn count(&self, action: &str) -> usize { self.presses.iter().filter(|p| p.1 == action).count() }
+}
+
+/// combatfeed adapter (wow-forever `tools/combatfeed`): one JSON object a line, `type` = player,
+/// target, event, auras, cooldowns or power. Snapshots (auras, cooldowns, power) replace the
+/// estimates kept from events; anything a snapshot doesn't carry keeps being estimated.
+impl Tracker<'_> {
+    pub fn feed_line(&mut self, v: &serde_json::Value) {
+        let f = |k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0);
+        let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let t = f("t") / 1000.0;
+        self.advance(t);
+        match v.get("type").and_then(|x| x.as_str()).unwrap_or("") {
+            "event" => {
+                let b = |k: &str| v.get(k).and_then(|x| x.as_bool()).unwrap_or(false);
+                let ev = LogEvent::new(t, &s("sub"), &s("src"), &s("dst"), f("spell") as i64, f("amount"), f("school") as i64);
+                self.ingest_as(&ev, Some((b("mine"), b("me"))));
+            }
+            "auras" => {
+                let unit = s("unit");
+                let list = v.get("auras").and_then(|x| x.as_array()).cloned().unwrap_or_default();
+                let mut seen = vec![None; self.o.spec.auras.len()];
+                for a in &list {
+                    let Some(&sl) = self.o.aura_by_id.get(&(a.get("spell").and_then(|x| x.as_i64()).unwrap_or(0))) else { continue };
+                    let mine = a.get("mine").and_then(|x| x.as_bool()).unwrap_or(false);
+                    if self.o.on_target[sl] != (unit == "target") || unit == "target" && !mine { continue; }
+                    let rem = a.get("remaining_ms").and_then(|x| x.as_f64()).unwrap_or(0.0);
+                    let dur = a.get("duration_ms").and_then(|x| x.as_f64()).unwrap_or(0.0);
+                    let exp = if rem > 0.0 { t + rem / 1000.0 } else if dur == 0.0 { f64::INFINITY } else { t };
+                    let stacks = a.get("stacks").and_then(|x| x.as_u64()).unwrap_or(0).max(1) as u32;
+                    seen[sl] = Some(AuraState { exp, stacks });
+                }
+                for (sl, st) in seen.into_iter().enumerate() {
+                    if self.o.on_target[sl] != (unit == "target") { continue; }
+                    let st = st.unwrap_or_default();
+                    let old = self.aura(sl, t);
+                    if st.exp > t || old.exp > t { self.set_aura(sl, None, st); }
+                }
+            }
+            "cooldowns" => {
+                self.feed_cooldowns = true;
+                self.gcd_end = t + f("gcd_ms") / 1000.0;
+                let mut fresh: Vec<Option<Vec<f64>>> = vec![None; self.recharge.len()];
+                for c in v.get("cooldowns").and_then(|x| x.as_array()).cloned().unwrap_or_default() {
+                    let mut ids: Vec<i64> = c.get("spells").and_then(|x| x.as_array()).map(|a| a.iter().filter_map(|x| x.as_i64()).collect()).unwrap_or_default();
+                    if let Some(id) = c.get("spell").and_then(|x| x.as_i64()) { ids.push(id); }
+                    let Some(g) = ids.iter().find_map(|id| self.o.spell_by_id(*id).and_then(|i| self.o.spell_group[i])) else { continue };
+                    let rem = c.get("remaining_ms").and_then(|x| x.as_f64()).unwrap_or(0.0) / 1000.0;
+                    let max = c.get("max_charges").and_then(|x| x.as_u64()).map_or(self.o.groups[g].1, |m| m as u32);
+                    let have = c.get("charges").and_then(|x| x.as_u64()).map_or(0, |m| m as u32);
+                    // spent charges come back one after another; the later ones a full cooldown apart
+                    let full = self.o.spec.spells.iter().enumerate().filter(|(i, _)| self.o.spell_group[*i] == Some(g)).map(|(_, s)| s.cooldown).fold(0.0, f64::max);
+                    fresh[g] = Some((0..max.saturating_sub(have).max(1)).map(|k| t + rem + k as f64 * full).collect());
+                }
+                for (g, q) in fresh.into_iter().enumerate() { self.recharge[g] = q.unwrap_or_default(); }
+            }
+            "power" => {
+                for p in v.get("powers").and_then(|x| x.as_array()).cloned().unwrap_or_default() {
+                    if p.get("type").and_then(|x| x.as_i64()) == Some(self.o.spec.resource.power_type) {
+                        self.resource = p.get("amount").and_then(|x| x.as_f64()).unwrap_or(0.0);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The `{"type":"next",...}` line for the current state, or None with nothing to press.
+    pub fn next_line(&self, queue: usize) -> Option<serde_json::Value> {
+        let picks = self.recommend(queue.max(1));
+        let (first, rest) = picks.split_first()?;
+        let spell = &self.o.spec.spells[self.o.spell_index(&first.action)?];
+        let off_gcd: Vec<_> = picks.iter().take_while(|p| self.o.spec.spells[self.o.spell_index(&p.action).unwrap()].gcd == Some(0.0)).collect();
+        Some(serde_json::json!({
+            "type": "next", "t": (self.now * 1000.0).round(), "spell": spell.ids[0], "name": first.action,
+            "in_ms": ((first.at - self.now).max(0.0) * 1000.0).round(),
+            "off_gcd": !off_gcd.is_empty(),
+            "queue": rest.iter().map(|p| serde_json::json!({ "spell": self.o.spec.spells[self.o.spell_index(&p.action).unwrap()].ids[0], "name": p.action })).collect::<Vec<_>>(),
+            "fury": self.resource, "enemies": self.active_enemies(),
+        }))
+    }
 }

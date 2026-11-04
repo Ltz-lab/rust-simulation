@@ -87,13 +87,14 @@ fn batch_main(mut it: impl Iterator<Item = String>) {
 }
 
 /// `azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury]
-///  [--replay events.jsonl|-] [--next n] [--player guid]`: run a live-rotation overlay (src/overlay.rs) on a
+///  [--replay events.jsonl|-] [--next n] [--player guid] [--feed]`: run a live-rotation overlay (src/overlay.rs) on a
 /// stand-in fight, or on combat-log events (one JSON object a line), printing its picks.
 fn overlay_main(mut it: impl Iterator<Item = String>) {
     use azsim::overlay::{Demo, LogEvent, Overlay, Tracker};
     let (mut path, mut demo, mut targets, mut haste, mut start, mut replay, mut next) =
         (None, 40.0, 1usize, None, 40.0, None, 3usize);
     let mut player: Option<String> = None;
+    let mut feed = false;
     while let Some(x) = it.next() {
         let mut v = || it.next().expect("missing value");
         match x.as_str() {
@@ -104,15 +105,41 @@ fn overlay_main(mut it: impl Iterator<Item = String>) {
             "--replay" => replay = Some(v()),
             "--next" => next = v().parse().unwrap(),
             "--player" => player = Some(v()),
+            "--feed" => feed = true,
             _ => path = Some(x),
         }
     }
     let Some(path) = path else {
-        eprintln!("usage: azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury] [--replay events.jsonl|-] [--next n] [--player guid]");
+        eprintln!("usage: azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury] [--replay events.jsonl|-] [--next n] [--player guid] [--feed]");
         std::process::exit(2);
     };
     let mut o = Overlay::load(&path).unwrap_or_else(|e| { eprintln!("{e}"); std::process::exit(1) });
     if let Some(h) = haste { o.spec.haste = h; }
+    if feed {
+        // combatfeed | azsim overlay <file> --feed | auraoverlay: pass every line through and add
+        // {"type":"next",...} whenever the suggestion changes.
+        use std::io::{BufRead, Write};
+        let mut tr = Tracker::new(&o);
+        let (stdin, stdout) = (std::io::stdin(), std::io::stdout());
+        let mut out = stdout.lock();
+        let mut last = String::new();
+        for line in stdin.lock().lines() {
+            let Ok(line) = line else { break };
+            if writeln!(out, "{line}").is_err() { return; }
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                tr.feed_line(&v);
+                if let Some(n) = tr.next_line(next) {
+                    let key = format!("{}|{}", n["name"], n["queue"]);
+                    if key != last {
+                        last = key;
+                        if writeln!(out, "{n}").is_err() { return; }
+                    }
+                }
+            }
+            if out.flush().is_err() { return; }
+        }
+        return;
+    }
     if let Some(src) = replay {
         let text = if src == "-" {
             let mut s = String::new();

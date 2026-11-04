@@ -12,6 +12,45 @@ azsim overlay overlay/havoc_fel_scarred.toml --demo 45 --haste 0.17 --targets 4
 azsim overlay overlay/havoc_fel_scarred.toml --replay events.jsonl --next 3 [--player <guid>]
 ```
 
+## In the live pipeline
+
+```bash
+combatfeed -run <capture-live run> -spelldata <wago CSV dir> -follow \
+  | azsim overlay overlay/havoc_fel_scarred.toml --feed --next 3 \
+  | auraoverlay
+```
+
+`--feed` reads wow-forever's `tools/combatfeed` lines on stdin, writes every line back unchanged
+(flushed per line), and adds one line whenever the suggestion changes:
+
+```json
+{"type":"next","t":36032,"spell":198013,"name":"eye_beam","in_ms":0,"off_gcd":false,
+ "queue":[{"spell":370965,"name":"the_hunt"},{"spell":258860,"name":"essence_break"}],"fury":42,"enemies":1}
+```
+
+`spell` is the id to show (the in-Metamorphosis form when that is what to press: Death Sweep
+210152, not Blade Dance), `in_ms` how long until it can go out (the GCD or a cooldown), `queue` the
+look-ahead. How each combatfeed line is used:
+
+| line | used for | replaces |
+|---|---|---|
+| `event` | everything in the table below, with `mine` / `me` as the source/dest test | — |
+| `auras` `unit: player` | the player's auras with `remaining_ms` and `stacks` (a full snapshot: an aura missing from it is gone) | the event-based aura timers |
+| `auras` `unit: target` | the player's (`mine`) debuffs on the selected target | same |
+| `cooldowns` | everything recovering (`spell`, or `category` + `spells`, with `charges`); absent = ready; `gcd_ms` | the cast-started timers, including Cycle of Hatred's Eye Beam cuts |
+| `power` type 17 | Fury | energizes minus costs |
+
+Between snapshots the estimates from events carry on, so the rules' inputs stay the same whether a
+snapshot exists or not. Run combatfeed with `-spelldata` so its cooldown list knows Havoc's
+cooldowns: once a `cooldowns` line arrives, a spell missing from it counts as ready.
+
+Tested on a real retail capture (a Vengeance DH on a dummy, 6,398 lines): every line passed through
+byte for byte, Fury followed the `power` lines, and the picks followed the casts. Vengeance shares
+Immolation Aura, Throw Glaive and Felblade with Havoc, so that run checks the plumbing, not Havoc's
+rules; `tests/overlay_havoc.rs` checks the rules on combatfeed-shaped lines.
+
+## Replaying raw events
+
 `--replay` reads one event a line, as Go's `json.Marshal(combatlog.Event)` writes it
 (`TimeMs, Sub, Source, Dest, SpellID, Amount, School`; snake_case also works), and prints
 `{"t", "fury", "enemies", "next": [3 presses]}` whenever the suggestion changes. Without
@@ -120,13 +159,13 @@ the 3s window); and a 120s loop with no unaffordable press and no idle gap over 
 
 ## Known gaps
 
-- **Cooldowns are timers from the cast.** Cycle of Hatred's per-stack cuts (and the tier 4pc's
-  Essence Break cuts) are not followed: Eye Beam uses the spec's 20s steady state, so the first
-  Eye Beam after the pull is predicted ready ~10s early. A cast always restarts the timer, so the
-  error never carries over. Reading SMSG_SPELL_COOLDOWN / SMSG_MODIFY_COOLDOWN from the stream
-  would make them exact.
-- **Fury between events** is integrated from energizes minus costs; an exact power reading
-  (`POWER_UPDATE`) fixes any drift and is worth adding to the stream.
+- **Without combatfeed's `cooldowns` lines, cooldowns are timers from the cast.** Cycle of
+  Hatred's per-stack cuts (and the tier 4pc's Essence Break cuts) are then not followed: Eye Beam
+  uses the spec's 20s steady state, so the first Eye Beam after the pull is predicted ready ~10s
+  early. A cast always restarts the timer, so the error never carries over.
+- **Fury between `power` lines** is integrated from energizes minus costs.
+- **The look-ahead only moves when a line arrives.** A cooldown coming up between lines shows on the
+  next line (combatfeed sends aura and cooldown changes as they happen, so this is short in combat).
 - **Haste from gear** is a setting (`--haste`), not read from the log.
 - **Aura durations** come from the event's remaining time (wow-forever has it); events without it
   fall back to the table's `duration`.
