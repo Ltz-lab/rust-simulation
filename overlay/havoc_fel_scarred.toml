@@ -1,0 +1,309 @@
+# Havoc Demon Hunter (Fel-Scarred) — live "press this next" priority, retail 12.1.5
+#
+# Same rotation language as specs/*.toml ([[rotation]] action + `if`, src/expr.rs), but every
+# name a condition uses is something a combat-log stream can tell you:
+#   buff.X / debuff.X   an aura in [[auras]] (SPELL_AURA_APPLIED/REFRESH/DOSE/REMOVED; the
+#                       stream's Amount carries the remaining ms) or a [[markers]] entry
+#                       (set and cleared by the player's own SPELL_CAST_SUCCESS)
+#   cooldown.X          started by SPELL_CAST_SUCCESS of any id in that spell's cooldown group
+#   fury                SPELL_ENERGIZE (power type 17) minus each cast's cost
+#   active_enemies      distinct units the player damaged in the last `aoe_window` seconds
+#   gcd, gcd.remains    from the player's casts and haste (base haste + haste auras)
+# See docs/havoc-overlay.md for the event-by-event list. src/overlay.rs evaluates it;
+# `azsim overlay overlay/havoc_fel_scarred.toml --demo 40` shows it running.
+#
+# Sources, tagged per rule:
+#   [simc]   SimulationCraft's Havoc APL, profiles/MID2_Demon_Hunter_Havoc.simc (same text as
+#            ActionPriorityLists/default/demonhunter_havoc.simc on the midnight branch); "line N"
+#            is the line in that profile
+#   [method] Method's Havoc playstyle guide, patch 12.1.5 (16 Oct 2026),
+#            https://method.gg/guides/havoc-demon-hunter/playstyle-and-rotation
+#   [spec]   specs/havoc_fel_scarred.toml, this repo's calibrated model of the same build
+#   [db2]    retail game data, build 12.1.5.70783 (SpellName) / 70575 (Spell* tables)
+
+name = "Havoc Demon Hunter (Fel-Scarred) overlay"
+resource = { name = "fury", power_type = 17, max = 170 }   # [db2] power type 17 = Fury; 170 with the build's talents [spec]
+gcd = 1.5                    # [db2] hasted, 0.75s floor
+aoe_window = 3.0             # seconds a damaged unit counts towards active_enemies
+haste = 0.0                  # base haste from gear: set by the overlay at login (--haste); 0 = unhasted cooldowns
+
+# Haste from auras the log shows [db2 162264 #3, 343312 #0]
+haste_auras = { metamorphosis = 0.20, furious_gaze = 0.08 }
+
+# ------------------------------------------------------------------ spells
+# ids: every id SPELL_CAST_SUCCESS may carry for this action. `group` shares one cooldown between
+# forms of the same button (SimC does the same for Blade Dance / Death Sweep). `requires` /
+# `excludes` is the Metamorphosis form check. `gain` and `applies` are only used to look ahead
+# (the live stream reports both as events).
+
+[[spells]]
+name = "chaos_strike"
+ids = [162794]               # [db2] Chaos Strike
+cost = 40                    # [db2 162794]
+excludes = "metamorphosis"
+
+[[spells]]
+name = "annihilation"
+ids = [201427]               # [db2] Annihilation (Chaos Strike in Metamorphosis, 162264 #5)
+cost = 40                    # [db2 201427]
+requires = "metamorphosis"
+
+[[spells]]
+name = "blade_dance"
+ids = [188499]               # [db2] Blade Dance
+group = "blade_dance"
+cooldown = 15                # [db2 188499] category cooldown
+hasted = true                # [spec] havoc aura
+cost = 35
+excludes = "metamorphosis"
+on_cast = [{ if_aura = "eternal_hunt", reset = "blade_dance" }]   # [spec] Eternal Hunt is consumed and resets it
+
+[[spells]]
+name = "death_sweep"
+ids = [210152]               # [db2] Death Sweep (Blade Dance in Metamorphosis, 162264 #6)
+group = "blade_dance"
+cooldown = 9                 # [db2 210152]
+hasted = true
+cost = 35
+requires = "metamorphosis"
+on_cast = [{ if_aura = "eternal_hunt", reset = "blade_dance" }]
+
+[[spells]]
+name = "eye_beam"
+ids = [198013]               # [db2] Eye Beam
+group = "eye_beam"
+cooldown = 20                # [spec] 30s [db2 198013], ~20s with Cycle of Hatred in steady state
+cost = 30
+gcd = 2.0                    # 2s channel [db2 198013 duration], hasted
+excludes = "metamorphosis"
+applies = { metamorphosis = 6.9, furious_gaze = 8 }   # [spec] Demonic: 5s + the channel; Furious Gaze on completion
+
+[[spells]]
+name = "abyssal_gaze"
+ids = [452497]               # [db2] Abyssal Gaze (Eye Beam in Metamorphosis, Demonsurge 452489 #3)
+group = "eye_beam"
+cooldown = 20
+cost = 30
+gcd = 2.0
+requires = "metamorphosis"
+applies = { metamorphosis = 6.9, furious_gaze = 8 }
+
+[[spells]]
+name = "immolation_aura"
+ids = [258920]               # [db2] Immolation Aura
+group = "immolation_aura"
+cooldown = 30                # [db2 258920] recharge, 1 charge
+gain = 20                    # [db2 258920 #1]
+excludes = "metamorphosis"
+applies = { immolation_aura = 6 }
+
+[[spells]]
+name = "consuming_fire"
+ids = [452487]               # [db2] Consuming Fire (Immolation Aura in Metamorphosis, 452489 #1)
+group = "immolation_aura"
+cooldown = 30                # [db2 452487]
+gain = 20
+requires = "metamorphosis"
+applies = { immolation_aura = 6 }
+
+[[spells]]
+name = "essence_break"
+ids = [258860]               # [db2] Essence Break
+cooldown = 40                # [db2 258860]
+applies = { essence_break = 4.25 }   # [spec] the debuff, 320338
+
+[[spells]]
+name = "metamorphosis"
+ids = [191427]               # [db2] Metamorphosis (Havoc cast)
+cooldown = 120               # [db2 191427]
+on_cast = [                  # [spec] Chaotic Transformation + Violent Transformation
+  { reset = "eye_beam" },
+  { reset = "blade_dance" },
+  { reset = "immolation_aura" },
+]
+applies = { metamorphosis = 20 }
+
+[[spells]]
+name = "the_hunt"
+ids = [370965]               # [db2] The Hunt
+cooldown = 60                # [spec] 90s [db2 370965], 60s with the build [simc 1270898]
+gcd = 1.0                    # 1s cast
+applies = { empowered_eye_beam = 12 }   # [db2 1271144]
+
+[[spells]]
+name = "felblade"
+ids = [232893]               # [db2] Felblade
+cooldown = 12                # [db2 232893]
+gcd = 0.5                    # [db2 232893]
+gain = 15                    # [db2 213243 #2]
+
+[[spells]]
+name = "vengeful_retreat"
+ids = [198793]               # [db2] Vengeful Retreat
+cooldown = 25                # [db2 198793] recharge
+gcd = 0                      # off the GCD
+applies = { initiative = 5 } # [db2 391215]
+
+[[spells]]
+name = "throw_glaive"
+ids = [185123]               # [db2] Throw Glaive
+cooldown = 9                 # [db2 185123] recharge
+cost = 25
+
+# ------------------------------------------------------------------ auras the log reports
+# on = "player": on the player; "target": cast by the player on the unit it is fighting.
+# duration: used only when the event carries no remaining time.
+
+[[auras]]
+name = "metamorphosis"
+ids = [162264]               # [db2] Metamorphosis buff (hardcast and Demonic)
+duration = 20
+
+[[auras]]
+name = "furious_gaze"
+ids = [343312]               # [db2]
+duration = 8
+
+[[auras]]
+name = "initiative"
+ids = [391215]               # [db2]
+duration = 5
+
+[[auras]]
+name = "immolation_aura"
+ids = [258920]               # [db2] the buff carries the cast's id
+duration = 6
+
+[[auras]]
+name = "demonsurge"
+ids = [452416]               # [db2] the stacking +5% buff, 4 stacks, 15s
+duration = 15
+
+[[auras]]
+name = "eternal_hunt"
+ids = [1271092]              # [db2] 8s, after Eye Beam's last tick: next Blade Dance/Death Sweep resets
+duration = 8
+
+[[auras]]
+name = "empowered_eye_beam"
+ids = [1271144]              # [db2] from The Hunt, 12s
+duration = 12
+
+[[auras]]
+name = "essence_break"
+ids = [320338]               # [db2] the debuff on the target
+on = "target"
+duration = 4
+
+# ------------------------------------------------------------------ markers
+# State the log has no aura for, kept from the player's own casts: Fel-Scarred's per-button
+# Demonsurge empowerments. Metamorphosis empowers four buttons, an Eye Beam / Abyssal Gaze two
+# [spec, from SimC's demonsurge_* buffs]; casting the button spends it; all end with Metamorphosis.
+
+[[markers]]
+name = "demonsurge_annihilation"
+set_by = ["metamorphosis", "eye_beam", "abyssal_gaze"]
+cleared_by = ["annihilation"]
+ends_with = "metamorphosis"
+
+[[markers]]
+name = "demonsurge_death_sweep"
+set_by = ["metamorphosis", "eye_beam", "abyssal_gaze"]
+cleared_by = ["death_sweep"]
+ends_with = "metamorphosis"
+
+[[markers]]
+name = "demonsurge_abyssal_gaze"
+set_by = ["metamorphosis"]
+cleared_by = ["abyssal_gaze"]
+ends_with = "metamorphosis"
+
+[[markers]]
+name = "demonsurge_consuming_fire"
+set_by = ["metamorphosis"]
+cleared_by = ["consuming_fire"]
+ends_with = "metamorphosis"
+
+# ------------------------------------------------------------------ priority
+# One list, top to bottom, as SimC writes it; the AoE rules are the ones gated on active_enemies.
+# A rule fires when its spell is off cooldown at the end of the GCD, affordable, in the right
+# form, and its `if` holds. Talent gates of the profile's build are resolved (Fel-Scarred,
+# Chaotic Transformation, Eternal Hunt; no A Fire Inside, Burning Wound or Aldrachi Reaver).
+
+# Cooldowns
+[[rotation]]
+action = "metamorphosis"     # [simc line 42] after the Demonic window is spent and Eye Beam is far off
+if = "!cooldown.blade_dance.ready&cooldown.eye_beam.remains>8&!buff.demonsurge_death_sweep.up&!buff.demonsurge_annihilation.up"
+
+[[rotation]]
+action = "the_hunt"          # [simc line 44] line it up with Eye Beam (Eternal Hunt empowers the next one)
+if = "cooldown.eye_beam.remains<10&cooldown.metamorphosis.remains>15|!cooldown.eye_beam.ready&cooldown.metamorphosis.ready"
+
+[[rotation]]
+action = "vengeful_retreat"  # [simc line 45] Initiative just before Eye Beam, or before a hardcast Metamorphosis
+if = "!cooldown.metamorphosis.ready&cooldown.eye_beam.remains<gcd*0.3&!buff.initiative.up|cooldown.metamorphosis.ready&!cooldown.eye_beam.ready&!cooldown.blade_dance.ready&!buff.eternal_hunt.up"
+
+# Demonsurge and Essence Break
+[[rotation]]
+action = "essence_break"     # [simc line 50] open a Demonsurge window with Essence Break
+if = "buff.demonsurge_death_sweep.up|buff.demonsurge_annihilation.up"
+
+[[rotation]]
+action = "death_sweep"       # [simc line 51] [method 5]
+if = "debuff.essence_break.up|buff.demonsurge_death_sweep.up"
+
+[[rotation]]
+action = "annihilation"      # [simc line 52] [method 6]
+if = "debuff.essence_break.up|buff.demonsurge_annihilation.up"
+
+[[rotation]]
+action = "abyssal_gaze"      # [simc line 55] [method 9] only once the empowered spenders are gone
+if = "!buff.demonsurge_death_sweep.up&!buff.demonsurge_annihilation.up"
+
+[[rotation]]
+action = "eye_beam"          # [simc line 56] [method 4]
+
+[[rotation]]
+action = "consuming_fire"    # [simc line 57] cash the empowered Immolation Aura before the Demonsurge stacks drop
+if = "buff.demonsurge_consuming_fire.up&buff.demonsurge.remains<gcd"
+
+[[rotation]]
+action = "essence_break"     # [simc line 59] on its own, when Eye Beam is not about to open a window
+if = "cooldown.eye_beam.remains>4"
+
+# Spenders and builders
+[[rotation]]
+action = "death_sweep"       # [simc line 60]
+
+[[rotation]]
+action = "blade_dance"       # [simc line 61] [method 12]
+
+[[rotation]]
+action = "consuming_fire"    # [simc line 62] AoE: Immolation Aura above Annihilation on 2+ targets
+if = "active_enemies>1"
+
+[[rotation]]
+action = "immolation_aura"   # [simc line 62]
+if = "active_enemies>1"
+
+[[rotation]]
+action = "annihilation"      # [simc line 63] [method 11]
+
+[[rotation]]
+action = "felblade"          # [simc line 64] Fel-Scarred: Felblade before Chaos Strike while not near cap
+if = "fury<=100"
+
+[[rotation]]
+action = "chaos_strike"      # [simc line 65] [method 13]
+
+[[rotation]]
+action = "felblade"          # [simc line 66] [method 14]
+
+[[rotation]]
+action = "consuming_fire"    # [simc line 67] [method 10]
+
+[[rotation]]
+action = "immolation_aura"   # [simc line 67] [method 15]
+
+[[rotation]]
+action = "throw_glaive"      # [method 16] if nothing else is available

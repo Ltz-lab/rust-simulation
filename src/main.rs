@@ -86,9 +86,77 @@ fn batch_main(mut it: impl Iterator<Item = String>) {
     }
 }
 
+/// `azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury]
+///  [--replay events.jsonl|-] [--next n] [--player guid]`: run a live-rotation overlay (src/overlay.rs) on a
+/// stand-in fight, or on combat-log events (one JSON object a line), printing its picks.
+fn overlay_main(mut it: impl Iterator<Item = String>) {
+    use azsim::overlay::{Demo, LogEvent, Overlay, Tracker};
+    let (mut path, mut demo, mut targets, mut haste, mut start, mut replay, mut next) =
+        (None, 40.0, 1usize, None, 40.0, None, 3usize);
+    let mut player: Option<String> = None;
+    while let Some(x) = it.next() {
+        let mut v = || it.next().expect("missing value");
+        match x.as_str() {
+            "--demo" => demo = v().parse().unwrap(),
+            "--targets" => targets = v().parse().unwrap(),
+            "--haste" => haste = Some(v().parse::<f64>().unwrap()),
+            "--start" => start = v().parse().unwrap(),
+            "--replay" => replay = Some(v()),
+            "--next" => next = v().parse().unwrap(),
+            "--player" => player = Some(v()),
+            _ => path = Some(x),
+        }
+    }
+    let Some(path) = path else {
+        eprintln!("usage: azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury] [--replay events.jsonl|-] [--next n] [--player guid]");
+        std::process::exit(2);
+    };
+    let mut o = Overlay::load(&path).unwrap_or_else(|e| { eprintln!("{e}"); std::process::exit(1) });
+    if let Some(h) = haste { o.spec.haste = h; }
+    if let Some(src) = replay {
+        let text = if src == "-" {
+            let mut s = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut s).expect("read stdin");
+            s
+        } else { std::fs::read_to_string(&src).expect("read events") };
+        let mut tr = Tracker::new(&o);
+        tr.player = player;
+        let mut last: Vec<String> = vec![];
+        for line in text.lines().filter(|l| !l.trim().is_empty()) {
+            let ev: LogEvent = serde_json::from_str(line).unwrap_or_else(|e| panic!("{e}: {line}"));
+            tr.ingest(&ev);
+            let picks: Vec<String> = tr.recommend(next).into_iter().map(|p| p.action).collect();
+            if picks != last {
+                println!("{}", json!({ "t": tr.now, "fury": tr.resource, "enemies": tr.active_enemies(), "next": picks }));
+                last = picks;
+            }
+        }
+        return;
+    }
+    let extra: Vec<(&str, &str, f64, f64)> = o.spec.name.contains("Havoc").then(|| vec![
+        // what the game does on its own after these casts (Havoc): Eternal Hunt after Eye Beam's
+        // last tick, the Demonsurge stacking buff with each Metamorphosis entry
+        ("eye_beam", "eternal_hunt", 2.0, 8.0), ("abyssal_gaze", "eternal_hunt", 2.0, 8.0),
+        ("eye_beam", "demonsurge", 0.7, 15.0), ("metamorphosis", "demonsurge", 0.7, 15.0),
+    ]).unwrap_or_default();
+    let d = Demo::run(&o, demo, targets, start, 1.3, 15.0, &extra);
+    println!("{} — {:.0}s, {} target(s), haste {:.0}%", o.spec.name, demo, targets, o.spec.haste * 100.0);
+    println!("{:>7}  {:>5}  {:<18} rule", "time", "fury", "press");
+    for (t, a, f, r) in &d.presses {
+        let cond = o.spec.rotation[*r].cond.as_deref().unwrap_or("");
+        println!("{t:>7.2}  {f:>5.0}  {a:<18} {r:>2}  {cond}");
+    }
+    let mut counts: Vec<(String, usize)> = o.spec.spells.iter().map(|s| (s.name.clone(), d.count(&s.name))).filter(|c| c.1 > 0).collect();
+    counts.sort_by(|a, b| b.1.cmp(&a.1));
+    println!("{}", counts.iter().map(|(n, c)| format!("{n} {c}")).collect::<Vec<_>>().join(", "));
+}
+
 fn main() {
     if std::env::args().nth(1).as_deref() == Some("batch") {
         return batch_main(std::env::args().skip(2));
+    }
+    if std::env::args().nth(1).as_deref() == Some("overlay") {
+        return overlay_main(std::env::args().skip(2));
     }
     let args = parse_args();
     let text = std::fs::read_to_string(&args.spec).expect("read spec");

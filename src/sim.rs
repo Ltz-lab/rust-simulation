@@ -1310,6 +1310,7 @@ impl<'a> Env for State<'a> {
             Var::DotRemains(i) => (self.dot_exp[i] - self.now).max(0.0),
             Var::DotStack(i) => if self.dot_exp[i] > self.now { self.dot_stk[i] as f64 } else { 0.0 },
             Var::PetActive(_) | Var::PetRemains(_) | Var::SelfEnergy | Var::SelfRemains => self.pet_var(v),
+            Var::ActiveEnemies => 1.0,
             Var::Const(x) => x,
         }
     }

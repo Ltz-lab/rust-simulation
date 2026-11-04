@@ -41,6 +41,9 @@ pub enum Var {
     /// The pet instance an effect or pet action runs for (`self.*`).
     SelfEnergy,
     SelfRemains,
+    /// Enemies in range (the sim is single target and resolves `active_enemies` to a constant;
+    /// the live overlay counts them).
+    ActiveEnemies,
     Const(f64),
 }
 

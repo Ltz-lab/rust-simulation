@@ -180,3 +180,8 @@ Three changes, in order of worth:
 - Relentless Onslaught uses the Annihilation or Chaos Strike values of whichever
   form the player was in when the off-hand hit landed, but not its own 300ms
   delay against a Metamorphosis that ends in between.
+
+## Live overlay
+
+`overlay/havoc_fel_scarred.toml` is the same build's priority list rewritten to run from the
+retail combat log (no sim-only state); see [havoc-overlay.md](havoc-overlay.md).
