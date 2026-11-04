@@ -148,6 +148,10 @@ fn aoe_puts_immolation_aura_above_chaos_strike() {
         tr.ingest(&LogEvent::new(2.0, "SPELL_DAMAGE", ME, u, BLADE_DANCE, 5000.0, 1));
     }
     assert_eq!(tr.active_enemies(), 3);
+    // SimC line 62 needs A Fire Inside or Burning Wound: not in the profile's build...
+    assert_eq!(next(&tr), "chaos_strike");
+    // ...but in Jack's, read live from the passive auras in the player's aura list
+    tr.feed_line(&serde_json::from_str(r#"{"type":"auras","t":2000,"unit":"player","auras":[{"spell":391189,"name":"Burning Wound","stacks":0,"duration_ms":0,"remaining_ms":0,"mine":true},{"spell":388112,"stacks":0,"duration_ms":0,"remaining_ms":0,"mine":true}]}"#).unwrap());
     assert_eq!(next(&tr), "immolation_aura");
     // the extra targets drop out of the window
     tr.advance(6.0);
@@ -213,9 +217,10 @@ fn talents_apply_over_the_feeds_cooldowns() {
     let feed = |tr: &mut Tracker, s: &str| tr.feed_line(&serde_json::from_str(s).unwrap());
     feed(&mut tr, r#"{"type":"target","guid":"x","unit":"Creature-1","t":0}"#);
     feed(&mut tr, r#"{"type":"power","t":0,"powers":[{"type":17,"name":"fury","amount":100}]}"#);
+    feed(&mut tr, r#"{"type":"auras","t":0,"unit":"player","auras":[{"spell":1214887,"stacks":4,"duration_ms":0,"remaining_ms":0,"mine":true}]}"#);
     feed(&mut tr, r#"{"type":"event","t":0,"sub":"SPELL_CAST_SUCCESS","src":"Player-7","dst":"Creature-1","spell":198013,"mine":true,"me":false}"#);
     feed(&mut tr, r#"{"type":"cooldowns","t":0,"gcd_ms":1500,"cooldowns":[{"spell":198013,"remaining_ms":30000}]}"#);
-    // Cycle of Hatred: the list's 20s beats the feed's base 30s
+    // Cycle of Hatred at 4 stacks: 20s beats the feed's base 30s
     tr.advance(1.0);
     assert!((tr.cooldown_remains("eye_beam") - 19.0).abs() < 1e-6);
     // Metamorphosis' Chaotic Transformation resets Eye Beam; the feed still lists it
@@ -229,4 +234,21 @@ fn talents_apply_over_the_feeds_cooldowns() {
     // a cast after the last snapshot: the snapshot is stale for it, the own timer holds
     feed(&mut tr, r#"{"type":"event","t":3200,"sub":"SPELL_CAST_SUCCESS","src":"Player-7","dst":"Creature-1","spell":258860,"mine":true,"me":false}"#);
     assert!(tr.cooldown_remains("essence_break") > 39.0);
+}
+
+/// Haste from the Eye Beam channel aura; Cycle of Hatred and A Fire Inside from the aura list.
+#[test]
+fn haste_and_talent_cooldowns_from_the_aura_list() {
+    let o = overlay();
+    let mut tr = pulled(&o, 80.0);
+    let auras = |list: &str| serde_json::from_str::<serde_json::Value>(&format!(r#"{{"type":"auras","t":0,"unit":"player","auras":[{list}]}}"#)).unwrap();
+    // Jack's live numbers: a 1,692 ms channel is 18.2% haste
+    tr.feed_line(&auras(r#"{"spell":198013,"stacks":0,"duration_ms":1692,"remaining_ms":1692,"mine":true},{"spell":427775,"stacks":0,"duration_ms":0,"remaining_ms":0,"mine":true},{"spell":1214887,"stacks":2,"duration_ms":0,"remaining_ms":0,"mine":true}"#));
+    assert!((tr.haste - 0.182).abs() < 0.001, "{}", tr.haste);
+    cast(&mut tr, 0.0, EYE_BEAM);
+    assert!((tr.cooldown_remains("eye_beam") - 25.0).abs() < 1e-6, "30s - 2 x 2.5s");
+    cast(&mut tr, 0.0, IMMOLATION);
+    assert_eq!(tr.cooldown_remains("immolation_aura"), 0.0, "A Fire Inside: a second charge");
+    cast(&mut tr, 0.1, IMMOLATION);
+    assert!((tr.cooldown_remains("immolation_aura") - 23.9).abs() < 1e-6, "24s recharge");
 }

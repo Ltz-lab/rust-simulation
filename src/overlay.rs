@@ -66,6 +66,15 @@ pub struct SpellDef {
     /// Name to show (default: the action name in title case).
     #[serde(default)]
     pub label: Option<String>,
+    /// Cooldown with a talent (talent name -> seconds), else `cooldown`.
+    #[serde(default)]
+    pub talent_cooldown: HashMap<String, f64>,
+    /// Charges with a talent (talent name -> charges), else `charges`.
+    #[serde(default)]
+    pub talent_charges: HashMap<String, u32>,
+    /// Seconds added to the cooldown per stack of an aura at the cast (Cycle of Hatred: -2.5).
+    #[serde(default)]
+    pub stack_cooldown: Option<StackCooldown>,
     /// Keybind to draw on the icon, if known.
     #[serde(default)]
     pub key: Option<String>,
@@ -90,6 +99,25 @@ pub struct AuraDef {
     #[serde(default)]
     pub on: Option<String>,
     pub duration: f64,
+    /// A hasted channel's aura: its base length, so base / observed duration = 1 + gear haste.
+    #[serde(default)]
+    pub haste_probe: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StackCooldown {
+    pub aura: String,
+    pub seconds: f64,
+}
+
+/// A talent, known live from its passive aura in the player's aura list.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TalentDef {
+    pub name: String,
+    pub ids: Vec<i64>,
+    /// Taken until the first aura list that shows any talent arrives.
+    #[serde(default)]
+    pub default: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -128,6 +156,8 @@ pub struct OverlaySpec {
     pub auras: Vec<AuraDef>,
     #[serde(default)]
     pub markers: Vec<MarkerDef>,
+    #[serde(default)]
+    pub talents: Vec<TalentDef>,
     pub rotation: Vec<Entry>,
 }
 
@@ -144,6 +174,8 @@ pub struct Overlay {
     on_target: Vec<bool>,                 // per aura
     marker_end: Vec<Option<usize>>,       // per marker: aura slot
     haste_slots: Vec<(usize, f64)>,
+    talent_slots: Vec<(usize, bool)>,
+    talent_ids: std::collections::HashSet<i64>,
     rules: Vec<(usize, Option<Expr>)>,
 }
 
@@ -162,8 +194,14 @@ impl Overlay {
         let mut o = Overlay {
             groups: vec![], spell_group: vec![], spell_by_name: HashMap::new(), spell_by_id: HashMap::new(),
             aura_by_id: HashMap::new(), slot_by_name: HashMap::new(), on_target: vec![], marker_end: vec![],
-            haste_slots: vec![], rules: vec![], spec: spec.clone(),
+            haste_slots: vec![], talent_slots: vec![], talent_ids: Default::default(), rules: vec![], spec: spec.clone(),
         };
+        // talents are player auras that never run out
+        let mut spec = spec;
+        for t in &spec.talents {
+            spec.auras.push(AuraDef { name: format!("talent:{}", t.name), ids: t.ids.clone(), on: None, duration: 1e9, haste_probe: None });
+        }
+        o.spec.auras = spec.auras.clone();
         for (i, a) in spec.auras.iter().enumerate() {
             o.slot_by_name.insert(a.name.clone(), i);
             o.on_target.push(match a.on.as_deref() {
@@ -203,6 +241,16 @@ impl Overlay {
         for m in &spec.markers {
             for n in m.set_by.iter().chain(&m.cleared_by) {
                 if !o.spell_by_name.contains_key(n) { return Err(format!("marker {}: no spell '{n}'", m.name)); }
+            }
+        }
+        for t in &spec.talents {
+            o.talent_slots.push((o.slot_by_name[&format!("talent:{}", t.name)], t.default));
+            o.talent_ids.extend(&t.ids);
+        }
+        for s in &spec.spells {
+            if let Some(sc) = &s.stack_cooldown { aura(&o, &sc.aura, &s.name)?; }
+            for n in s.talent_cooldown.keys().chain(s.talent_charges.keys()) {
+                if !o.slot_by_name.contains_key(&format!("talent:{n}")) { return Err(format!("{}: no talent '{n}'", s.name)); }
             }
         }
         for (n, &h) in &spec.haste_auras { o.haste_slots.push((aura(&o, n, "haste_auras")?, h)); }
@@ -246,6 +294,9 @@ impl Resolver for Overlay {
                     "full_recharge_time" => Var::CdFullRecharge(g),
                     _ => return Err(format!("unknown cooldown field '{f}'")),
                 }
+            }
+            ["talent" | "hero_tree", a] | ["talent", a, "enabled"] => {
+                Var::BuffUp(*self.slot_by_name.get(&format!("talent:{a}")).ok_or(format!("no talent '{a}'"))?)
             }
             ["buff" | "debuff", a, f] => {
                 let s = *self.slot_by_name.get(*a).ok_or(format!("no aura or marker '{a}'"))?;
@@ -343,6 +394,20 @@ impl<'a> Tracker<'a> {
             last_cast: vec![None; o.groups.len()], srv: vec![None; o.groups.len()], casts: 0, snap_casts: 0,
             slots: vec![AuraState::default(); o.spec.auras.len() + o.spec.markers.len()],
             units: HashMap::new(), target: None, enemies: HashMap::new(),
+        }.with_talent_defaults()
+    }
+
+    fn with_talent_defaults(mut self) -> Self {
+        for &(sl, on) in &self.o.talent_slots {
+            self.slots[sl] = if on { AuraState { exp: f64::INFINITY, stacks: 1 } } else { AuraState::default() };
+        }
+        self
+    }
+
+    fn probe_haste(&mut self, s: usize, duration: f64) {
+        if let Some(base) = self.o.spec.auras[s].haste_probe && duration > 0.0 {
+            let h = base / duration - 1.0;
+            if (0.0..=1.5).contains(&h) { self.haste = h; }
         }
     }
 
@@ -390,9 +455,19 @@ impl<'a> Tracker<'a> {
         }
     }
 
+    fn talent_up(&self, n: &str, t: f64) -> bool { self.aura_up(self.o.slot_by_name[&format!("talent:{n}")], t) }
+
+    /// Charges of a cooldown group, with talents.
+    fn charges(&self, g: usize, t: f64) -> u32 {
+        let o = self.o;
+        o.spec.spells.iter().enumerate().filter(|(i, _)| o.spell_group[*i] == Some(g))
+            .flat_map(|(_, s)| s.talent_charges.iter().filter(|(n, _)| self.talent_up(n, t)).map(|(_, &c)| c))
+            .fold(o.groups[g].1, u32::max)
+    }
+
     fn own_avail(&self, g: usize, t: f64) -> u32 {
         let spent = self.recharge[g].iter().filter(|&&r| r > t).count() as u32;
-        self.o.groups[g].1.saturating_sub(spent)
+        self.charges(g, t).saturating_sub(spent)
     }
 
     fn own_remains(&self, g: usize, t: f64) -> f64 {
@@ -411,7 +486,7 @@ impl<'a> Tracker<'a> {
 
     fn srv_avail(&self, g: usize, t: f64) -> u32 {
         match self.srv[g] {
-            None => self.o.groups[g].1,
+            None => self.charges(g, t),
             Some((at, have, max)) => (have + u32::from(t >= at)).min(max.max(1)),
         }
     }
@@ -483,6 +558,7 @@ impl<'a> Tracker<'a> {
                     }
                     _ => {
                         let rem = if ev.amount > 0.0 { ev.amount / 1000.0 } else { self.o.spec.auras[s].duration };
+                        if sub == "SPELL_AURA_APPLIED" && ev.amount > 0.0 { self.probe_haste(s, rem); }
                         AuraState { exp: t + rem, stacks: old.stacks.max(1) }
                     }
                 };
@@ -517,7 +593,13 @@ impl<'a> Tracker<'a> {
         let h = self.haste_at(t);
         self.resource = (self.resource - s.cost).max(0.0);
         if let Some(g) = o.spell_group[i] && s.cooldown > 0.0 {
-            let len = if s.hasted { s.cooldown / (1.0 + h) } else { s.cooldown };
+            let mut base = s.talent_cooldown.iter()
+                .find(|(n, _)| self.talent_up(n, t)).map_or(s.cooldown, |(_, &c)| c);
+            if let Some(sc) = &s.stack_cooldown {
+                let a = self.aura(o.slot_by_name[&sc.aura], t);
+                base = (base + sc.seconds * a.stacks as f64).max(0.0);
+            }
+            let len = if s.hasted { base / (1.0 + h) } else { base };
             self.casts += 1;
             self.last_cast[g] = Some(self.casts);
             let q = &mut self.recharge[g];
@@ -762,6 +844,7 @@ impl Tracker<'_> {
                 let unit = s("unit");
                 let list = v.get("auras").and_then(|x| x.as_array()).cloned().unwrap_or_default();
                 let mut seen = vec![None; self.o.spec.auras.len()];
+                let talents_listed = list.iter().any(|a| a.get("spell").and_then(|x| x.as_i64()).is_some_and(|id| self.o.talent_ids.contains(&id)));
                 for a in &list {
                     let Some(&sl) = self.o.aura_by_id.get(&(a.get("spell").and_then(|x| x.as_i64()).unwrap_or(0))) else { continue };
                     let mine = a.get("mine").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -770,10 +853,12 @@ impl Tracker<'_> {
                     let dur = a.get("duration_ms").and_then(|x| x.as_f64()).unwrap_or(0.0);
                     let exp = if rem > 0.0 { t + rem / 1000.0 } else if dur == 0.0 { f64::INFINITY } else { t };
                     let stacks = a.get("stacks").and_then(|x| x.as_u64()).unwrap_or(0).max(1) as u32;
+                    if dur > 0.0 && self.aura(sl, t).exp <= t { self.probe_haste(sl, dur / 1000.0); }
                     seen[sl] = Some(AuraState { exp, stacks });
                 }
                 for (sl, st) in seen.into_iter().enumerate() {
                     if self.o.on_target[sl] != (unit == "target") { continue; }
+                    if !talents_listed && self.o.talent_slots.iter().any(|&(x, _)| x == sl) { continue; }
                     let st = st.unwrap_or_default();
                     let old = self.aura(sl, t);
                     if st.exp > t || old.exp > t { self.set_aura(sl, None, st); }
@@ -813,7 +898,7 @@ impl Tracker<'_> {
     /// The `{"type":"next",...}` line for the current state, or None with nothing to press.
     /// `queue[0]` is the press now; the rest is the look-ahead.
     pub fn next_line(&self, queue: usize) -> Option<serde_json::Value> {
-        let picks = self.recommend(queue.max(1));
+        let picks = self.recommend(queue.max(1) + 2); // room for off-GCD picks
         let first = picks.first()?;
         let def = |a: &str| &self.o.spec.spells[self.o.spell_index(a).unwrap()];
         let entry = |a: &str| {
@@ -822,12 +907,16 @@ impl Tracker<'_> {
             if let Some(k) = &d.key { e["key"] = k.clone().into(); }
             e
         };
-        let mut out = entry(&first.action);
+        let on_gcd: Vec<_> = picks.iter().filter(|p| def(&p.action).gcd != Some(0.0)).take(queue.max(1)).collect();
+        let off: Vec<_> = picks.iter().take_while(|p| def(&p.action).gcd == Some(0.0)).collect();
+        let now = on_gcd.first().copied().unwrap_or(first);
+        let mut out = entry(&now.action);
         out["type"] = "next".into();
         out["t"] = (self.now * 1000.0).round().into();
-        out["in_ms"] = ((first.at - self.now).max(0.0) * 1000.0).round().into();
-        out["off_gcd"] = (def(&first.action).gcd == Some(0.0)).into();
-        out["queue"] = picks.iter().map(|p| entry(&p.action)).collect::<Vec<_>>().into();
+        out["in_ms"] = ((now.at - self.now).max(0.0) * 1000.0).round().into();
+        // off-GCD presses (Vengeful Retreat) ride beside the row, not in it
+        out["off_gcd"] = off.iter().map(|p| entry(&p.action)).collect::<Vec<_>>().into();
+        out["queue"] = on_gcd.iter().map(|p| entry(&p.action)).collect::<Vec<_>>().into();
         Some(out)
     }
 }

@@ -87,7 +87,7 @@ fn batch_main(mut it: impl Iterator<Item = String>) {
 }
 
 /// `azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury]
-///  [--replay events.jsonl|-] [--next n] [--player guid] [--feed]`: run a live-rotation overlay (src/overlay.rs) on a
+///  [--replay events.jsonl|-] [--next n] [--player guid] [--feed] [--audit]`: run a live-rotation overlay (src/overlay.rs) on a
 /// stand-in fight, or on combat-log events (one JSON object a line), printing its picks.
 fn overlay_main(mut it: impl Iterator<Item = String>) {
     use azsim::overlay::{Demo, LogEvent, Overlay, Tracker};
@@ -95,6 +95,7 @@ fn overlay_main(mut it: impl Iterator<Item = String>) {
         (None, 40.0, 1usize, None, 40.0, None, 3usize);
     let mut player: Option<String> = None;
     let mut feed = false;
+    let mut audit = false;
     while let Some(x) = it.next() {
         let mut v = || it.next().expect("missing value");
         match x.as_str() {
@@ -106,15 +107,43 @@ fn overlay_main(mut it: impl Iterator<Item = String>) {
             "--next" => next = v().parse().unwrap(),
             "--player" => player = Some(v()),
             "--feed" => feed = true,
+            "--audit" => audit = true,
             _ => path = Some(x),
         }
     }
     let Some(path) = path else {
-        eprintln!("usage: azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury] [--replay events.jsonl|-] [--next n] [--player guid] [--feed]");
+        eprintln!("usage: azsim overlay <overlay.toml> [--demo secs] [--targets n] [--haste h] [--start fury] [--replay events.jsonl|-] [--next n] [--player guid] [--feed] [--audit]");
         std::process::exit(2);
     };
     let mut o = Overlay::load(&path).unwrap_or_else(|e| { eprintln!("{e}"); std::process::exit(1) });
     if let Some(h) = haste { o.spec.haste = h; }
+    if audit {
+        // combatfeed lines in; for each of the player's presses of a listed spell, what the
+        // overlay said just before it and whether it thought the spell was usable.
+        use std::io::BufRead;
+        let mut tr = Tracker::new(&o);
+        let (mut n, mut first, mut inq, mut early) = (0, 0, 0, 0);
+        for line in std::io::stdin().lock().lines() {
+            let Ok(line) = line else { break };
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+            let press = (v["type"] == "event" && v["sub"] == "SPELL_CAST_SUCCESS" && v["mine"] == true)
+                .then(|| v["spell"].as_i64().and_then(|id| o.spell_by_id(id))).flatten();
+            if let Some(i) = press {
+                tr.advance(v["t"].as_f64().unwrap_or(0.0) / 1000.0);
+                let name = o.spell_name(i).to_string();
+                let q: Vec<String> = tr.recommend(next).into_iter().filter(|p| o.spec.spells[o.spell_index(&p.action).unwrap()].gcd != Some(0.0)).map(|p| p.action).collect();
+                let cd = tr.cooldown_remains(&name);
+                n += 1;
+                if q.first() == Some(&name) { first += 1; } else if q.contains(&name) { inq += 1; }
+                if cd > 0.05 { early += 1; }
+                println!("{:>8.2}  {:<16} fury {:>4.0}  haste {:>4.0}%  own cd {:>5.2}  said: {}", tr.now, name, tr.resource,
+                    tr.haste_at(tr.now) * 100.0, cd, q.join(" < "));
+            }
+            tr.feed_line(&v);
+        }
+        println!("{n} presses: {first} were queue[0], {inq} elsewhere in the queue; {early} pressed while the overlay thought it was on cooldown");
+        return;
+    }
     if feed {
         // combatfeed | azsim overlay <file> --feed | auraoverlay: pass every line through and add
         // {"type":"next",...} whenever the suggestion changes.

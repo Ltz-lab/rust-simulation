@@ -12,14 +12,12 @@
 # See docs/havoc-overlay.md for the event-by-event list. src/overlay.rs evaluates it;
 # `azsim overlay overlay/havoc_fel_scarred.toml --demo 40` shows it running.
 #
-# Sources, tagged per rule:
-#   [simc]   SimulationCraft's Havoc APL, profiles/MID2_Demon_Hunter_Havoc.simc (same text as
-#            ActionPriorityLists/default/demonhunter_havoc.simc on the midnight branch); "line N"
-#            is the line in that profile
-#   [method] Method's Havoc playstyle guide, patch 12.1.5 (16 Oct 2026),
-#            https://method.gg/guides/havoc-demon-hunter/playstyle-and-rotation
+# Sources:
+#   [simc]   the rules: SimulationCraft's default Havoc APL, profiles/MID2_Demon_Hunter_Havoc.simc,
+#            generated below by tools/simc_overlay.py
 #   [spec]   specs/havoc_fel_scarred.toml, this repo's calibrated model of the same build
 #   [db2]    retail game data, build 12.1.5.70783 (SpellName) / 70575 (Spell* tables)
+#   [obs live 2026-11-05]  Jack's Havoc recording through combatfeed
 
 name = "Havoc Demon Hunter (Fel-Scarred) overlay"
 resource = { name = "fury", power_type = 17, max = 170 }   # [db2] power type 17 = Fury; 170 with the build's talents [spec]
@@ -72,7 +70,8 @@ on_cast = [{ if_aura = "eternal_hunt", reset = "blade_dance" }]
 name = "eye_beam"
 ids = [198013]               # [db2] Eye Beam
 group = "eye_beam"
-cooldown = 20                # [spec] 30s [db2 198013], ~20s with Cycle of Hatred in steady state
+cooldown = 30                # [db2 198013]
+stack_cooldown = { aura = "cycle_of_hatred", seconds = -2.5 }   # [db2 258887 #0] 2.5s a stack [obs live: 1214887 stacks 1-3]
 cost = 30
 gcd = 2.0                    # 2s channel [db2 198013 duration], hasted
 excludes = "metamorphosis"
@@ -82,7 +81,8 @@ applies = { metamorphosis = 6.9, furious_gaze = 8 }   # [spec] Demonic: 5s + the
 name = "abyssal_gaze"
 ids = [452497]               # [db2] Abyssal Gaze (Eye Beam in Metamorphosis, Demonsurge 452489 #3)
 group = "eye_beam"
-cooldown = 20
+cooldown = 30
+stack_cooldown = { aura = "cycle_of_hatred", seconds = -2.5 }
 cost = 30
 gcd = 2.0
 requires = "metamorphosis"
@@ -93,18 +93,22 @@ name = "immolation_aura"
 ids = [258920]               # [db2] Immolation Aura
 group = "immolation_aura"
 cooldown = 30                # [db2 258920] recharge, 1 charge
+talent_cooldown = { a_fire_inside = 24 }   # [db2 427775 #2] -6s recharge on category 1676
+talent_charges = { a_fire_inside = 2 }     # [db2 427775 #0] +1 charge
 gain = 20                    # [db2 258920 #1]
 excludes = "metamorphosis"
-applies = { immolation_aura = 6 }
+applies = { immolation_aura = 10 }
 
 [[spells]]
 name = "consuming_fire"
 ids = [452487]               # [db2] Consuming Fire (Immolation Aura in Metamorphosis, 452489 #1)
 group = "immolation_aura"
 cooldown = 30                # [db2 452487]
+talent_cooldown = { a_fire_inside = 24 }
+talent_charges = { a_fire_inside = 2 }
 gain = 20
 requires = "metamorphosis"
-applies = { immolation_aura = 6 }
+applies = { immolation_aura = 10 }
 
 [[spells]]
 name = "essence_break"
@@ -126,7 +130,8 @@ applies = { metamorphosis = 20 }
 [[spells]]
 name = "the_hunt"
 ids = [370965]               # [db2] The Hunt
-cooldown = 60                # [spec] 90s [db2 370965], 60s with the build [simc 1270898]
+cooldown = 90                # [db2 370965]
+talent_cooldown = { eternal_hunt = 60 }   # [spec] Eternal Hunt [db2 1270898]
 gcd = 1.0                    # 1s cast
 applies = { empowered_eye_beam = 12 }   # [db2 1271144]
 
@@ -171,13 +176,26 @@ duration = 5
 
 [[auras]]
 name = "immolation_aura"
-ids = [258920]               # [db2] the buff carries the cast's id
-duration = 6
+ids = [258920, 427912]       # [db2] the buff carries the cast's id; 427912 with A Fire Inside [obs live 2026-11-05]
+duration = 10                # [obs live 2026-11-05: duration_ms 10000]
+
+[[auras]]
+name = "eye_beam_channel"
+ids = [198013, 452497]       # the channel aura of Eye Beam / Abyssal Gaze on the player
+duration = 2
+haste_probe = 2.0            # [db2 198013] 2s channel: 2000 / duration_ms = 1 + gear haste
+                             # [obs live 2026-11-05: 1692 ms in and out of Metamorphosis, so
+                             # Metamorphosis' haste doesn't shorten it; it does shorten Death Sweep]
 
 [[auras]]
 name = "demonsurge"
 ids = [452416]               # [db2] the stacking +5% buff, 4 stacks, 15s
 duration = 15
+
+[[auras]]
+name = "cycle_of_hatred"
+ids = [1214887]              # [db2] the stack counter (4 at most), a passive aura in the live list
+duration = 1e9
 
 [[auras]]
 name = "eternal_hunt"
@@ -224,86 +242,184 @@ set_by = ["metamorphosis"]
 cleared_by = ["consuming_fire"]
 ends_with = "metamorphosis"
 
+# ------------------------------------------------------------------ talents
+# The player's aura list carries every talent as a passive aura (duration 0); `talent.X` is up
+# while it is listed. `default` is the SimC profile's build, used until a list arrives.
+# [db2 12.1.5.70783 SpellName; obs live 2026-11-05: Jack's passives]
+
+[[talents]]
+name = "chaotic_transformation"
+ids = [388112]
+default = true
+
+[[talents]]
+name = "violent_transformation"
+ids = [452409]
+default = true
+
+[[talents]]
+name = "eternal_hunt"
+ids = [1270898]
+default = true
+
+[[talents]]
+name = "initiative"
+ids = [388108]
+default = true
+
+[[talents]]
+name = "a_fire_inside"
+ids = [427775]
+
+[[talents]]
+name = "burning_wound"
+ids = [391189]
+
+[[talents]]
+name = "screaming_brutality"
+ids = [1220506]
+
+[[talents]]
+name = "felscarred"          # hero tree: its Demonsurge passive
+ids = [452402]
+default = true
+
 # ------------------------------------------------------------------ priority
-# One list, top to bottom, as SimC writes it; the AoE rules are the ones gated on active_enemies.
-# A rule fires when its spell is off cooldown at the end of the GCD, affordable, in the right
-# form, and its `if` holds. Talent gates of the profile's build are resolved (Fel-Scarred,
-# Chaotic Transformation, Eternal Hunt; no A Fire Inside, Burning Wound or Aldrachi Reaver).
+# SimC's default Havoc APL (the top-DPS rotation), line for line, from
+# profiles/MID2_Demon_Hunter_Havoc.simc via tools/simc_overlay.py. A rule fires when its spell
+# is off cooldown at the end of the GCD, affordable, in the right form, and its `if` holds.
+# Re-run the tool after updating the profile.
 
-# Cooldowns
+# >>> simc
+# Generated by tools/simc_overlay.py from profiles/MID2_Demon_Hunter_Havoc.simc; edit there, not here.
+
+# [simc line 41] actions+=/immolation_aura,if=talent.violent_transformation&talent.a_fire_inside&cooldown.metamorphosis.remains<gcd.max*3
 [[rotation]]
-action = "metamorphosis"     # [simc line 42] after the Demonic window is spent and Eye Beam is far off
-if = "!cooldown.blade_dance.ready&cooldown.eye_beam.remains>8&!buff.demonsurge_death_sweep.up&!buff.demonsurge_annihilation.up"
+action = "consuming_fire"
+if = "talent.violent_transformation&talent.a_fire_inside&cooldown.metamorphosis.remains<gcd*3"
 
 [[rotation]]
-action = "the_hunt"          # [simc line 44] line it up with Eye Beam (Eternal Hunt empowers the next one)
-if = "cooldown.eye_beam.remains<10&cooldown.metamorphosis.remains>15|!cooldown.eye_beam.ready&cooldown.metamorphosis.ready"
+action = "immolation_aura"
+if = "talent.violent_transformation&talent.a_fire_inside&cooldown.metamorphosis.remains<gcd*3"
 
+# [simc line 42] actions+=/metamorphosis,if=(!talent.chaotic_transformation|!cooldown.blade_dance.up&cooldown.eye_beam.remains>8)&!action.death_sweep.demonsurge_available&!action.annihilation.demonsurge_available
 [[rotation]]
-action = "vengeful_retreat"  # [simc line 45] Initiative just before Eye Beam, or before a hardcast Metamorphosis
-if = "!cooldown.metamorphosis.ready&cooldown.eye_beam.remains<gcd*0.3&!buff.initiative.up|cooldown.metamorphosis.ready&!cooldown.eye_beam.ready&!cooldown.blade_dance.ready&!buff.eternal_hunt.up"
+action = "metamorphosis"
+if = "(!talent.chaotic_transformation|!cooldown.blade_dance.up&cooldown.eye_beam.remains>8)&!buff.demonsurge_death_sweep.up&!buff.demonsurge_annihilation.up"
 
-# Demonsurge and Essence Break
+# [simc line 44] actions+=/the_hunt,if=(!talent.eternal_hunt|cooldown.eye_beam.remains<10&cooldown.metamorphosis.remains>15|!cooldown.eye_beam.up&cooldown.metamorphosis.up|!hero_tree.felscarred)&!buff.reavers_glaive.up
 [[rotation]]
-action = "essence_break"     # [simc line 50] open a Demonsurge window with Essence Break
+action = "the_hunt"
+if = "(!talent.eternal_hunt|cooldown.eye_beam.remains<10&cooldown.metamorphosis.remains>15|!cooldown.eye_beam.up&cooldown.metamorphosis.up|!talent.felscarred)&!0"
+
+# [simc line 45] actions+=/vengeful_retreat,use_off_gcd=1,if=gcd.remains<0.3&cooldown.metamorphosis.remains&cooldown.eye_beam.remains<gcd.max*0.3&!buff.initiative.up|cooldown.metamorphosis.up&cooldown.eye_beam.remains&cooldown.blade_dance.remains&!buff.eternal_hunt.up
+[[rotation]]
+action = "vengeful_retreat"
+if = "gcd.remains<0.3&cooldown.metamorphosis.remains&cooldown.eye_beam.remains<gcd*0.3&!buff.initiative.up|cooldown.metamorphosis.up&cooldown.eye_beam.remains&cooldown.blade_dance.remains&!buff.eternal_hunt.up"
+
+# [simc line 48] no button for 'reavers_glaive': actions+=/reavers_glaive,if=buff.rending_strike.down&buff.glaive_flurry.down
+# [simc line 49] actions+=/annihilation,if=buff.rending_strike.up&buff.glaive_flurry.down&debuff.reavers_mark.stack<2|buff.rending_strike.up&active_enemies>=2
+[[rotation]]
+action = "annihilation"
+if = "0&!0&0<2|0&active_enemies>=2"
+
+# [simc line 50] actions+=/essence_break,if=action.death_sweep.demonsurge_available|action.annihilation.demonsurge_available
+[[rotation]]
+action = "essence_break"
 if = "buff.demonsurge_death_sweep.up|buff.demonsurge_annihilation.up"
 
+# [simc line 51] actions+=/death_sweep,if=debuff.essence_break.up|action.death_sweep.demonsurge_available
 [[rotation]]
-action = "death_sweep"       # [simc line 51] [method 5]
+action = "death_sweep"
 if = "debuff.essence_break.up|buff.demonsurge_death_sweep.up"
 
+# [simc line 52] actions+=/annihilation,if=debuff.essence_break.up|action.annihilation.demonsurge_available
 [[rotation]]
-action = "annihilation"      # [simc line 52] [method 6]
+action = "annihilation"
 if = "debuff.essence_break.up|buff.demonsurge_annihilation.up"
 
+# [simc line 53] actions+=/throw_glaive,if=active_enemies>1&talent.burning_wound&!talent.screaming_brutality&active_dot.burning_wound<(spell_targets>?3)&!variable.tab_target_burning_wound
 [[rotation]]
-action = "abyssal_gaze"      # [simc line 55] [method 9] only once the empowered spenders are gone
+action = "throw_glaive"
+if = "active_enemies>1&talent.burning_wound&!talent.screaming_brutality&0<((spell_targets)*((spell_targets)>(3))+(3)*((spell_targets)<=(3)))&!1"
+
+# [simc line 54] actions+=/immolation_aura,if=talent.a_fire_inside&talent.burning_wound&(charges=2|full_recharge_time<gcd.max*2)
+[[rotation]]
+action = "consuming_fire"
+if = "talent.a_fire_inside&talent.burning_wound&(cooldown.immolation_aura.charges=2|cooldown.immolation_aura.full_recharge_time<gcd*2)"
+
+[[rotation]]
+action = "immolation_aura"
+if = "talent.a_fire_inside&talent.burning_wound&(cooldown.immolation_aura.charges=2|cooldown.immolation_aura.full_recharge_time<gcd*2)"
+
+# [simc line 55] actions+=/abyssal_gaze,if=!action.death_sweep.demonsurge_available&!action.annihilation.demonsurge_available
+[[rotation]]
+action = "abyssal_gaze"
 if = "!buff.demonsurge_death_sweep.up&!buff.demonsurge_annihilation.up"
 
+# [simc line 56] actions+=/eye_beam
 [[rotation]]
-action = "eye_beam"          # [simc line 56] [method 4]
+action = "eye_beam"
 
+# [simc line 57] actions+=/immolation_aura,,if=action.immolation_aura.demonsurge_available&buff.demonsurge.remains<gcd.max
 [[rotation]]
-action = "consuming_fire"    # [simc line 57] cash the empowered Immolation Aura before the Demonsurge stacks drop
+action = "consuming_fire"
 if = "buff.demonsurge_consuming_fire.up&buff.demonsurge.remains<gcd"
 
 [[rotation]]
-action = "essence_break"     # [simc line 59] on its own, when Eye Beam is not about to open a window
+action = "immolation_aura"
+if = "buff.demonsurge_consuming_fire.up&buff.demonsurge.remains<gcd"
+
+# [simc line 58] actions+=/felblade,if=buff.inertia_trigger.up
+[[rotation]]
+action = "felblade"
+if = "0"
+
+# [simc line 59] actions+=/essence_break,if=cooldown.eye_beam.remains>4
+[[rotation]]
+action = "essence_break"
 if = "cooldown.eye_beam.remains>4"
 
-# Spenders and builders
+# [simc line 60] actions+=/death_sweep
 [[rotation]]
-action = "death_sweep"       # [simc line 60]
+action = "death_sweep"
+
+# [simc line 61] actions+=/blade_dance
+[[rotation]]
+action = "blade_dance"
+
+# [simc line 62] actions+=/immolation_aura,if=active_enemies>1&(talent.a_fire_inside|talent.burning_wound)
+[[rotation]]
+action = "consuming_fire"
+if = "active_enemies>1&(talent.a_fire_inside|talent.burning_wound)"
 
 [[rotation]]
-action = "blade_dance"       # [simc line 61] [method 12]
+action = "immolation_aura"
+if = "active_enemies>1&(talent.a_fire_inside|talent.burning_wound)"
+
+# [simc line 63] actions+=/annihilation
+[[rotation]]
+action = "annihilation"
+
+# [simc line 64] actions+=/felblade,if=hero_tree.felscarred&fury<=100
+[[rotation]]
+action = "felblade"
+if = "talent.felscarred&fury<=100"
+
+# [simc line 65] actions+=/chaos_strike
+[[rotation]]
+action = "chaos_strike"
+
+# [simc line 66] actions+=/felblade
+[[rotation]]
+action = "felblade"
+
+# [simc line 67] actions+=/immolation_aura
+[[rotation]]
+action = "consuming_fire"
 
 [[rotation]]
-action = "consuming_fire"    # [simc line 62] AoE: Immolation Aura above Annihilation on 2+ targets
-if = "active_enemies>1"
+action = "immolation_aura"
 
-[[rotation]]
-action = "immolation_aura"   # [simc line 62]
-if = "active_enemies>1"
-
-[[rotation]]
-action = "annihilation"      # [simc line 63] [method 11]
-
-[[rotation]]
-action = "felblade"          # [simc line 64] Fel-Scarred: Felblade before Chaos Strike while not near cap
-if = "fury<=100"
-
-[[rotation]]
-action = "chaos_strike"      # [simc line 65] [method 13]
-
-[[rotation]]
-action = "felblade"          # [simc line 66] [method 14]
-
-[[rotation]]
-action = "consuming_fire"    # [simc line 67] [method 10]
-
-[[rotation]]
-action = "immolation_aura"   # [simc line 67] [method 15]
-
-[[rotation]]
-action = "throw_glaive"      # [method 16] if nothing else is available
+# [simc line 68] no button for 'arcane_torrent': actions+=/arcane_torrent
+# <<< simc

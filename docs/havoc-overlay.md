@@ -112,44 +112,55 @@ Ids checked by name against `SpellName` at build 12.1.5.70783; cooldowns, costs 
 the Spell tables (70575) via `tools/spelldb.py`. The in-Metamorphosis replacements come from
 Metamorphosis 162264 effects #5/#6 and Demonsurge 452489 effects #1/#3.
 
-## The priority, and what each rule reads
+## The priority: SimC's APL, generated
 
-Sources: SimC's Havoc APL (`profiles/MID2_Demon_Hunter_Havoc.simc`, line numbers below), Method's
-Havoc guide for 12.1.5, and `specs/havoc_fel_scarred.toml`. Talent checks in the APL are resolved
-for that profile (Fel-Scarred, Chaotic Transformation, Eternal Hunt).
+The rules are SimC's default Havoc action list (the top-DPS rotation), line for line, written into
+the overlay by `tools/simc_overlay.py` from `profiles/MID2_Demon_Hunter_Havoc.simc` (Python 3.11+):
 
-| # | press | when | state it needs | source |
-|---|---|---|---|---|
-| 1 | Metamorphosis | Blade Dance/Death Sweep on cooldown, Eye Beam > 8s away, no Annihilation/Death Sweep empowerment left | cooldowns (casts), markers (casts) | SimC 42 |
-| 2 | The Hunt | Eye Beam < 10s and Meta > 15s away, or Eye Beam down while Meta is ready | cooldowns | SimC 44 |
-| 3 | Vengeful Retreat (off GCD) | Eye Beam about to come up, Meta not ready, no Initiative; or before a hardcast Meta | cooldowns, aura 391215, aura 1271092 | SimC 45 |
-| 4 | Essence Break | a Demonsurge Death Sweep or Annihilation is waiting | markers | SimC 50 |
-| 5 | Death Sweep | Essence Break on the target, or empowered | debuff 320338 on target, marker | SimC 51 |
-| 6 | Annihilation | Essence Break on the target, or empowered | debuff 320338, marker | SimC 52 |
-| 7 | Abyssal Gaze | in Meta, once both empowered spenders are gone | aura 162264, markers | SimC 55 |
-| 8 | Eye Beam | out of Meta | aura 162264, cooldown | SimC 56 |
-| 9 | Consuming Fire | empowered, and the Demonsurge stacks run out within a GCD | marker, aura 452416 remaining | SimC 57 |
-| 10 | Essence Break | Eye Beam > 4s away | cooldowns | SimC 59 |
-| 11 | Death Sweep | | aura 162264, cooldown, Fury | SimC 60 |
-| 12 | Blade Dance | | cooldown, Fury | SimC 61 |
-| 13-14 | Consuming Fire / Immolation Aura | **2+ targets** | active_enemies, cooldown | SimC 62 |
-| 15 | Annihilation | | aura 162264, Fury | SimC 63 |
-| 16 | Felblade | Fury <= 100 | Fury, cooldown | SimC 64 |
-| 17 | Chaos Strike | | Fury | SimC 65 |
-| 18 | Felblade | | cooldown | SimC 66 |
-| 19-20 | Consuming Fire / Immolation Aura | | cooldown | SimC 67 |
-| 21 | Throw Glaive | nothing else | cooldown, Fury | Method |
+```bash
+python3 tools/simc_overlay.py profiles/MID2_Demon_Hunter_Havoc.simc overlay/havoc_fel_scarred.toml
+```
 
-Fel-Scarred's per-button Demonsurge empowerments have no aura in the log. They are markers:
-Metamorphosis' cast empowers Annihilation, Death Sweep, Abyssal Gaze and Consuming Fire; an Eye
-Beam or Abyssal Gaze empowers Annihilation and Death Sweep; casting the button spends it; all of
-them end when the Metamorphosis aura 162264 is removed (as SimC's `demonsurge_*` buffs do).
+Each rule carries its SimC line as a comment. The translation is mechanical:
+`action.X.demonsurge_available` is the overlay's Demonsurge marker for that button, `gcd.max` the
+GCD, `buff.X.down` `!buff.X.up`, `(a>?b)` SimC's max, `variable.X` its precombat default, and the
+auras and dots of talents this overlay doesn't track (Aldrachi Reaver, Burning Wound's dot count)
+read 0. SimC's `immolation_aura` is two buttons here (Consuming Fire inside Metamorphosis). Lines
+with no button (auto attack, retargeting, items, Reaver's Glaive, Arcane Torrent) are skipped.
 
-**AoE.** SimC's Havoc APL is one list for every target count; its only target-count rules in this
-build are Immolation Aura above Annihilation at 2+ targets (line 62). The Burning Wound and
-Aldrachi Reaver multi-target lines (39-40, 49, 53-54) need talents this build doesn't take. Neither
-Method nor the other public guides give a separate Fel-Scarred AoE priority with thresholds for
-12.1.5, so the list adds none of its own.
+**Talents are live.** `talent.X` is up while its passive aura (duration 0) is in the player's
+aura list; the `[[talents]]` table maps names to ids and gives the SimC profile's build as the
+default until a list arrives. Jack's build differs from the profile: no Eternal Hunt (The Hunt is
+90s, SimC's line 44 then fires on cooldown), plus A Fire Inside and Burning Wound (SimC's lines 54
+and 62 come in).
+
+**Talent effects on cooldowns** the feed's base-table cooldowns don't have:
+
+| effect | modelled as | evidence |
+|---|---|---|
+| Cycle of Hatred: Eye Beam / Abyssal Gaze -2.5s a stack | `stack_cooldown` on aura 1214887's stacks | DB2 258887 #0; stacks 1→3 live |
+| A Fire Inside: Immolation Aura / Consuming Fire 2 charges, 24s | `talent_charges`, `talent_cooldown` | DB2 427775 #0, #2; a Consuming Fire 19s after the last |
+| Eternal Hunt: The Hunt 60s | `talent_cooldown` | DB2 1270898 |
+| Chaotic / Violent Transformation, Eternal Hunt resets | `on_cast` resets | the spec |
+
+**Haste** comes from the Eye Beam / Abyssal Gaze channel aura (198013 / 452497): its
+`duration_ms` is 2000 / (1 + gear haste). Live: 1,692 ms in and out of Metamorphosis, so 18.2%.
+Metamorphosis (+20%) and Furious Gaze (+8%) then hasten the GCD and Blade Dance / Death Sweep on
+top, which matches Jack's Death Sweeps 6.2-7s apart. Until the first channel, `--haste` (default 0).
+
+**Off-GCD presses** (Vengeful Retreat) are not in `queue`; they go in the line's `off_gcd` list.
+
+## Against Jack's Havoc recording
+
+`azsim overlay overlay/havoc_fel_scarred.toml --audit --next 4 < feed.jsonl` prints, for every press
+of a listed spell, what the overlay said just before it. On 2026-11-05 03:28 (49s of combat, 39
+presses): 18 were the overlay's queue[0], 13 elsewhere in its queue, and 2 came while it thought
+the spell was on cooldown (8 before the APL, haste and talent work above). Jack isn't ground truth:
+SimC's line 50 wants Essence Break as soon as a Demonsurge window opens, he held it 12s.
+
+The one large miss left: Death Sweep 8.4s after his only Blade Dance, with the shared 15s cooldown
+(SimC models them as one) not yet back even with Metamorphosis' haste. One sample; if more fights
+show it, Blade Dance and Death Sweep have separate cooldowns in-game.
 
 ## What the demo and tests show
 
@@ -178,7 +189,7 @@ the 3s window); and a 120s loop with no unaffordable press and no idle gap over 
 - **Fury between `power` lines** is integrated from energizes minus costs.
 - **The look-ahead only moves when a line arrives.** A cooldown coming up between lines shows on the
   next line (combatfeed sends aura and cooldown changes as they happen, so this is short in combat).
-- **Haste from gear** is a setting (`--haste`), not read from the log.
+- **Haste before the first Eye Beam** is `--haste` (default 0).
 - **Aura durations** come from the event's remaining time (wow-forever has it); events without it
   fall back to the table's `duration`.
 - **Talent choices** are fixed to the profile's build; another build needs its own overlay file.
