@@ -183,5 +183,6 @@ Three changes, in order of worth:
 
 ## Live overlay
 
-`overlay/havoc_fel_scarred.toml` is the same build's priority list rewritten to run from the
-retail combat log (no sim-only state); see [havoc-overlay.md](havoc-overlay.md).
+The in-game "press this next" helper built from this spec's APL lives in its own repo now:
+[Ltz-lab/wow-rotation](https://github.com/Ltz-lab/wow-rotation) (it was `azsim overlay` here,
+commits 461feb0 to 0bbc24c).

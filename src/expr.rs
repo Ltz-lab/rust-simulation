@@ -42,7 +42,7 @@ pub enum Var {
     SelfEnergy,
     SelfRemains,
     /// Enemies in range (the sim is single target and resolves `active_enemies` to a constant;
-    /// the live overlay counts them).
+    /// Ltz-lab/wow-rotation counts them live).
     ActiveEnemies,
     Const(f64),
 }
