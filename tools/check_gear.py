@@ -21,7 +21,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 ENGINE = os.path.join(ROOT, "target", "release", "azsim")
-DEFAULT_SIMC = "/Users/jack/Dev/wow/sims/wow-sims/simc/build/simc"
+DEFAULT_SIMC = "/Users/jack/wow/sims/wow-sims/simc/build/simc"
 DEFAULT_PROFILE = os.path.join(ROOT, "profiles", "MID2_Paladin_Retribution.simc")
 SPEC_BY_PROFILE = {
     "retribution": "retribution_herald",
